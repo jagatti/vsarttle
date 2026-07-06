@@ -5,10 +5,11 @@ import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing } from "@/lib/statCalculator";
-import type { ActionType, PlayerBattleState, Stage, TurnResult } from "@/types/game";
+import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData } from "@/types/game";
 
 const DRAW_SECONDS = 300;
 const TURN_SECONDS = 5;
@@ -21,7 +22,7 @@ function generateRoomCode(): string {
 
 interface PeerCharacter {
   nickname: string;
-  imageDataUrl: string;
+  drawing: WireDrawingData;
   stats: PlayerBattleState["stats"];
 }
 
@@ -67,7 +68,7 @@ export default function Home() {
     const me: PlayerBattleState = {
       id: myIdRef.current,
       nickname: local.nickname,
-      imageDataUrl: local.imageDataUrl,
+      imageDataUrl: drawingToDataUrl(local.drawing),
       stats: local.stats,
       currentHp: local.stats.maxHp,
       currentPp: local.stats.maxPp,
@@ -77,7 +78,7 @@ export default function Home() {
     const enemy: PlayerBattleState = {
       id: peerIdRef.current,
       nickname: remote.nickname,
-      imageDataUrl: remote.imageDataUrl,
+      imageDataUrl: drawingToDataUrl(remote.drawing),
       stats: remote.stats,
       currentHp: remote.stats.maxHp,
       currentPp: remote.stats.maxPp,
@@ -329,11 +330,11 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [stage]);
 
-  const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageDataUrl: string; imageData: ImageData }) => {
+  const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
     const character: PeerCharacter = {
       nickname,
-      imageDataUrl: payload.imageDataUrl,
+      drawing: prepareDrawingForWire(payload.drawing),
       stats,
     };
     localCharacterRef.current = character;

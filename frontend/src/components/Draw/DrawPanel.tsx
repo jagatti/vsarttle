@@ -11,7 +11,7 @@ const CANVAS_SIZE = 400;
 export function DrawPanel(props: {
   seconds: number;
   disabled?: boolean;
-  onComplete: (payload: { drawing: DrawingData; imageDataUrl: string; imageData: ImageData }) => void;
+  onComplete: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [tool, setTool] = useState<"pen" | "eraser">("pen");
@@ -97,7 +97,7 @@ export function DrawPanel(props: {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     submittedRef.current = true;
-    props.onComplete({ drawing: drawingData, imageDataUrl: canvas.toDataURL("image/png"), imageData: ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE) });
+    props.onComplete({ drawing: drawingData, imageData: ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE) });
   }, [drawingData, props]);
 
   useEffect(() => {
