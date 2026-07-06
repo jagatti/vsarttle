@@ -16,8 +16,8 @@ const ACTION_COLORS: Record<ActionType, string> = {
   attack: "#dc2626",
   magicWeak: "#2563eb",
   magicStrong: "#7c3aed",
-  barrier: "#16a34a",
-  charge: "#ca8a04",
+  barrier: "#ea580c",
+  charge: "#16a34a",
 };
 
 const safeImageUrl = (value: string) => (value.startsWith("data:image/") ? value : "");
