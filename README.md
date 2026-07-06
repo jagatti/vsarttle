@@ -64,8 +64,25 @@ npm run build
 
 ### フロントエンド（Vercel）
 
-- プロジェクトルート: `frontend`
-- 環境変数: `NEXT_PUBLIC_SIGNALING_SERVER_URL=wss://<signaling-domain>`
+リポジトリルートに `vercel.json` が配置されており、Vercel が `frontend/` ディレクトリをビルド対象として認識します。
+
+```json
+{
+  "rootDirectory": "frontend"
+}
+```
+
+#### 手順
+
+1. [Vercel](https://vercel.com/) でリポジトリをインポートする
+2. **Root Directory** の設定は変更不要（`vercel.json` で自動指定）
+3. **Environment Variables** に以下を追加する:
+
+   | 変数名 | 値の例 |
+   |---|---|
+   | `NEXT_PUBLIC_SIGNALING_SERVER_URL` | `wss://your-signaling-server.railway.app` |
+
+4. デプロイを実行する
 
 ### シグナリングサーバー（Railway など）
 
