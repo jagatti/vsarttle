@@ -74,6 +74,8 @@ export interface PlayerBattleState {
   currentPp: number;
   chargeMultiplier: number;
   lastActionCategory: ActionCategory | null;
+  lastChargeHpRecover?: number;
+  lastChargePpRecover?: number;
 }
 
 export interface TurnDamageEvent {
@@ -84,10 +86,17 @@ export interface TurnDamageEvent {
   reason: string;
 }
 
+export interface TurnChargeEvent {
+  playerId: string;
+  hpRecover: number;
+  ppRecover: number;
+}
+
 export interface TurnResult {
   turn: number;
   actions: Record<string, ActionType>;
   damageEvents: TurnDamageEvent[];
+  chargeEvents: TurnChargeEvent[];
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;

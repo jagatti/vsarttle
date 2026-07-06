@@ -6,7 +6,7 @@ interface ImageDataLike {
   height: number;
 }
 
-type ColorTrend = "attack" | "magic" | "defense" | "balanced";
+export type ColorTrend = "attack" | "magic" | "defense" | "balanced";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -110,41 +110,48 @@ export function calculateStatsFromDrawing(drawing: DrawingData, imageData: Image
   const volumeScore = clamp(coverage * 2.2 + strokeMetrics.avgStrokeSize / 40, 0, 1);
   const bias = trendInfo.trendRatio * 0.8;
 
-  let hp = 130 + volumeScore * 150;
-  let pp = 25 + detailScore * 25;
-  let attack = 90 + volumeScore * 110;
-  let defense = 80 + (1 - detailScore * 0.4) * 120;
-  let speed = 24 + detailScore * 22;
+  // HP uses a non-linear formula to avoid clustering at max
+  // Base range roughly 80-220 before trend adjustments
+  const hpBase = 80 + volumeScore * 90 + detailScore * 50;
+  let hp = hpBase;
+  // PP range: 30-99
+  let pp = 30 + detailScore * 45 + volumeScore * 20;
+  // Attack range: 50-199
+  let attack = 50 + volumeScore * 100 + detailScore * 30;
+  // Defense range: 50-149
+  let defense = 50 + (1 - detailScore * 0.3) * 70 + volumeScore * 20;
+  // Speed range: 1-9
+  let speed = 1 + detailScore * 5 + volumeScore * 2;
   let evasion = 0.035 + detailScore * 0.06;
 
   if (trendInfo.trend === "attack") {
-    attack += 55 * bias;
-    speed += 10 * bias;
-    hp -= 50 * bias;
-    pp -= 8 * bias;
-    defense -= 35 * bias;
+    attack += 50 * bias;
+    speed += 2 * bias;
+    hp -= 30 * bias;
+    pp -= 15 * bias;
+    defense -= 25 * bias;
     evasion -= 0.015 * bias;
   } else if (trendInfo.trend === "magic") {
-    pp += 16 * bias;
+    pp += 25 * bias;
     evasion += 0.02 * bias;
-    hp -= 35 * bias;
-    attack -= 25 * bias;
-    defense -= 28 * bias;
-    speed -= 4 * bias;
+    hp -= 25 * bias;
+    attack -= 20 * bias;
+    defense -= 20 * bias;
+    speed -= 1 * bias;
   } else if (trendInfo.trend === "defense") {
-    hp += 60 * bias;
-    defense += 55 * bias;
-    pp -= 10 * bias;
-    attack -= 30 * bias;
-    speed -= 7 * bias;
+    hp += 40 * bias;
+    defense += 35 * bias;
+    pp -= 15 * bias;
+    attack -= 25 * bias;
+    speed -= 1 * bias;
     evasion -= 0.01 * bias;
   }
 
   hp = clamp(Math.round(hp), 30, 300);
-  pp = clamp(Math.round(pp), 20, 50);
-  attack = clamp(Math.round(attack), 50, 200);
-  defense = clamp(Math.round(defense), 50, 200);
-  speed = clamp(Math.round(speed), 20, 50);
+  pp = clamp(Math.round(pp), 30, 99);
+  attack = clamp(Math.round(attack), 50, 199);
+  defense = clamp(Math.round(defense), 50, 149);
+  speed = clamp(Math.round(speed), 1, 9);
   evasion = clamp(Number(evasion.toFixed(3)), 0.03, 0.1);
 
   return {
@@ -157,4 +164,8 @@ export function calculateStatsFromDrawing(drawing: DrawingData, imageData: Image
     speed,
     evasion,
   };
+}
+
+export function detectCharacterType(imageData: ImageDataLike): ColorTrend {
+  return detectTrend(imageData).trend;
 }

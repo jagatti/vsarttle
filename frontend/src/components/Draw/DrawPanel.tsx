@@ -2,11 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { DrawingData, Stroke } from "@/types/game";
+import type { CharacterStats, DrawingData, Stroke } from "@/types/game";
+import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 
 const COLORS = ["#111111", "#ff3b30", "#ff9500", "#34c759", "#007aff", "#af52de", "#ffffff"];
 
 const CANVAS_SIZE = 400;
+
+const TYPE_LABELS: Record<string, string> = {
+  attack: "こうげき型",
+  magic: "まほう型",
+  defense: "ぼうぎょ型",
+  balanced: "バランス型",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  attack: "#ef4444",
+  magic: "#8b5cf6",
+  defense: "#f59e0b",
+  balanced: "#6b7280",
+};
 
 export function DrawPanel(props: {
   seconds: number;
@@ -29,6 +44,9 @@ export function DrawPanel(props: {
     }),
     [strokes],
   );
+
+  const [liveStats, setLiveStats] = useState<CharacterStats | null>(null);
+  const [liveType, setLiveType] = useState<string>("balanced");
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -56,7 +74,14 @@ export function DrawPanel(props: {
       ctx.stroke();
       ctx.restore();
     }
-  }, [strokes, drawingStroke]);
+
+    // Calculate live stats after rendering
+    const imageData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    const stats = calculateStatsFromDrawing(drawingData, imageData);
+    const type = detectCharacterType(imageData);
+    setLiveStats(stats);
+    setLiveType(type);
+  }, [strokes, drawingStroke, drawingData]);
 
   const startStroke = (x: number, y: number) => {
     if (props.disabled) return;
@@ -137,6 +162,21 @@ export function DrawPanel(props: {
         onPointerUp={endStroke}
         onPointerCancel={endStroke}
       />
+      {liveStats && (
+        <div className="rounded border bg-gray-50 p-3 text-sm">
+          <div className="mb-1 font-bold" style={{ color: TYPE_COLORS[liveType] }}>
+            タイプ: {TYPE_LABELS[liveType]}
+          </div>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
+            <span>HP: {liveStats.hp}</span>
+            <span>PP: {liveStats.pp}</span>
+            <span>攻撃: {liveStats.attack}</span>
+            <span>防御: {liveStats.defense}</span>
+            <span>速度: {liveStats.speed}</span>
+            <span>回避: {Math.round(liveStats.evasion * 100)}%</span>
+          </div>
+        </div>
+      )}
       <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={submit}>完成</button>
     </section>
   );

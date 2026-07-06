@@ -14,7 +14,7 @@ const makePlayer = (id: string): PlayerBattleState => ({
     maxPp: 40,
     attack: 100,
     defense: 80,
-    speed: 30,
+    speed: 5,
     evasion: 0,
   },
   currentHp: 100,

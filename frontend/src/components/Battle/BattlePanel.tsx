@@ -69,6 +69,7 @@ interface DamageFloater {
   amount: number;
   avoided: boolean;
   toMe: boolean;
+  type: "damage" | "hpRecover" | "ppRecover";
 }
 
 function PlayerCard({
@@ -98,16 +99,16 @@ function PlayerCard({
             top: 8,
             left: "50%",
             zIndex: 5,
-            color: f.avoided ? "#60a5fa" : "#f87171",
+            color: f.type === "hpRecover" ? "#22c55e" : f.type === "ppRecover" ? "#3b82f6" : f.avoided ? "#60a5fa" : "#f87171",
             fontWeight: "bold",
             fontSize: 22,
-            textShadow: f.avoided ? "0 0 8px #60a5fa" : "0 0 8px #f87171",
+            textShadow: f.type === "hpRecover" ? "0 0 8px #22c55e" : f.type === "ppRecover" ? "0 0 8px #3b82f6" : f.avoided ? "0 0 8px #60a5fa" : "0 0 8px #f87171",
             animation: "floatUp 1.4s ease-out forwards",
             pointerEvents: "none",
             whiteSpace: "nowrap",
           }}
         >
-          {f.avoided ? "かいひ！" : `-${f.amount}`}
+          {f.type === "hpRecover" ? `+${f.amount} HP` : f.type === "ppRecover" ? `+${f.amount} PP` : f.avoided ? "かいひ！" : `-${f.amount}`}
         </div>
       ))}
       <div
@@ -241,7 +242,30 @@ export function BattlePanel(props: {
       amount: event.amount,
       avoided: event.avoided,
       toMe: event.to === props.me.id,
+      type: "damage" as const,
     }));
+    // Add charge recovery floaters
+    for (const chargeEvent of props.turnResult.chargeEvents ?? []) {
+      const isMe = chargeEvent.playerId === props.me.id;
+      if (chargeEvent.hpRecover > 0) {
+        newFloaters.push({
+          id: floaterIdRef.current++,
+          amount: chargeEvent.hpRecover,
+          avoided: false,
+          toMe: isMe,
+          type: "hpRecover",
+        });
+      }
+      if (chargeEvent.ppRecover > 0) {
+        newFloaters.push({
+          id: floaterIdRef.current++,
+          amount: chargeEvent.ppRecover,
+          avoided: false,
+          toMe: isMe,
+          type: "ppRecover",
+        });
+      }
+    }
     if (newFloaters.length > 0) {
       setFloaters((prev) => [...prev, ...newFloaters]);
       setTimeout(() => {
@@ -608,7 +632,7 @@ export function BattlePanel(props: {
               </p>
             )}
             <p style={{ color: "#6b7280", fontSize: 10, marginTop: 2 }}>
-              チャージ：HP/PP を約33%回復し、次ターン攻撃力1.5倍。すばやさに関係なく優先実行。
+              チャージ：HP/PP を25%回復し、次ターン攻撃力1.5倍。すばやさに関係なく優先実行。
             </p>
           </div>
         )}
