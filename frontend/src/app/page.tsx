@@ -1,17 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type PeerType from "peerjs";
+import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing } from "@/lib/statCalculator";
-import { createWebRtcManager, type SignalMessage } from "@/lib/webrtc";
 import type { ActionType, PlayerBattleState, Stage, TurnResult } from "@/types/game";
 
 const DRAW_SECONDS = 300;
 const TURN_SECONDS = 5;
 const RECONNECT_SECONDS = 30;
+const ROOM_ID_PREFIX = "vsarttle-";
+
+function generateRoomCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 interface PeerCharacter {
   nickname: string;
@@ -27,15 +33,17 @@ type WireMessage =
   | { type: "forfeit"; payload: { winnerId: string; reason: string } };
 
 export default function Home() {
-  const signalingUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL?.trim();
-  const wsRef = useRef<WebSocket | null>(null);
-  const rtcRef = useRef<ReturnType<typeof createWebRtcManager> | null>(null);
+  const peerRef = useRef<PeerType | null>(null);
+  const connRef = useRef<DataConnection | null>(null);
   const myIdRef = useRef("");
   const roleRef = useRef<"host" | "guest" | null>(null);
   const peerIdRef = useRef("");
   const pendingActionsRef = useRef<Record<string, ActionType>>({});
   const turnTimerRef = useRef<number | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  const localCharacterRef = useRef<PeerCharacter | null>(null);
+  const remoteCharacterRef = useRef<PeerCharacter | null>(null);
+  const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
 
   const [stage, setStage] = useState<Stage>("room");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
@@ -46,20 +54,13 @@ export default function Home() {
   const [turn, setTurn] = useState(1);
   const [turnResult, setTurnResult] = useState<TurnResult | null>(null);
   const [winnerText, setWinnerText] = useState("");
-  const [localCharacter, setLocalCharacter] = useState<PeerCharacter | null>(null);
-  const [remoteCharacter, setRemoteCharacter] = useState<PeerCharacter | null>(null);
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
-  const canUseSignaling = Boolean(signalingUrl) && wsRef.current?.readyState === WebSocket.OPEN;
-
-  const sendSignal = (targetId: string, signal: SignalMessage) => {
-    wsRef.current?.send(JSON.stringify({ type: "signal", roomCode, targetId, signal }));
-  };
 
   const sendWire = (payload: WireMessage) => {
-    rtcRef.current?.send(payload);
+    connRef.current?.send(payload);
   };
 
   const beginBattle = (local: PeerCharacter, remote: PeerCharacter) => {
@@ -83,7 +84,9 @@ export default function Home() {
       chargeMultiplier: 1,
       lastActionCategory: null,
     };
-    setBattleState({ [me.id]: me, [enemy.id]: enemy });
+    const initial = { [me.id]: me, [enemy.id]: enemy };
+    battleStateRef.current = initial;
+    setBattleState(initial);
     setTurn(1);
     setStage("battle");
     setStatus("対戦開始！");
@@ -102,7 +105,7 @@ export default function Home() {
     const current = pendingActionsRef.current;
     const myId = myIdRef.current;
     const enemyId = peerIdRef.current;
-    const currentBattle = structuredClone(battleState);
+    const currentBattle = structuredClone(battleStateRef.current);
     if (!currentBattle[myId] || !currentBattle[enemyId]) return;
 
     const fillAction = (id: string): ActionType => {
@@ -118,6 +121,7 @@ export default function Home() {
     };
 
     const result = resolveTurn({ turn: turnNumber, players: currentBattle, actions });
+    battleStateRef.current = result.nextStates;
     setBattleState(result.nextStates);
     setTurnResult(result);
     sendWire({ type: "turn_result", payload: result });
@@ -141,8 +145,9 @@ export default function Home() {
 
   const handleWire = (message: WireMessage) => {
     if (message.type === "ready") {
-      setRemoteCharacter(message.payload);
-      if (localCharacter) beginBattle(localCharacter, message.payload);
+      remoteCharacterRef.current = message.payload;
+      const local = localCharacterRef.current;
+      if (local) beginBattle(local, message.payload);
       return;
     }
 
@@ -168,6 +173,7 @@ export default function Home() {
     }
 
     if (message.type === "turn_result") {
+      battleStateRef.current = message.payload.nextStates;
       setBattleState(message.payload.nextStates);
       setTurnResult(message.payload);
       if (message.payload.winnerId) {
@@ -184,95 +190,130 @@ export default function Home() {
     }
   };
 
-  const setupRtc = (isHost: boolean) => {
-    rtcRef.current?.close();
-    rtcRef.current = createWebRtcManager({
-      isHost,
-      onSignal: (signal) => sendSignal(peerIdRef.current, signal),
-      onData: (data) => handleWire(data as WireMessage),
-      onChannelStateChange: (state) => {
-        if (state === "open") {
-          if (reconnectTimerRef.current) {
-            clearTimeout(reconnectTimerRef.current);
-            reconnectTimerRef.current = null;
-          }
+  // Keep handleWire ref current so DataConnection callbacks always call the latest version
+  const handleWireRef = useRef(handleWire);
+  useEffect(() => {
+    handleWireRef.current = handleWire;
+  });
+
+  const destroyPeer = () => {
+    connRef.current?.close();
+    connRef.current = null;
+    peerRef.current?.destroy();
+    peerRef.current = null;
+  };
+
+  const attachConnectionHandlers = (conn: DataConnection) => {
+    connRef.current = conn;
+    conn.on("data", (data) => handleWireRef.current(data as WireMessage));
+    conn.on("close", () => {
+      setStatus(`接続切断。${RECONNECT_SECONDS}秒以内に復帰できなければ敗北`);
+      reconnectTimerRef.current = window.setTimeout(() => {
+        setStage("result");
+        setWinnerText("切断復帰できず敗北");
+      }, RECONNECT_SECONDS * 1000);
+    });
+    conn.on("error", (err) => {
+      console.error("DataConnection error:", err);
+      setStatus(`接続エラー: ${(err as Error).message}`);
+    });
+  };
+
+  const startHostSession = async (name: string) => {
+    destroyPeer();
+    setNickname(name);
+    setStatus("ルームを作成中...");
+
+    let retries = 0;
+    const tryCreate = async () => {
+      const code = generateRoomCode();
+      const { default: Peer } = await import("peerjs");
+      const peer = new Peer(ROOM_ID_PREFIX + code);
+      peerRef.current = peer;
+
+      peer.on("open", (id) => {
+        myIdRef.current = id;
+        roleRef.current = "host";
+        setRoomCode(code);
+        setStatus(`ルーム作成完了。友達にルーム番号: ${code} を教えてください`);
+      });
+
+      peer.on("connection", (conn) => {
+        peerIdRef.current = conn.peer;
+        setStatus("相手が入室しました。P2P接続を確立中...");
+        conn.on("open", () => {
+          attachConnectionHandlers(conn);
           setStatus("P2P接続完了。おえかきを開始します。");
           setStage("drawing");
           setDrawSeconds(DRAW_SECONDS);
+        });
+      });
+
+      peer.on("error", (err) => {
+        const peerErr = err as { type?: string } & Error;
+        if (peerErr.type === "unavailable-id" && retries < 3) {
+          retries++;
+          peer.destroy();
+          void tryCreate();
+        } else {
+          setStatus(`エラー: ${err.message}`);
         }
-        if (state === "closed") {
-          setStatus(`接続切断。${RECONNECT_SECONDS}秒以内に復帰できなければ敗北`);
-          reconnectTimerRef.current = window.setTimeout(() => {
-            setStage("result");
-            setWinnerText("切断復帰できず敗北");
-          }, RECONNECT_SECONDS * 1000);
-        }
-      },
+      });
+    };
+
+    await tryCreate();
+  };
+
+  const startGuestSession = async (code: string, name: string) => {
+    destroyPeer();
+    setNickname(name);
+    setStatus("入室中...");
+
+    const { default: Peer } = await import("peerjs");
+    const peer = new Peer();
+    peerRef.current = peer;
+
+    peer.on("open", (id) => {
+      myIdRef.current = id;
+      roleRef.current = "guest";
+      peerIdRef.current = ROOM_ID_PREFIX + code;
+
+      const conn = peer.connect(ROOM_ID_PREFIX + code, { serialization: "json" });
+      attachConnectionHandlers(conn);
+
+      conn.on("open", () => {
+        setRoomCode(code);
+        setStatus("P2P接続完了。おえかきを開始します。");
+        setStage("drawing");
+        setDrawSeconds(DRAW_SECONDS);
+      });
     });
 
-    if (isHost) {
-      void rtcRef.current.createOffer();
-    }
+    peer.on("error", (err) => {
+      const peerErr = err as { type?: string } & Error;
+      if (peerErr.type === "peer-unavailable") {
+        setStatus(`ルーム ${code} が見つかりません。番号を確認してください。`);
+      } else {
+        setStatus(`エラー: ${err.message}`);
+      }
+    });
+  };
+
+  const onCreate = (name: string) => {
+    void startHostSession(name);
+  };
+
+  const onJoin = (code: string, name: string) => {
+    void startGuestSession(code, name);
   };
 
   useEffect(() => {
-    if (!signalingUrl) {
-      const message = "NEXT_PUBLIC_SIGNALING_SERVER_URL が未設定です";
-      setStatus(message);
-      console.error(message);
-      return;
-    }
-
-    const ws = new WebSocket(signalingUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => setStatus("シグナリングサーバー接続完了");
-    ws.onerror = () => {
-      const message = "シグナリングサーバーへの接続でエラーが発生しました";
-      setStatus(message);
-      console.error(message, { signalingUrl });
-    };
-    ws.onclose = () => {
-      const message = "シグナリングサーバーとの接続が切断されました";
-      setStatus(message);
-      console.error(message, { signalingUrl });
-    };
-    ws.onmessage = async (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.type === "room_created") {
-        myIdRef.current = msg.clientId;
-        roleRef.current = "host";
-        setRoomCode(msg.roomCode);
-        setStatus(`ルーム作成完了。番号: ${msg.roomCode}`);
-      }
-      if (msg.type === "joined_room") {
-        myIdRef.current = msg.clientId;
-        peerIdRef.current = msg.hostId;
-        roleRef.current = "guest";
-        setRoomCode(msg.roomCode);
-        setStatus("入室成功。ホスト接続待ち...");
-        setupRtc(false);
-      }
-      if (msg.type === "peer_joined") {
-        peerIdRef.current = msg.peerId;
-        setStatus("相手が入室しました。P2P接続を開始します。");
-        setupRtc(true);
-      }
-      if (msg.type === "signal") {
-        await rtcRef.current?.handleSignal(msg.signal as SignalMessage);
-      }
-      if (msg.type === "error") {
-        setStatus(`エラー: ${msg.message}`);
-      }
-    };
-
     return () => {
-      ws.close();
-      rtcRef.current?.close();
+      destroyPeer();
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
-  }, [signalingUrl]);
+  }, []);
 
   useEffect(() => {
     if (stage !== "drawing") return;
@@ -288,40 +329,6 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [stage]);
 
-  const onCreate = (name: string) => {
-    if (!signalingUrl) {
-      const message = "シグナリングURL未設定のためルーム作成できません";
-      setStatus(message);
-      console.error(message);
-      return;
-    }
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      const message = "シグナリング未接続のためルーム作成できません";
-      setStatus(message);
-      console.error(message, { readyState: wsRef.current?.readyState, signalingUrl });
-      return;
-    }
-    setNickname(name);
-    wsRef.current.send(JSON.stringify({ type: "create_room", nickname: name }));
-  };
-
-  const onJoin = (code: string, name: string) => {
-    if (!signalingUrl) {
-      const message = "シグナリングURL未設定のため入室できません";
-      setStatus(message);
-      console.error(message);
-      return;
-    }
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      const message = "シグナリング未接続のため入室できません";
-      setStatus(message);
-      console.error(message, { readyState: wsRef.current?.readyState, signalingUrl });
-      return;
-    }
-    setNickname(name);
-    wsRef.current.send(JSON.stringify({ type: "join_room", roomCode: code, nickname: name }));
-  };
-
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageDataUrl: string; imageData: ImageData }) => {
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
     const character: PeerCharacter = {
@@ -329,10 +336,11 @@ export default function Home() {
       imageDataUrl: payload.imageDataUrl,
       stats,
     };
-    setLocalCharacter(character);
+    localCharacterRef.current = character;
     sendWire({ type: "ready", payload: character });
     setStatus("準備完了。相手の完成を待っています。");
-    if (remoteCharacter) beginBattle(character, remoteCharacter);
+    const remote = remoteCharacterRef.current;
+    if (remote) beginBattle(character, remote);
   };
 
   const onActionSelect = (action: ActionType) => {
@@ -349,9 +357,10 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-4 p-4">
       <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
-      <p className="text-sm text-gray-700">シグナリング: {signalingUrl || "未設定"}</p>
 
-      {stage === "room" && <RoomPanel status={status} roomCode={roomCode} canUseSignaling={canUseSignaling} onCreate={onCreate} onJoin={onJoin} />}
+      {stage === "room" && (
+        <RoomPanel status={status} roomCode={roomCode} canUseSignaling={true} onCreate={onCreate} onJoin={onJoin} />
+      )}
 
       {stage === "drawing" && <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} />}
 
