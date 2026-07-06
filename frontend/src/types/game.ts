@@ -26,6 +26,31 @@ export interface DrawingData {
   layers: DrawingLayer[];
 }
 
+export interface WirePoint {
+  x: number;
+  y: number;
+}
+
+export interface WireStroke {
+  id: string;
+  tool: "pen" | "eraser";
+  color: string;
+  size: number;
+  points: WirePoint[];
+}
+
+export interface WireDrawingLayer {
+  id: string;
+  name: string;
+  strokes: WireStroke[];
+}
+
+export interface WireDrawingData {
+  version: 1;
+  canvas: { width: number; height: number };
+  layers: WireDrawingLayer[];
+}
+
 export interface CharacterStats {
   hp: number;
   maxHp: number;
