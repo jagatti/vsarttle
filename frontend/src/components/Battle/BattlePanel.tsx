@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getAvailableActions } from "@/lib/battleLogic";
+import { getAvailableActions, magicCost } from "@/lib/battleLogic";
 import type { ActionType, PlayerBattleState, TurnResult } from "@/types/game";
 
 const ACTION_LABELS: Record<ActionType, string> = {
@@ -20,9 +20,15 @@ const ACTION_COLORS: Record<ActionType, string> = {
   charge: "#16a34a",
 };
 
+function getActionLabel(action: ActionType, player: PlayerBattleState): string {
+  const cost = magicCost(action, player.stats);
+  if (cost > 0) return `${ACTION_LABELS[action]}（-${cost}PP）`;
+  return ACTION_LABELS[action];
+}
+
 const safeImageUrl = (value: string) => (value.startsWith("data:image/") ? value : "");
 
-function HpBar({ current, max }: { current: number; max: number }) {
+function HpBar({ current, max, slow }: { current: number; max: number; slow?: boolean }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   const color = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
   return (
@@ -32,7 +38,7 @@ function HpBar({ current, max }: { current: number; max: number }) {
           width: `${pct}%`,
           height: "100%",
           background: `linear-gradient(to right, ${color}99, ${color})`,
-          transition: "width 0.6s ease-in-out, background 0.3s",
+          transition: slow ? "width 2.8s ease-in-out, background 0.3s" : "width 0.6s ease-in-out, background 0.3s",
           borderRadius: 6,
           boxShadow: `0 0 6px ${color}88`,
         }}
@@ -65,7 +71,23 @@ interface DamageFloater {
   toMe: boolean;
 }
 
-function PlayerCard({ player, label, floaters }: { player: PlayerBattleState; label: string; floaters: DamageFloater[] }) {
+function PlayerCard({
+  player,
+  label,
+  floaters,
+  isActing,
+  isLoser,
+  showEnemyActions,
+  availableActions,
+}: {
+  player: PlayerBattleState;
+  label: string;
+  floaters: DamageFloater[];
+  isActing?: boolean;
+  isLoser?: boolean;
+  showEnemyActions?: boolean;
+  availableActions?: ActionType[];
+}) {
   return (
     <div style={{ flex: 1, position: "relative" }}>
       {floaters.map((f) => (
@@ -92,12 +114,15 @@ function PlayerCard({ player, label, floaters }: { player: PlayerBattleState; la
         style={{
           background: "rgba(0,0,0,0.55)",
           borderRadius: 8,
-          border: "2px solid #92400e",
+          border: isActing ? "2px solid #fbbf24" : "2px solid #92400e",
           padding: "8px 10px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           gap: 2,
+          transform: isActing ? "scale(1.08)" : "scale(1)",
+          transition: "transform 0.3s ease-in-out, border-color 0.3s, box-shadow 0.3s",
+          boxShadow: isActing ? "0 0 18px #fbbf2488" : "none",
         }}
       >
         <div style={{ color: "#fbbf24", fontWeight: "bold", fontSize: 11 }}>{label}</div>
@@ -113,6 +138,8 @@ function PlayerCard({ player, label, floaters }: { player: PlayerBattleState; la
             background: "#fff",
             objectFit: "contain",
             marginTop: 4,
+            filter: isLoser ? "grayscale(100%)" : "none",
+            transition: "filter 1.8s ease-in-out",
           }}
         />
         <div style={{ width: "100%", marginTop: 4 }}>
@@ -122,7 +149,7 @@ function PlayerCard({ player, label, floaters }: { player: PlayerBattleState; la
               {player.currentHp}/{player.stats.maxHp}
             </span>
           </div>
-          <HpBar current={player.currentHp} max={player.stats.maxHp} />
+          <HpBar current={player.currentHp} max={player.stats.maxHp} slow={isLoser} />
         </div>
         <div style={{ width: "100%", marginTop: 2 }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: 11 }}>
@@ -136,6 +163,37 @@ function PlayerCard({ player, label, floaters }: { player: PlayerBattleState; la
         <div style={{ color: "#d1d5db", fontSize: 10, marginTop: 4, textAlign: "center" }}>
           攻{player.stats.attack} 防{player.stats.defense} 速{player.stats.speed} 避{Math.round(player.stats.evasion * 100)}%
         </div>
+
+        {/* Enemy available actions (small, read-only) */}
+        {showEnemyActions && availableActions && (
+          <div style={{ width: "100%", marginTop: 5, borderTop: "1px solid #4b5563", paddingTop: 5 }}>
+            <div style={{ color: "#9ca3af", fontSize: 9, marginBottom: 3 }}>選択できる行動:</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+              {(Object.keys(ACTION_LABELS) as ActionType[]).map((action) => {
+                const canUse = availableActions.includes(action);
+                const color = ACTION_COLORS[action];
+                return (
+                  <div
+                    key={action}
+                    style={{
+                      padding: "2px 5px",
+                      borderRadius: 4,
+                      border: `1.5px solid ${canUse ? color : "#374151"}`,
+                      background: canUse ? `${color}22` : "#1f2937",
+                      color: canUse ? color : "#6b7280",
+                      fontSize: 9,
+                      fontWeight: "bold",
+                      opacity: canUse ? 1 : 0.45,
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {ACTION_LABELS[action]}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -147,17 +205,28 @@ export function BattlePanel(props: {
   turnResult: TurnResult | null;
   countdown: number;
   onActionSelect: (action: ActionType) => void;
+  finishResult?: { winnerId: string } | null;
+  onBackToRoom: () => void;
+  onRematch: () => void;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
   const [showFlash, setShowFlash] = useState(false);
+  const [actingPlayerId, setActingPlayerId] = useState<string | null>(null);
+  const [showFinishButtons, setShowFinishButtons] = useState(false);
   const prevTurnRef = useRef<number | null>(null);
   const floaterIdRef = useRef(0);
   const availableActions = useMemo(() => getAvailableActions(props.me), [props.me]);
+  const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy), [props.enemy]);
+
+  const isFinished = !!props.finishResult;
+  const isWin = isFinished && props.finishResult!.winnerId === props.me.id;
+  const myIsLoser = isFinished && !isWin;
+  const enemyIsLoser = isFinished && isWin;
 
   useEffect(() => {
-    setSelectedAction(null);
-  }, [props.me.lastActionCategory, props.countdown]);
+    if (!isFinished) setSelectedAction(null);
+  }, [props.me.lastActionCategory, props.countdown, isFinished]);
 
   useEffect(() => {
     if (!props.turnResult) return;
@@ -180,7 +249,43 @@ export function BattlePanel(props: {
         setFloaters((prev) => prev.filter((f) => !ids.has(f.id)));
       }, 1500);
     }
-  }, [props.turnResult, props.me.id]);
+
+    // Speed-order animation: charge > higher speed
+    const myAction = props.turnResult.actions[props.me.id];
+    const enemyAction = props.turnResult.actions[props.enemy.id];
+    let firstId: string;
+    let secondId: string;
+    if (myAction === "charge" && enemyAction !== "charge") {
+      firstId = props.me.id;
+      secondId = props.enemy.id;
+    } else if (enemyAction === "charge" && myAction !== "charge") {
+      firstId = props.enemy.id;
+      secondId = props.me.id;
+    } else if (props.me.stats.speed >= props.enemy.stats.speed) {
+      firstId = props.me.id;
+      secondId = props.enemy.id;
+    } else {
+      firstId = props.enemy.id;
+      secondId = props.me.id;
+    }
+    setActingPlayerId(firstId);
+    const t1 = setTimeout(() => setActingPlayerId(secondId), 850);
+    const t2 = setTimeout(() => setActingPlayerId(null), 1700);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [props.turnResult, props.me.id, props.enemy.id, props.me.stats.speed, props.enemy.stats.speed]);
+
+  // Finish animation: show choice buttons after 5 seconds
+  useEffect(() => {
+    if (!isFinished) {
+      setShowFinishButtons(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowFinishButtons(true), 5000);
+    return () => clearTimeout(timer);
+  }, [isFinished]);
 
   const countdown = props.countdown;
   const countdownColor = countdown <= 5 ? "#ef4444" : countdown <= 10 ? "#f59e0b" : "#fef3c7";
@@ -188,6 +293,7 @@ export function BattlePanel(props: {
 
   return (
     <div style={{ position: "relative" }}>
+      {/* Battle event flash */}
       {showFlash && (
         <div
           style={{
@@ -200,6 +306,96 @@ export function BattlePanel(props: {
             pointerEvents: "none",
           }}
         />
+      )}
+
+      {/* Finish overlay: YOU WIN / YOU LOSE */}
+      {isFinished && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 30,
+            background: isWin ? "rgba(0,0,0,0.55)" : "rgba(0,0,20,0.70)",
+            borderRadius: 12,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+          }}
+        >
+          {isWin ? (
+            <div
+              style={{
+                fontSize: 60,
+                fontWeight: "900",
+                background: "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
+                backgroundSize: "300% 100%",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                animation: "rainbowShift 1.2s linear infinite, youWinPulse 1.6s ease-in-out infinite",
+                letterSpacing: "0.08em",
+              }}
+            >
+              YOU WIN!
+            </div>
+          ) : (
+            <div
+              style={{
+                fontSize: 60,
+                fontWeight: "900",
+                color: "#3b82f6",
+                textShadow: "0 0 24px #3b82f6aa, 0 2px 8px #000",
+                animation: "fadeInScale 0.5s ease-out, youLoseShake 0.6s ease-in-out 0.5s",
+                letterSpacing: "0.08em",
+              }}
+            >
+              YOU LOSE
+            </div>
+          )}
+
+          {showFinishButtons && (
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                animation: "finishButtonsIn 0.5s ease-out",
+              }}
+            >
+              <button
+                onClick={props.onBackToRoom}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  border: "2px solid #9ca3af",
+                  background: "rgba(30,30,30,0.9)",
+                  color: "#f3f4f6",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                ルーム作成へ戻る
+              </button>
+              <button
+                onClick={props.onRematch}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  border: "2px solid #fbbf24",
+                  background: "rgba(120,60,0,0.9)",
+                  color: "#fbbf24",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                もう１戦
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <section
@@ -258,7 +454,13 @@ export function BattlePanel(props: {
             alignItems: "flex-start",
           }}
         >
-          <PlayerCard player={props.me} label="あなた" floaters={floaters.filter((f) => f.toMe)} />
+          <PlayerCard
+            player={props.me}
+            label="あなた"
+            floaters={floaters.filter((f) => f.toMe)}
+            isActing={actingPlayerId === props.me.id}
+            isLoser={myIsLoser}
+          />
           <div
             style={{
               display: "flex",
@@ -273,7 +475,15 @@ export function BattlePanel(props: {
           >
             VS
           </div>
-          <PlayerCard player={props.enemy} label="あいて" floaters={floaters.filter((f) => !f.toMe)} />
+          <PlayerCard
+            player={props.enemy}
+            label="あいて"
+            floaters={floaters.filter((f) => !f.toMe)}
+            isActing={actingPlayerId === props.enemy.id}
+            isLoser={enemyIsLoser}
+            showEnemyActions={true}
+            availableActions={enemyAvailableActions}
+          />
         </div>
 
         {/* Wood floor strip */}
@@ -350,56 +560,58 @@ export function BattlePanel(props: {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{ padding: "6px 14px 14px" }}>
-          <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 6 }}>
-            前回行動: {props.me.lastActionCategory ?? "なし"} ／ 選択中:{" "}
-            <span style={{ color: selectedAction ? ACTION_COLORS[selectedAction] : "#9ca3af", fontWeight: "bold" }}>
-              {selectedAction ? ACTION_LABELS[selectedAction] : "未選択"}
-            </span>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {(Object.keys(ACTION_LABELS) as ActionType[]).map((action) => {
-              const selectable = availableActions.includes(action);
-              const isSelected = selectedAction === action;
-              const color = ACTION_COLORS[action];
-              return (
-                <button
-                  key={action}
-                  disabled={!selectable}
-                  onClick={() => {
-                    setSelectedAction(action);
-                    props.onActionSelect(action);
-                  }}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 8,
-                    border: `2px solid ${selectable ? color : "#374151"}`,
-                    background: selectable ? (isSelected ? color : `${color}28`) : "#1f2937",
-                    color: selectable ? (isSelected ? "#fff" : color) : "#6b7280",
-                    fontWeight: "bold",
-                    cursor: selectable ? "pointer" : "not-allowed",
-                    transition: "all 0.15s",
-                    transform: isSelected ? "scale(1.08)" : "scale(1)",
-                    boxShadow: isSelected ? `0 0 12px ${color}88` : "none",
-                    fontSize: 13,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {ACTION_LABELS[action]}
-                </button>
-              );
-            })}
-          </div>
-          {props.me.lastActionCategory && (
-            <p style={{ color: "#6b7280", fontSize: 10, marginTop: 4 }}>
-              ※同カテゴリ行動は次ターン選択不可: {props.me.lastActionCategory}
+        {/* Action buttons (hidden while finished) */}
+        {!isFinished && (
+          <div style={{ padding: "6px 14px 14px" }}>
+            <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 6 }}>
+              前回行動: {props.me.lastActionCategory ?? "なし"} ／ 選択中:{" "}
+              <span style={{ color: selectedAction ? ACTION_COLORS[selectedAction] : "#9ca3af", fontWeight: "bold" }}>
+                {selectedAction ? ACTION_LABELS[selectedAction] : "未選択"}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(Object.keys(ACTION_LABELS) as ActionType[]).map((action) => {
+                const selectable = availableActions.includes(action);
+                const isSelected = selectedAction === action;
+                const color = ACTION_COLORS[action];
+                return (
+                  <button
+                    key={action}
+                    disabled={!selectable}
+                    onClick={() => {
+                      setSelectedAction(action);
+                      props.onActionSelect(action);
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      border: `2px solid ${selectable ? color : "#374151"}`,
+                      background: selectable ? (isSelected ? color : `${color}28`) : "#1f2937",
+                      color: selectable ? (isSelected ? "#fff" : color) : "#6b7280",
+                      fontWeight: "bold",
+                      cursor: selectable ? "pointer" : "not-allowed",
+                      transition: "all 0.15s",
+                      transform: isSelected ? "scale(1.08)" : "scale(1)",
+                      boxShadow: isSelected ? `0 0 12px ${color}88` : "none",
+                      fontSize: 13,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {getActionLabel(action, props.me)}
+                  </button>
+                );
+              })}
+            </div>
+            {props.me.lastActionCategory && (
+              <p style={{ color: "#6b7280", fontSize: 10, marginTop: 4 }}>
+                ※同カテゴリ行動は次ターン選択不可: {props.me.lastActionCategory}
+              </p>
+            )}
+            <p style={{ color: "#6b7280", fontSize: 10, marginTop: 2 }}>
+              チャージ：HP/PP を約33%回復し、次ターン攻撃力1.5倍。すばやさに関係なく優先実行。
             </p>
-          )}
-          <p style={{ color: "#6b7280", fontSize: 10, marginTop: 2 }}>
-            まほうは最大PPに対する割合（弱20% / 強40%）で消費されます。
-          </p>
-        </div>
+          </div>
+        )}
       </section>
     </div>
   );

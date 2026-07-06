@@ -42,6 +42,7 @@ export default function Home() {
   const pendingActionsRef = useRef<Record<string, ActionType>>({});
   const turnTimerRef = useRef<number | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
   const localCharacterRef = useRef<PeerCharacter | null>(null);
   const remoteCharacterRef = useRef<PeerCharacter | null>(null);
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -56,12 +57,31 @@ export default function Home() {
   const [turnResult, setTurnResult] = useState<TurnResult | null>(null);
   const [winnerText, setWinnerText] = useState("");
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
+  const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
 
   const sendWire = (payload: WireMessage) => {
     connRef.current?.send(payload);
+  };
+
+  // Shared countdown timer used by both host and guest
+  const startCountdown = (deadline: number) => {
+    if (countdownIntervalRef.current !== null) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    const update = () => {
+      const remain = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setTurnCountdown(remain);
+      if (remain <= 0 && countdownIntervalRef.current !== null) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+    update();
+    countdownIntervalRef.current = window.setInterval(update, 200);
   };
 
   const beginBattle = (local: PeerCharacter, remote: PeerCharacter) => {
@@ -88,6 +108,7 @@ export default function Home() {
     const initial = { [me.id]: me, [enemy.id]: enemy };
     battleStateRef.current = initial;
     setBattleState(initial);
+    setBattleFinish(null);
     setTurn(1);
     setStage("battle");
     setStatus("対戦開始！");
@@ -95,7 +116,7 @@ export default function Home() {
     if (roleRef.current === "host") {
       const deadline = Date.now() + TURN_SECONDS * 1000;
       sendWire({ type: "turn_start", payload: { turn: 1, deadline } });
-      setTurnCountdown(TURN_SECONDS);
+      startCountdown(deadline);
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       turnTimerRef.current = window.setTimeout(() => finalizeTurn(1), TURN_SECONDS * 1000);
     }
@@ -129,10 +150,7 @@ export default function Home() {
     pendingActionsRef.current = {};
 
     if (result.winnerId) {
-      const didWin = result.winnerId === myId;
-      setStage("result");
-      setWinnerText(didWin ? "あなたの勝ち！" : "あなたの負け…");
-      sendWire({ type: "forfeit", payload: { winnerId: result.winnerId, reason: "HPが0になりました" } });
+      setBattleFinish({ winnerId: result.winnerId });
       return;
     }
 
@@ -140,6 +158,7 @@ export default function Home() {
     setTurn(nextTurn);
     const deadline = Date.now() + TURN_SECONDS * 1000;
     sendWire({ type: "turn_start", payload: { turn: nextTurn, deadline } });
+    startCountdown(deadline);
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     turnTimerRef.current = window.setTimeout(() => finalizeTurn(nextTurn), TURN_SECONDS * 1000);
   };
@@ -154,13 +173,7 @@ export default function Home() {
 
     if (message.type === "turn_start") {
       setTurn(message.payload.turn);
-      const updateCountdown = () => {
-        const remain = Math.max(0, Math.ceil((message.payload.deadline - Date.now()) / 1000));
-        setTurnCountdown(remain);
-      };
-      updateCountdown();
-      const interval = window.setInterval(updateCountdown, 200);
-      window.setTimeout(() => window.clearInterval(interval), TURN_SECONDS * 1000 + 400);
+      startCountdown(message.payload.deadline);
       return;
     }
 
@@ -178,14 +191,13 @@ export default function Home() {
       setBattleState(message.payload.nextStates);
       setTurnResult(message.payload);
       if (message.payload.winnerId) {
-        const didWin = message.payload.winnerId === myIdRef.current;
-        setStage("result");
-        setWinnerText(didWin ? "あなたの勝ち！" : "あなたの負け…");
+        setBattleFinish({ winnerId: message.payload.winnerId });
       }
       return;
     }
 
     if (message.type === "forfeit") {
+      // Only used for disconnection-based forfeits (not HP=0 game end)
       setStage("result");
       setWinnerText(message.payload.winnerId === myIdRef.current ? "相手切断により勝利" : "切断により敗北");
     }
@@ -313,6 +325,7 @@ export default function Home() {
       destroyPeer();
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -355,6 +368,33 @@ export default function Home() {
     }
   };
 
+  const onBackToRoom = () => {
+    destroyPeer();
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setBattleFinish(null);
+    setTurnResult(null);
+    setBattleState({});
+    setStage("room");
+    setStatus("ルームを作成するか入室してください");
+  };
+
+  const onRematch = () => {
+    // Reset battle state and go back to drawing with same connection
+    setBattleFinish(null);
+    setTurnResult(null);
+    setBattleState({});
+    localCharacterRef.current = null;
+    remoteCharacterRef.current = null;
+    pendingActionsRef.current = {};
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setTurn(1);
+    setDrawSeconds(DRAW_SECONDS);
+    setStage("drawing");
+    setStatus("もう１戦！新しい絵を描いてください。");
+  };
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-4 p-4">
       <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
@@ -366,13 +406,28 @@ export default function Home() {
       {stage === "drawing" && <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} />}
 
       {stage === "battle" && myState && enemyState && (
-        <BattlePanel me={myState} enemy={enemyState} turnResult={turnResult} countdown={turnCountdown} onActionSelect={onActionSelect} />
+        <BattlePanel
+          me={myState}
+          enemy={enemyState}
+          turnResult={turnResult}
+          countdown={turnCountdown}
+          onActionSelect={onActionSelect}
+          finishResult={battleFinish}
+          onBackToRoom={onBackToRoom}
+          onRematch={onRematch}
+        />
       )}
 
       {stage === "result" && (
         <section className="rounded-lg border p-4">
           <h2 className="text-xl font-bold">勝負結果</h2>
           <p className="text-lg">{winnerText}</p>
+          <button
+            className="mt-4 rounded bg-blue-600 px-4 py-2 text-white"
+            onClick={onBackToRoom}
+          >
+            ルーム作成へ戻る
+          </button>
         </section>
       )}
     </main>
