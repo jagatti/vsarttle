@@ -64,18 +64,20 @@ npm run build
 
 ### フロントエンド（Vercel）
 
-リポジトリルートに `vercel.json` が配置されており、Vercel が `frontend/` ディレクトリをビルド対象として認識します。
+リポジトリルートに `vercel.json` が配置されており、ビルドコマンドと出力ディレクトリを指定しています。
 
 ```json
 {
-  "rootDirectory": "frontend"
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/.next",
+  "framework": "nextjs"
 }
 ```
 
 #### 手順
 
 1. [Vercel](https://vercel.com/) でリポジトリをインポートする
-2. **Root Directory** の設定は変更不要（`vercel.json` で自動指定）
+2. **Project Settings > General > Root Directory** に `frontend` を入力して保存する
 3. **Environment Variables** に以下を追加する:
 
    | 変数名 | 値の例 |
