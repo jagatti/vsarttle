@@ -64,27 +64,32 @@ npm run build
 
 ### フロントエンド（Vercel）
 
-リポジトリルートに `vercel.json` が配置されており、ビルドコマンドと出力ディレクトリを指定しています。
+#### ⚠️ 重要: Root Directory の設定
 
-```json
-{
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/.next",
-  "framework": "nextjs"
-}
-```
+このリポジトリはモノレポ構成です。Next.js アプリは `frontend/` サブディレクトリにあります。
+**Vercel の Root Directory を必ず `frontend` に設定してください。** これを設定しないとビルドが失敗します。
 
 #### 手順
 
 1. [Vercel](https://vercel.com/) でリポジトリをインポートする
-2. **Project Settings > General > Root Directory** に `frontend` を入力して保存する
-3. **Environment Variables** に以下を追加する:
+
+2. **Project Settings > General > Root Directory** に **`frontend`** を入力して「Save」をクリックする
+   > ここを設定しないと "No Next.js version detected" エラーが発生します
+
+3. **Project Settings > Environment Variables** に以下を追加する:
 
    | 変数名 | 値の例 |
    |---|---|
    | `NEXT_PUBLIC_SIGNALING_SERVER_URL` | `wss://your-signaling-server.railway.app` |
 
-4. デプロイを実行する
+4. 「Deployments」タブから「Redeploy」を実行する（または `main` ブランチへ push する）
+
+#### 設定ファイルについて
+
+| ファイル | 用途 |
+|---|---|
+| `frontend/vercel.json` | Root Directory = `frontend` の場合に使用（推奨） |
+| `vercel.json` (ルート) | Root Directory 未設定の場合のフォールバック |
 
 ### シグナリングサーバー（Railway など）
 
