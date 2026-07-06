@@ -27,7 +27,7 @@ type WireMessage =
   | { type: "forfeit"; payload: { winnerId: string; reason: string } };
 
 export default function Home() {
-  const signalingUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL;
+  const signalingUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL?.trim();
   const wsRef = useRef<WebSocket | null>(null);
   const rtcRef = useRef<ReturnType<typeof createWebRtcManager> | null>(null);
   const myIdRef = useRef("");
@@ -52,6 +52,7 @@ export default function Home() {
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
+  const canUseSignaling = Boolean(signalingUrl) && wsRef.current?.readyState === WebSocket.OPEN;
 
   const sendSignal = (targetId: string, signal: SignalMessage) => {
     wsRef.current?.send(JSON.stringify({ type: "signal", roomCode, targetId, signal }));
@@ -216,7 +217,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!signalingUrl) {
-      setStatus("NEXT_PUBLIC_SIGNALING_SERVER_URL が未設定です");
+      const message = "NEXT_PUBLIC_SIGNALING_SERVER_URL が未設定です";
+      setStatus(message);
+      console.error(message);
       return;
     }
 
@@ -224,6 +227,16 @@ export default function Home() {
     wsRef.current = ws;
 
     ws.onopen = () => setStatus("シグナリングサーバー接続完了");
+    ws.onerror = () => {
+      const message = "シグナリングサーバーへの接続でエラーが発生しました";
+      setStatus(message);
+      console.error(message, { signalingUrl });
+    };
+    ws.onclose = () => {
+      const message = "シグナリングサーバーとの接続が切断されました";
+      setStatus(message);
+      console.error(message, { signalingUrl });
+    };
     ws.onmessage = async (event) => {
       const msg = JSON.parse(event.data);
       if (msg.type === "room_created") {
@@ -276,13 +289,37 @@ export default function Home() {
   }, [stage]);
 
   const onCreate = (name: string) => {
+    if (!signalingUrl) {
+      const message = "シグナリングURL未設定のためルーム作成できません";
+      setStatus(message);
+      console.error(message);
+      return;
+    }
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      const message = "シグナリング未接続のためルーム作成できません";
+      setStatus(message);
+      console.error(message, { readyState: wsRef.current?.readyState, signalingUrl });
+      return;
+    }
     setNickname(name);
-    wsRef.current?.send(JSON.stringify({ type: "create_room", nickname: name }));
+    wsRef.current.send(JSON.stringify({ type: "create_room", nickname: name }));
   };
 
   const onJoin = (code: string, name: string) => {
+    if (!signalingUrl) {
+      const message = "シグナリングURL未設定のため入室できません";
+      setStatus(message);
+      console.error(message);
+      return;
+    }
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      const message = "シグナリング未接続のため入室できません";
+      setStatus(message);
+      console.error(message, { readyState: wsRef.current?.readyState, signalingUrl });
+      return;
+    }
     setNickname(name);
-    wsRef.current?.send(JSON.stringify({ type: "join_room", roomCode: code, nickname: name }));
+    wsRef.current.send(JSON.stringify({ type: "join_room", roomCode: code, nickname: name }));
   };
 
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageDataUrl: string; imageData: ImageData }) => {
@@ -312,9 +349,9 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-4 p-4">
       <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
-      <p className="text-sm text-gray-700">シグナリング: {signalingUrl ?? "未設定"}</p>
+      <p className="text-sm text-gray-700">シグナリング: {signalingUrl || "未設定"}</p>
 
-      {stage === "room" && <RoomPanel status={status} roomCode={roomCode} onCreate={onCreate} onJoin={onJoin} />}
+      {stage === "room" && <RoomPanel status={status} roomCode={roomCode} canUseSignaling={canUseSignaling} onCreate={onCreate} onJoin={onJoin} />}
 
       {stage === "drawing" && <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} />}
 
