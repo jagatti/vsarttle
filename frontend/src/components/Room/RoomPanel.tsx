@@ -1,0 +1,40 @@
+"use client";
+
+import { useState } from "react";
+
+export function RoomPanel(props: {
+  status: string;
+  roomCode: string;
+  onCreate: (nickname: string) => void;
+  onJoin: (roomCode: string, nickname: string) => void;
+}) {
+  const [nickname, setNickname] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+
+  return (
+    <section className="space-y-4 rounded-lg border p-4">
+      <h2 className="text-xl font-bold">ルーム</h2>
+      <p className="text-sm text-gray-600">{props.status}</p>
+      {props.roomCode && <p className="text-lg font-semibold">ルーム番号: {props.roomCode}</p>}
+      <label className="flex flex-col gap-1">
+        ニックネーム
+        <input className="rounded border px-2 py-1" value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={16} />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button className="rounded bg-black px-3 py-2 text-white disabled:opacity-40" disabled={!nickname.trim()} onClick={() => props.onCreate(nickname.trim())}>
+          ルーム作成
+        </button>
+        <input
+          className="rounded border px-2 py-1"
+          placeholder="6桁ルーム番号"
+          value={joinCode}
+          maxLength={6}
+          onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, ""))}
+        />
+        <button className="rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-40" disabled={!nickname.trim() || joinCode.length !== 6} onClick={() => props.onJoin(joinCode, nickname.trim())}>
+          入室
+        </button>
+      </div>
+    </section>
+  );
+}

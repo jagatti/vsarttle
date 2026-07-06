@@ -1,0 +1,69 @@
+export type Stage = "room" | "drawing" | "battle" | "result";
+
+export interface Point {
+  x: number;
+  y: number;
+  t: number;
+}
+
+export interface Stroke {
+  id: string;
+  tool: "pen" | "eraser";
+  color: string;
+  size: number;
+  points: Point[];
+}
+
+export interface DrawingLayer {
+  id: string;
+  name: string;
+  strokes: Stroke[];
+}
+
+export interface DrawingData {
+  version: 1;
+  canvas: { width: number; height: number };
+  layers: DrawingLayer[];
+}
+
+export interface CharacterStats {
+  hp: number;
+  maxHp: number;
+  pp: number;
+  maxPp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  evasion: number;
+}
+
+export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge";
+export type ActionCategory = "attack" | "magic" | "barrier" | "charge";
+
+export interface PlayerBattleState {
+  id: string;
+  nickname: string;
+  imageDataUrl: string;
+  stats: CharacterStats;
+  currentHp: number;
+  currentPp: number;
+  chargeMultiplier: number;
+  lastActionCategory: ActionCategory | null;
+}
+
+export interface TurnDamageEvent {
+  from: string;
+  to: string;
+  amount: number;
+  avoided: boolean;
+  reason: string;
+}
+
+export interface TurnResult {
+  turn: number;
+  actions: Record<string, ActionType>;
+  damageEvents: TurnDamageEvent[];
+  logs: string[];
+  nextStates: Record<string, PlayerBattleState>;
+  winnerId: string | null;
+}
