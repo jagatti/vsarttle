@@ -33,7 +33,7 @@ npm run dev
 
 ```bash
 cd frontend
-cp .env.local.example .env.local
+# .env.local を作成（存在しない場合）
 npm install
 npm run dev
 ```
@@ -84,6 +84,8 @@ npm run build
 
 4. 「Deployments」タブから「Redeploy」を実行する（または `main` ブランチへ push する）
 
+5. デプロイ後の画面上部に **`シグナリング: 未設定`** と表示された場合は、`NEXT_PUBLIC_SIGNALING_SERVER_URL` が反映されていません。Environment Variables を保存後、必ず Redeploy してください。
+
 #### 設定ファイルについて
 
 | ファイル | 用途 |
@@ -96,3 +98,23 @@ npm run build
 - プロジェクトルート: `signaling-server`
 - 起動コマンド: `npm run dev`（本番は `npm run build && npm run start` 推奨）
 - 環境変数: `PORT`（プラットフォーム指定値）
+
+## トラブルシュート（ボタンを押しても反応しない）
+
+### 症状
+
+- 画面は表示されるが「ルーム作成」「入室」が進まない
+- 画面上部に `シグナリング: 未設定` が出る
+
+### 原因
+
+- `NEXT_PUBLIC_SIGNALING_SERVER_URL` 未設定、または空文字
+- シグナリングサーバーが停止している / URL が誤っている
+- 変数を変更したが Redeploy していない
+
+### 確認手順
+
+1. Vercel の `Project Settings > Environment Variables` で `NEXT_PUBLIC_SIGNALING_SERVER_URL` を確認
+2. `wss://...` の URL をブラウザで開かず、サーバー稼働ログで起動を確認
+3. 変数保存後に Redeploy
+4. ブラウザの DevTools を開き、Console と Network(WS) で接続失敗ログを確認
