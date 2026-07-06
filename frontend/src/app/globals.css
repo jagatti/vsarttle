@@ -15,3 +15,33 @@ button,
 input {
   font: inherit;
 }
+
+@keyframes floatUp {
+  0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-56px); opacity: 0; }
+}
+
+@keyframes battleFlash {
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+@keyframes slideInFromLeft {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromRight {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromBottom {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes countdownPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}

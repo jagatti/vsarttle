@@ -12,7 +12,7 @@ import { calculateStatsFromDrawing } from "@/lib/statCalculator";
 import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData } from "@/types/game";
 
 const DRAW_SECONDS = 300;
-const TURN_SECONDS = 5;
+const TURN_SECONDS = 15;
 const RECONNECT_SECONDS = 30;
 const ROOM_ID_PREFIX = "vsarttle-";
 
