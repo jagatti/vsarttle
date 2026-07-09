@@ -51,6 +51,7 @@ export function prepareDrawingForWire(drawing: DrawingData): WireDrawingData {
         color: stroke.color,
         size: roundCoordinate(stroke.size),
         points: simplifyPoints(stroke.points),
+        ...(stroke.fillSpans ? { fillSpans: stroke.fillSpans } : {}),
       })),
     })),
   };
@@ -59,13 +60,18 @@ export function prepareDrawingForWire(drawing: DrawingData): WireDrawingData {
 export function drawingToDataUrl(drawing: WireDrawingData): string {
   const strokeMarkup = drawing.layers
     .flatMap((layer) =>
-      layer.strokes
-        .filter((stroke) => stroke.points.length > 1)
-        .map((stroke) => {
-          const points = stroke.points.map((point) => `${point.x},${point.y}`).join(" ");
-          const color = stroke.tool === "eraser" ? "#ffffff" : stroke.color;
-          return `<polyline fill="none" stroke="${escapeXml(color)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" points="${points}" />`;
-        }),
+      layer.strokes.map((stroke) => {
+        if (stroke.tool === "fill" && stroke.fillSpans && stroke.fillSpans.length > 0) {
+          const rects = stroke.fillSpans
+            .map((span) => `<rect x="${span.x1}" y="${span.y}" width="${span.x2 - span.x1 + 1}" height="1" fill="${escapeXml(stroke.color)}" />`)
+            .join("");
+          return rects;
+        }
+        if (stroke.points.length <= 1) return "";
+        const points = stroke.points.map((point) => `${point.x},${point.y}`).join(" ");
+        const color = stroke.tool === "eraser" ? "#ffffff" : stroke.color;
+        return `<polyline fill="none" stroke="${escapeXml(color)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" points="${points}" />`;
+      }),
     )
     .join("");
 

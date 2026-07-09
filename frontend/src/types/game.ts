@@ -6,12 +6,19 @@ export interface Point {
   t: number;
 }
 
+export interface FillSpan {
+  y: number;
+  x1: number;
+  x2: number;
+}
+
 export interface Stroke {
   id: string;
-  tool: "pen" | "eraser";
+  tool: "pen" | "eraser" | "fill";
   color: string;
   size: number;
   points: Point[];
+  fillSpans?: FillSpan[];
 }
 
 export interface DrawingLayer {
@@ -33,10 +40,11 @@ export interface WirePoint {
 
 export interface WireStroke {
   id: string;
-  tool: "pen" | "eraser";
+  tool: "pen" | "eraser" | "fill";
   color: string;
   size: number;
   points: WirePoint[];
+  fillSpans?: FillSpan[];
 }
 
 export interface WireDrawingLayer {
@@ -65,15 +73,20 @@ export interface CharacterStats {
 export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge";
 export type ActionCategory = "attack" | "magic" | "barrier" | "charge";
 
+export type CharacterType = "attack" | "magic" | "defense" | "balanced";
+
 export interface PlayerBattleState {
   id: string;
   nickname: string;
   imageDataUrl: string;
   stats: CharacterStats;
+  characterType: CharacterType;
   currentHp: number;
   currentPp: number;
   chargeMultiplier: number;
   lastActionCategory: ActionCategory | null;
+  lastChargeHpRecover?: number;
+  lastChargePpRecover?: number;
 }
 
 export interface TurnDamageEvent {
@@ -84,10 +97,17 @@ export interface TurnDamageEvent {
   reason: string;
 }
 
+export interface TurnChargeEvent {
+  playerId: string;
+  hpRecover: number;
+  ppRecover: number;
+}
+
 export interface TurnResult {
   turn: number;
   actions: Record<string, ActionType>;
   damageEvents: TurnDamageEvent[];
+  chargeEvents: TurnChargeEvent[];
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;

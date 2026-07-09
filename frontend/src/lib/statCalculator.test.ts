@@ -41,9 +41,9 @@ test("calculateStatsFromDrawing keeps values in required ranges", () => {
   const stats = calculateStatsFromDrawing(blankDrawing, imageData);
 
   assert.ok(stats.hp >= 30 && stats.hp <= 300);
-  assert.ok(stats.pp >= 20 && stats.pp <= 50);
-  assert.ok(stats.attack >= 50 && stats.attack <= 200);
-  assert.ok(stats.defense >= 50 && stats.defense <= 200);
-  assert.ok(stats.speed >= 20 && stats.speed <= 50);
+  assert.ok(stats.pp >= 30 && stats.pp <= 99);
+  assert.ok(stats.attack >= 50 && stats.attack <= 199);
+  assert.ok(stats.defense >= 50 && stats.defense <= 149);
+  assert.ok(stats.speed >= 1 && stats.speed <= 9);
   assert.ok(stats.evasion >= 0.03 && stats.evasion <= 0.1);
 });

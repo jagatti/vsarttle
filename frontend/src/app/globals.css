@@ -73,3 +73,17 @@ input {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+@keyframes hitShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes hitBlink {
+  0%, 100% { filter: brightness(1); }
+  25%, 75% { filter: brightness(2.2) saturate(0.4); }
+  50% { filter: brightness(0.6); }
+}

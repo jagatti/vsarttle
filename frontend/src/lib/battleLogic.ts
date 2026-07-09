@@ -1,4 +1,4 @@
-import type { ActionCategory, ActionType, CharacterStats, PlayerBattleState, TurnDamageEvent, TurnResult } from "@/types/game";
+import type { ActionCategory, ActionType, CharacterStats, PlayerBattleState, TurnChargeEvent, TurnDamageEvent, TurnResult } from "@/types/game";
 
 const MIN_DAMAGE = 1;
 
@@ -10,7 +10,7 @@ export function actionCategory(action: ActionType): ActionCategory {
 }
 
 export function magicCost(action: ActionType, stats: CharacterStats): number {
-  if (action === "magicWeak") return Math.max(1, Math.ceil(stats.maxPp * 0.2));
+  if (action === "magicWeak") return Math.max(1, Math.ceil(stats.maxPp * 0.08));
   if (action === "magicStrong") return Math.max(1, Math.ceil(stats.maxPp * 0.4));
   return 0;
 }
@@ -65,6 +65,7 @@ export function resolveTurn(params: {
 
   const logs: string[] = [];
   const damageEvents: TurnDamageEvent[] = [];
+  const chargeEvents: TurnChargeEvent[] = [];
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string) => {
     const actual = maybeAvoid(amount, to.stats.evasion, rng);
@@ -77,9 +78,13 @@ export function resolveTurn(params: {
   };
 
   const recoverFromCharge = (player: PlayerBattleState) => {
-    player.currentHp = clamp(player.currentHp + Math.ceil(player.stats.maxHp * 0.33), 0, player.stats.maxHp);
-    player.currentPp = clamp(player.currentPp + Math.ceil(player.stats.maxPp * 0.33), 0, player.stats.maxPp);
+    const hpRecover = Math.ceil(player.stats.maxHp * 0.25);
+    const ppRecover = Math.ceil(player.stats.maxPp * 0.25);
+    player.currentHp = clamp(player.currentHp + hpRecover, 0, player.stats.maxHp);
+    player.currentPp = clamp(player.currentPp + ppRecover, 0, player.stats.maxPp);
     player.chargeMultiplier = 1.5;
+    player.lastChargeHpRecover = hpRecover;
+    player.lastChargePpRecover = ppRecover;
   };
 
   const consumePp = (player: PlayerBattleState, action: ActionType) => {
@@ -92,10 +97,12 @@ export function resolveTurn(params: {
 
   if (leftAction === "charge") {
     recoverFromCharge(left);
+    chargeEvents.push({ playerId: left.id, hpRecover: left.lastChargeHpRecover ?? 0, ppRecover: left.lastChargePpRecover ?? 0 });
     logs.push(`${left.nickname} がチャージ！`);
   }
   if (rightAction === "charge") {
     recoverFromCharge(right);
+    chargeEvents.push({ playerId: right.id, hpRecover: right.lastChargeHpRecover ?? 0, ppRecover: right.lastChargePpRecover ?? 0 });
     logs.push(`${right.nickname} がチャージ！`);
   }
 
@@ -154,6 +161,7 @@ export function resolveTurn(params: {
     actions: params.actions,
     logs,
     damageEvents,
+    chargeEvents,
     winnerId,
     nextStates: {
       [left.id]: left,
