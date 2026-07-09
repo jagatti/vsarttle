@@ -88,7 +88,7 @@ interface DamageFloater {
   type: "damage" | "hpRecover" | "ppRecover";
 }
 
-function NameHpBox({ player, label, align }: { player: PlayerBattleState; label: string; align: "left" | "right" }) {
+function NameHpBox({ player, align }: { player: PlayerBattleState; align: "left" | "right" }) {
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   return (
     <div
@@ -103,7 +103,7 @@ function NameHpBox({ player, label, align }: { player: PlayerBattleState; label:
       }}
     >
       <div style={{ color: borderColor, fontWeight: "bold", fontSize: 10, marginBottom: 1 }}>
-        {label}（{TYPE_LABELS[player.characterType]}）
+        （{TYPE_LABELS[player.characterType]}）
       </div>
       <div style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>{player.nickname}</div>
       <div style={{ display: "flex", justifyContent: "space-between", color: "#d1fae5", fontSize: 11, marginTop: 3 }}>
@@ -141,6 +141,18 @@ function PortraitBlock({
   isShaking?: boolean;
   revealedAction?: ActionType | null;
 }) {
+  const isCharged = player.chargeMultiplier > 1;
+  const activeEffects: string[] = [];
+  if (player.paralyzedNextTurn) activeEffects.push("まひ");
+  if ((player.barrierBanTurns ?? 0) > 0) activeEffects.push("バリア禁止");
+  if ((player.chargeBanTurns ?? 0) > 0) activeEffects.push("チャージ禁止");
+  const imgAnimations = [
+    isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "",
+    isCharged ? "chargeGlow 1.2s ease-in-out infinite" : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ color: "#fde68a", fontSize: 12, marginBottom: 4 }}>{label}</div>
@@ -191,19 +203,41 @@ function PortraitBlock({
           src={safeImageUrl(player.imageDataUrl)}
           alt={`${player.nickname} のキャラクター`}
           style={{
-            width: 110,
-            height: 110,
+            width: isCharged ? 124 : 110,
+            height: isCharged ? 124 : 110,
             borderRadius: 8,
             border: `2px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
             background: "#fff",
             objectFit: "contain",
             filter: isLoser ? "grayscale(100%)" : "none",
-            transition: "filter 1.8s ease-in-out, transform 0.3s",
+            boxShadow: isCharged ? "0 0 18px 6px #facc15cc" : "none",
+            transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease",
             transform: isActing ? "scale(1.06)" : "scale(1)",
-            animation: isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "none",
+            animation: imgAnimations || "none",
           }}
         />
       </div>
+      {activeEffects.length > 0 && (
+        <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+          {activeEffects.map((name) => (
+            <span
+              key={name}
+              style={{
+                fontSize: 10,
+                fontWeight: "bold",
+                color: "#f87171",
+                background: "rgba(0,0,0,0.6)",
+                border: "1px solid #f87171",
+                borderRadius: 4,
+                padding: "1px 6px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -335,7 +369,7 @@ export function BattlePanel(props: {
 
   useEffect(() => {
     if (!isFinished) setSelectedAction(null);
-  }, [props.me.lastActionCategory, props.countdown, isFinished]);
+  }, [props.me.lastActionCategory, isFinished]);
 
   useEffect(() => {
     if (!props.turnResult) return;
@@ -580,8 +614,8 @@ export function BattlePanel(props: {
 
         {/* Name / HP / PP boxes, colored by character type */}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px 0" }}>
-          <NameHpBox player={props.me} label="なまえ" align="left" />
-          <NameHpBox player={props.enemy} label="なまえ" align="right" />
+          <NameHpBox player={props.me} align="left" />
+          <NameHpBox player={props.enemy} align="right" />
         </div>
 
         {/* Portraits + timer */}
@@ -692,7 +726,9 @@ export function BattlePanel(props: {
                 actions={availableActions}
                 player={props.me}
                 selectedAction={selectedAction}
+                readOnly={!!selectedAction}
                 onSelect={(action) => {
+                  if (selectedAction) return;
                   setSelectedAction(action);
                   props.onActionSelect(action);
                 }}

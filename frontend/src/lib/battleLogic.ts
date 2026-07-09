@@ -19,7 +19,7 @@ export function actionCategory(action: ActionType): ActionCategory {
 }
 
 export function magicCost(action: ActionType, stats: CharacterStats): number {
-  if (action === "magicWeak") return Math.max(1, Math.ceil(stats.maxPp * 0.08));
+  if (action === "magicWeak") return Math.max(1, Math.ceil(stats.maxPp * 0.2));
   if (action === "magicStrong") return Math.max(1, Math.ceil(stats.maxPp * 0.4));
   return 0;
 }
