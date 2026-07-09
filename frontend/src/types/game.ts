@@ -70,7 +70,7 @@ export interface CharacterStats {
   evasion: number;
 }
 
-export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge";
+export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge" | "paralysis";
 export type ActionCategory = "attack" | "magic" | "barrier" | "charge" | "paralysis";
 
 export type CharacterType = "attack" | "magic" | "defense" | "balanced";

@@ -10,6 +10,7 @@ const ACTION_LABELS: Record<ActionType, string> = {
   magicStrong: "強まほう",
   barrier: "バリア",
   charge: "チャージ",
+  paralysis: "まひ",
 };
 
 const ACTION_COLORS: Record<ActionType, string> = {
@@ -18,7 +19,11 @@ const ACTION_COLORS: Record<ActionType, string> = {
   magicStrong: "#7c3aed",
   barrier: "#ea580c",
   charge: "#16a34a",
+  paralysis: "#6b7280",
 };
+
+// まひは自動付与される状態であり、プレイヤーが選択するボタンとしては表示しない。
+const SELECTABLE_ACTIONS: ActionType[] = ["attack", "magicWeak", "magicStrong", "barrier", "charge"];
 
 // Border colors for the name/HP/PP box, based on the character type detected from the drawing.
 // こうげき型＝赤、まほう型＝青、バリア型（defense）＝オレンジ、バランス型＝グレー
@@ -307,7 +312,7 @@ function ActionButtonsRow({
 }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
-      {(Object.keys(ACTION_LABELS) as ActionType[]).map((action) => {
+      {SELECTABLE_ACTIONS.map((action) => {
         const canUse = actions.includes(action);
         const isSelected = selectedAction === action;
         const color = ACTION_COLORS[action];
