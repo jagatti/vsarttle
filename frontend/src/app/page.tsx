@@ -294,7 +294,11 @@ export default function Home() {
       roleRef.current = "guest";
       peerIdRef.current = ROOM_ID_PREFIX + code;
 
-      const conn = peer.connect(ROOM_ID_PREFIX + code, { serialization: "json" });
+      // Use PeerJS default (binary) serialization instead of "json": the JSON
+      // serializer does not chunk large payloads and silently drops any
+      // message over ~16KB, which caused the "ready" message (containing the
+      // full drawing) to be lost and both players to get stuck waiting.
+      const conn = peer.connect(ROOM_ID_PREFIX + code);
       attachConnectionHandlers(conn);
 
       conn.on("open", () => {
