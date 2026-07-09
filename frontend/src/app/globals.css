@@ -87,3 +87,8 @@ input {
   25%, 75% { filter: brightness(2.2) saturate(0.4); }
   50% { filter: brightness(0.6); }
 }
+
+@keyframes chargeGlow {
+  0%, 100% { box-shadow: 0 0 12px 4px #facc15aa; }
+  50% { box-shadow: 0 0 26px 10px #facc15ee; }
+}
