@@ -70,8 +70,8 @@ export interface CharacterStats {
   evasion: number;
 }
 
-export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge";
-export type ActionCategory = "attack" | "magic" | "barrier" | "charge";
+export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge" | "paralysis";
+export type ActionCategory = "attack" | "magic" | "barrier" | "charge" | "paralysis";
 
 export type CharacterType = "attack" | "magic" | "defense" | "balanced";
 
@@ -87,6 +87,12 @@ export interface PlayerBattleState {
   lastActionCategory: ActionCategory | null;
   lastChargeHpRecover?: number;
   lastChargePpRecover?: number;
+  /** Remaining turns during which this player cannot use バリア (barrier), inflicted by 弱まほう「バリア禁止」. */
+  barrierBanTurns?: number;
+  /** Remaining turns during which this player cannot use チャージ (charge), inflicted by 弱まほう「チャージ禁止」. */
+  chargeBanTurns?: number;
+  /** When true, this player is まひ (paralyzed) for the upcoming turn and cannot select any action. */
+  paralyzedNextTurn?: boolean;
 }
 
 export interface TurnDamageEvent {
@@ -103,11 +109,19 @@ export interface TurnChargeEvent {
   ppRecover: number;
 }
 
+export interface TurnMagicEffectEvent {
+  casterId: string;
+  affectedId: string;
+  effectName: string;
+  reflected: boolean;
+}
+
 export interface TurnResult {
   turn: number;
   actions: Record<string, ActionType>;
   damageEvents: TurnDamageEvent[];
   chargeEvents: TurnChargeEvent[];
+  magicEffectEvents: TurnMagicEffectEvent[];
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;
