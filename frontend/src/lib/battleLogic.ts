@@ -206,6 +206,7 @@ export function resolveTurn(params: {
     logs,
     damageEvents,
     chargeEvents,
+    magicEffectEvents,
     winnerId,
     nextStates: {
       [left.id]: left,
