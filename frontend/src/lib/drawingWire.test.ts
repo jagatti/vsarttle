@@ -51,3 +51,33 @@ test("drawingToDataUrl returns an svg data url for battle portraits", () => {
   assert.match(decoded, /<polyline/);
   assert.match(decoded, /stroke="#123456"/);
 });
+
+test("drawingToDataUrl renders fill strokes as rects", () => {
+  const fillDrawing: DrawingData = {
+    version: 1,
+    canvas: { width: 8, height: 8 },
+    layers: [
+      {
+        id: "base",
+        name: "base",
+        strokes: [
+          {
+            id: "fill-1",
+            tool: "fill",
+            color: "#00ff00",
+            size: 0,
+            points: [{ x: 1, y: 1, t: 0 }],
+            fillSpans: [{ y: 1, x1: 0, x2: 3 }],
+          },
+        ],
+      },
+    ],
+  };
+
+  const wireDrawing = prepareDrawingForWire(fillDrawing);
+  assert.deepEqual(wireDrawing.layers[0].strokes[0].fillSpans, [{ y: 1, x1: 0, x2: 3 }]);
+
+  const dataUrl = drawingToDataUrl(wireDrawing);
+  const decoded = decodeURIComponent(dataUrl.split(",")[1] ?? "");
+  assert.match(decoded, /<rect x="0" y="1" width="4" height="1" fill="#00ff00" \/>/);
+});
