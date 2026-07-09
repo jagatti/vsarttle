@@ -134,6 +134,8 @@ export default function Home() {
     if (!currentBattle[myId] || !currentBattle[enemyId]) return;
 
     const fillAction = (id: string): ActionType => {
+      // まひ状態なら選択済みのわざがあっても無視し、そのターンは行動不能にする。
+      if (currentBattle[id].paralyzedNextTurn) return "paralysis";
       const selected = current[id];
       if (selected) return selected;
       const available = getAvailableActions(currentBattle[id]);

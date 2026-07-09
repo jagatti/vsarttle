@@ -41,3 +41,23 @@ test("resolveTurn applies attack vs attack formula with defense mitigation", () 
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
   assert.equal(result.nextStates.b.currentHp, 100 - expectedDamage);
 });
+
+test("getAvailableActions returns no actions while paralyzed", () => {
+  const player = makePlayer("a");
+  player.paralyzedNextTurn = true;
+  assert.deepEqual(getAvailableActions(player), []);
+});
+
+test("resolveTurn: paralyzed player deals no damage while opponent's action still lands", () => {
+  const a = makePlayer("a");
+  a.paralyzedNextTurn = true;
+  const b = makePlayer("b");
+  const actions: Record<string, ActionType> = { a: "paralysis", b: "attack" };
+  const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
+  const expectedDamage = 100 - 80 / 2;
+  // Attacker b takes no damage back since paralyzed a cannot act.
+  assert.equal(result.nextStates.b.currentHp, 100);
+  assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
+  // The paralysis status is consumed after this turn.
+  assert.equal(result.nextStates.a.paralyzedNextTurn, false);
+});
