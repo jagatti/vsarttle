@@ -17,6 +17,7 @@ const makePlayer = (id: string): PlayerBattleState => ({
     speed: 5,
     evasion: 0,
   },
+  characterType: "balanced",
   currentHp: 100,
   currentPp: 40,
   chargeMultiplier: 1,

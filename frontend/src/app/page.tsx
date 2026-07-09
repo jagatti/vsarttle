@@ -8,11 +8,11 @@ import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import { calculateStatsFromDrawing } from "@/lib/statCalculator";
-import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData } from "@/types/game";
+import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData, CharacterType } from "@/types/game";
 
 const DRAW_SECONDS = 300;
-const TURN_SECONDS = 15;
+const TURN_SECONDS = 30;
 const RECONNECT_SECONDS = 30;
 const ROOM_ID_PREFIX = "vsarttle-";
 
@@ -24,6 +24,7 @@ interface PeerCharacter {
   nickname: string;
   drawing: WireDrawingData;
   stats: PlayerBattleState["stats"];
+  characterType: CharacterType;
 }
 
 type WireMessage =
@@ -90,6 +91,7 @@ export default function Home() {
       nickname: local.nickname,
       imageDataUrl: drawingToDataUrl(local.drawing),
       stats: local.stats,
+      characterType: local.characterType,
       currentHp: local.stats.maxHp,
       currentPp: local.stats.maxPp,
       chargeMultiplier: 1,
@@ -100,6 +102,7 @@ export default function Home() {
       nickname: remote.nickname,
       imageDataUrl: drawingToDataUrl(remote.drawing),
       stats: remote.stats,
+      characterType: remote.characterType,
       currentHp: remote.stats.maxHp,
       currentPp: remote.stats.maxPp,
       chargeMultiplier: 1,
@@ -345,10 +348,12 @@ export default function Home() {
 
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
+    const characterType = detectCharacterType(payload.imageData);
     const character: PeerCharacter = {
       nickname,
       drawing: prepareDrawingForWire(payload.drawing),
       stats,
+      characterType,
     };
     localCharacterRef.current = character;
     sendWire({ type: "ready", payload: character });
