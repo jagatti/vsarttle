@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { CharacterStats, DrawingData, Stroke } from "@/types/game";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { soundManager } from "@/lib/soundManager";
 
 const COLORS = [
   "#111111",
@@ -293,7 +294,7 @@ export function DrawPanel(props: {
       {submitted ? (
         <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
       ) : (
-        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={submit}>完成</button>
+        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>完成</button>
       )}
     </section>
   );
