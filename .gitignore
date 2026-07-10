@@ -4,3 +4,7 @@
 .env
 .env.local
 frontend/.env.local
+
+# Python package distribution files (pip wheel/sdist artifacts)
+*.whl
+*.tar.gz
