@@ -102,57 +102,94 @@ function calculateStrokeMetrics(drawing: DrawingData): { strokeDistance: number;
   };
 }
 
+// Type-specific stat ranges: each type guarantees its character's identity
+const STAT_RANGES: Record<ColorTrend, {
+  hp: [number, number];
+  pp: [number, number];
+  attack: [number, number];
+  defense: [number, number];
+  speed: [number, number];
+  evasion: [number, number];
+}> = {
+  attack:   { hp: [30, 180],   pp: [30, 60],   attack: [120, 199], defense: [50, 110],  speed: [5, 9], evasion: [0.03, 0.07] },
+  defense:  { hp: [150, 300],  pp: [40, 80],   attack: [50, 110],  defense: [100, 149], speed: [1, 5], evasion: [0.03, 0.05] },
+  magic:    { hp: [30, 150],   pp: [60, 99],   attack: [50, 100],  defense: [50, 100],  speed: [5, 9], evasion: [0.06, 0.1]  },
+  balanced: { hp: [80, 220],   pp: [40, 80],   attack: [80, 150],  defense: [80, 120],  speed: [3, 7], evasion: [0.04, 0.07] },
+};
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+// Pull score toward the high end of the range (characteristic "strong" stat for this type)
+const pushHigh = (score: number, trendRatio: number) => clamp(score + (1 - score) * trendRatio * 0.7, 0, 1);
+// Pull score toward the low end of the range (characteristic "weak" stat for this type)
+const pushLow = (score: number, trendRatio: number) => clamp(score * (1 - trendRatio * 0.7), 0, 1);
+
 export function calculateStatsFromDrawing(drawing: DrawingData, imageData: ImageDataLike): CharacterStats {
   const trendInfo = detectTrend(imageData);
   const strokeMetrics = calculateStrokeMetrics(drawing);
   const coverage = imageData.width * imageData.height > 0 ? trendInfo.filledPixels / (imageData.width * imageData.height) : 0;
   const detailScore = clamp((trendInfo.uniqueColors / 25) * 0.4 + (strokeMetrics.strokeDistance / 5000) * 0.6, 0, 1);
   const volumeScore = clamp(coverage * 2.2 + strokeMetrics.avgStrokeSize / 40, 0, 1);
-  const bias = trendInfo.trendRatio * 0.8;
 
-  // HP uses a non-linear formula to avoid clustering at max
-  // Base range roughly 80-220 before trend adjustments
-  const hpBase = 80 + volumeScore * 90 + detailScore * 50;
-  let hp = hpBase;
-  // PP range: 30-99
-  let pp = 30 + detailScore * 45 + volumeScore * 20;
-  // Attack range: 50-199
-  let attack = 50 + volumeScore * 100 + detailScore * 30;
-  // Defense range: 50-149
-  let defense = 50 + (1 - detailScore * 0.3) * 70 + volumeScore * 20;
-  // Speed range: 1-9
-  let speed = 1 + detailScore * 5 + volumeScore * 2;
-  let evasion = 0.035 + detailScore * 0.06;
+  // Base score mapping follows existing tendencies:
+  // attack/speed → volume-heavy; pp/evasion → detail-heavy; defense → both equally
+  const baseHp = volumeScore;
+  const basePp = detailScore;
+  const baseAttack = volumeScore;
+  const baseDefense = detailScore * 0.5 + volumeScore * 0.5;
+  const baseSpeed = volumeScore;
+  const baseEvasion = detailScore;
+
+  const tR = trendInfo.trendRatio;
+  let hpScore: number;
+  let ppScore: number;
+  let attackScore: number;
+  let defenseScore: number;
+  let speedScore: number;
+  let evasionScore: number;
 
   if (trendInfo.trend === "attack") {
-    attack += 50 * bias;
-    speed += 2 * bias;
-    hp -= 30 * bias;
-    pp -= 15 * bias;
-    defense -= 25 * bias;
-    evasion -= 0.015 * bias;
-  } else if (trendInfo.trend === "magic") {
-    pp += 25 * bias;
-    evasion += 0.02 * bias;
-    hp -= 25 * bias;
-    attack -= 20 * bias;
-    defense -= 20 * bias;
-    speed -= 1 * bias;
+    // attack型: HP・PP低め、攻撃力・速さ高め
+    hpScore      = pushLow(baseHp, tR);
+    ppScore      = pushLow(basePp, tR);
+    attackScore  = pushHigh(baseAttack, tR);
+    defenseScore = pushLow(baseDefense, tR);
+    speedScore   = pushHigh(baseSpeed, tR);
+    evasionScore = baseEvasion;
   } else if (trendInfo.trend === "defense") {
-    hp += 40 * bias;
-    defense += 35 * bias;
-    pp -= 15 * bias;
-    attack -= 25 * bias;
-    speed -= 1 * bias;
-    evasion -= 0.01 * bias;
+    // defense型: 攻撃力・回避低め、HP・防御力高め
+    hpScore      = pushHigh(baseHp, tR);
+    ppScore      = basePp;
+    attackScore  = pushLow(baseAttack, tR);
+    defenseScore = pushHigh(baseDefense, tR);
+    speedScore   = pushLow(baseSpeed, tR);
+    evasionScore = pushLow(baseEvasion, tR);
+  } else if (trendInfo.trend === "magic") {
+    // magic型: 攻撃力・防御力低め、PP・速さ・回避高め
+    hpScore      = pushLow(baseHp, tR);
+    ppScore      = pushHigh(basePp, tR);
+    attackScore  = pushLow(baseAttack, tR);
+    defenseScore = pushLow(baseDefense, tR);
+    speedScore   = pushHigh(baseSpeed, tR);
+    evasionScore = pushHigh(baseEvasion, tR);
+  } else {
+    // balanced型: 補正なし — 描き方の差が最も出やすい
+    hpScore      = baseHp;
+    ppScore      = basePp;
+    attackScore  = baseAttack;
+    defenseScore = baseDefense;
+    speedScore   = baseSpeed;
+    evasionScore = baseEvasion;
   }
 
-  hp = clamp(Math.round(hp), 30, 300);
-  pp = clamp(Math.round(pp), 30, 99);
-  attack = clamp(Math.round(attack), 50, 199);
-  defense = clamp(Math.round(defense), 50, 149);
-  speed = clamp(Math.round(speed), 1, 9);
-  evasion = clamp(Number(evasion.toFixed(3)), 0.03, 0.1);
+  const ranges = STAT_RANGES[trendInfo.trend];
+
+  const hp      = clamp(Math.round(lerp(ranges.hp[0],      ranges.hp[1],      hpScore)),      ranges.hp[0],      ranges.hp[1]);
+  const pp      = clamp(Math.round(lerp(ranges.pp[0],      ranges.pp[1],      ppScore)),      ranges.pp[0],      ranges.pp[1]);
+  const attack  = clamp(Math.round(lerp(ranges.attack[0],  ranges.attack[1],  attackScore)),  ranges.attack[0],  ranges.attack[1]);
+  const defense = clamp(Math.round(lerp(ranges.defense[0], ranges.defense[1], defenseScore)), ranges.defense[0], ranges.defense[1]);
+  const speed   = clamp(Math.round(lerp(ranges.speed[0],   ranges.speed[1],   speedScore)),   ranges.speed[0],   ranges.speed[1]);
+  const evasion = clamp(Number(lerp(ranges.evasion[0], ranges.evasion[1], evasionScore).toFixed(3)), ranges.evasion[0], ranges.evasion[1]);
 
   return {
     hp,
