@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
+import { getAvailableActions, getDamageMultiplier, resolveTurn } from "@/lib/battleLogic";
 import type { ActionType, PlayerBattleState } from "@/types/game";
 
 const makePlayer = (id: string): PlayerBattleState => ({
@@ -60,4 +60,24 @@ test("resolveTurn: paralyzed player deals no damage while opponent's action stil
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
   // The paralysis status is consumed after this turn.
   assert.equal(result.nextStates.a.paralyzedNextTurn, false);
+});
+
+test("getDamageMultiplier changes at >15 and >20 turns", () => {
+  assert.equal(getDamageMultiplier(15), 1);
+  assert.equal(getDamageMultiplier(16), 2);
+  assert.equal(getDamageMultiplier(20), 2);
+  assert.equal(getDamageMultiplier(21), 3);
+});
+
+test("resolveTurn applies global damage multiplier on long turns", () => {
+  const a = makePlayer("a");
+  a.paralyzedNextTurn = true;
+  const b = makePlayer("b");
+  const actions: Record<string, ActionType> = { a: "paralysis", b: "attack" };
+
+  const turn16 = resolveTurn({ turn: 16, players: { a, b }, actions, rng: () => 0.99 });
+  assert.equal(turn16.damageEvents[0].amount, 120);
+
+  const turn21 = resolveTurn({ turn: 21, players: { a, b }, actions, rng: () => 0.99 });
+  assert.equal(turn21.damageEvents[0].amount, 180);
 });
