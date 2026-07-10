@@ -66,6 +66,10 @@ const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattl
 const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState, targetDefense: number) =>
   Math.max(MIN_DAMAGE, Math.round(magicCost(magicAction, magicUser.stats) * 5 * magicUser.chargeMultiplier - targetDefense / 2));
 
+// 相手がチャージ、自身がバリアを選んだ際に発生するカウンターダメージ。
+// 自身のぼうぎょ力の25%分（相手のぼうぎょ力等は考慮しない）を固定で与える。
+const barrierVsChargeDamage = (defender: PlayerBattleState) => Math.max(MIN_DAMAGE, Math.round(defender.stats.defense * 0.25));
+
 const maybeAvoid = (damage: number, evasion: number, rng: () => number) => (rng() < evasion ? 0 : damage);
 
 export function getDamageMultiplier(turn: number): number {
@@ -194,6 +198,13 @@ export function resolveTurn(params: {
     const dealt = applyDamage(left, right, reflectionDamage(rightAction, right, right.stats.defense), "バリア反射");
     if (rightAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(right, right, true);
     if (left.chargeMultiplier > 1) left.chargeMultiplier = 1;
+    if (right.chargeMultiplier > 1) right.chargeMultiplier = 1;
+  } else if (leftCategory === "barrier" && rightCategory === "charge") {
+    // 相手がチャージ、自身がバリアの場合はバリアでカウンターダメージを与える。
+    applyDamage(left, right, barrierVsChargeDamage(left), "バリアカウンター");
+    if (left.chargeMultiplier > 1) left.chargeMultiplier = 1;
+  } else if (rightCategory === "barrier" && leftCategory === "charge") {
+    applyDamage(right, left, barrierVsChargeDamage(right), "バリアカウンター");
     if (right.chargeMultiplier > 1) right.chargeMultiplier = 1;
   } else if (winner === null) {
     processStrike(speedFirst, speedFirst.id === left.id ? leftAction : rightAction, speedSecond, speedSecond.id === left.id ? leftAction : rightAction);
