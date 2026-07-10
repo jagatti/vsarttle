@@ -9,6 +9,7 @@ import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { soundManager } from "@/lib/soundManager";
 import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData, CharacterType } from "@/types/game";
 
 const DRAW_SECONDS = 300;
@@ -394,6 +395,17 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [stage]);
 
+  // BGM transitions: play drawing BGM on drawing stage, battle BGM on battle stage
+  useEffect(() => {
+    if (stage === "drawing") {
+      soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
+    } else if (stage === "battle") {
+      soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
+    } else {
+      soundManager.stopBgm();
+    }
+  }, [stage]);
+
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
     const characterType = detectCharacterType(payload.imageData);
@@ -475,7 +487,7 @@ export default function Home() {
           <p className="text-lg">{winnerText}</p>
           <button
             className="mt-4 rounded bg-blue-600 px-4 py-2 text-white"
-            onClick={onBackToRoom}
+            onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); onBackToRoom(); }}
           >
             ルーム作成へ戻る
           </button>

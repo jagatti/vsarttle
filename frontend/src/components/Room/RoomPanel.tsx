@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { soundManager } from "@/lib/soundManager";
 
 export function RoomPanel(props: {
   status: string;
@@ -11,6 +12,16 @@ export function RoomPanel(props: {
 }) {
   const [nickname, setNickname] = useState("");
   const [joinCode, setJoinCode] = useState("");
+
+  const handleCreate = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    props.onCreate(nickname.trim());
+  };
+
+  const handleJoin = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    props.onJoin(joinCode, nickname.trim());
+  };
 
   return (
     <section className="space-y-4 rounded-lg border p-4">
@@ -25,7 +36,7 @@ export function RoomPanel(props: {
         <button
           className="rounded bg-black px-3 py-2 text-white disabled:opacity-40"
           disabled={!props.canUseSignaling || !nickname.trim()}
-          onClick={() => props.onCreate(nickname.trim())}
+          onClick={handleCreate}
         >
           ルーム作成
         </button>
@@ -39,7 +50,7 @@ export function RoomPanel(props: {
         <button
           className="rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-40"
           disabled={!props.canUseSignaling || !nickname.trim() || joinCode.length !== 6}
-          onClick={() => props.onJoin(joinCode, nickname.trim())}
+          onClick={handleJoin}
         >
           入室
         </button>

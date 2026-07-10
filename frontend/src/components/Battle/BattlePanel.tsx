@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
+import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
+
+const ACTION_SE: Record<ActionType, string> = {
+  attack: "/sounds/se/attack.mp3",
+  magicWeak: "/sounds/se/magic_small.mp3",
+  magicStrong: "/sounds/se/magic_big.mp3",
+  barrier: "/sounds/se/barrier.mp3",
+  charge: "/sounds/se/charge.mp3",
+  paralysis: "",
+};
 
 const ACTION_LABELS: Record<ActionType, string> = {
   attack: "こうげき",
@@ -319,8 +329,16 @@ function ActionButtonsRow({
         return (
           <button
             key={action}
-            disabled={readOnly || !canUse}
-            onClick={() => !readOnly && canUse && onSelect?.(action)}
+            disabled={!!readOnly}
+            onClick={() => {
+              if (!canUse) {
+                soundManager.playSe("/sounds/se/ng.mp3");
+                return;
+              }
+              const sePath = ACTION_SE[action];
+              if (sePath) soundManager.playSe(sePath);
+              onSelect?.(action);
+            }}
             style={{
               padding: "6px 10px",
               borderRadius: 7,
@@ -463,6 +481,16 @@ export function BattlePanel(props: {
     return () => clearTimeout(revealTimer);
   }, [props.turnResult, props.me.id, props.enemy.id, props.me.stats.speed, props.enemy.stats.speed]);
 
+  // Stop battle BGM and play win/lose SE when the battle ends
+  const prevFinishedRef = useRef(false);
+  useEffect(() => {
+    if (isFinished && !prevFinishedRef.current) {
+      soundManager.stopBgm();
+      soundManager.playSe(isWin ? "/sounds/se/win.mp3" : "/sounds/se/lose.mp3");
+    }
+    prevFinishedRef.current = isFinished;
+  }, [isFinished, isWin]);
+
   // Finish animation: show choice buttons after 5 seconds
   useEffect(() => {
     if (!isFinished) {
@@ -562,7 +590,7 @@ export function BattlePanel(props: {
               }}
             >
               <button
-                onClick={props.onBackToRoom}
+                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onBackToRoom(); }}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 8,
@@ -577,7 +605,7 @@ export function BattlePanel(props: {
                 ルーム作成へ戻る
               </button>
               <button
-                onClick={props.onRematch}
+                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematch(); }}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 8,
