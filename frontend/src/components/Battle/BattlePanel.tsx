@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
+import {
+  applyAnimationPhaseToDisplayResources,
+  buildDisplayBattleResources,
+  getTurnAnimationPhases,
+} from "./battleAnimationPhases";
 
 const ACTION_SE: Record<ActionType, string> = {
   attack: "/sounds/se/attack.mp3",
@@ -382,19 +387,32 @@ export function BattlePanel(props: {
   const [showFinishButtons, setShowFinishButtons] = useState(false);
   const [revealedActions, setRevealedActions] = useState<Record<string, ActionType> | null>(null);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
+  const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
   const prevTurnRef = useRef<number | null>(null);
   const floaterIdRef = useRef(0);
   const availableActions = useMemo(() => getAvailableActions(props.me), [props.me]);
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy), [props.enemy]);
+  const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
+  const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
 
-  const isFinished = !!props.finishResult;
+  const battleEnded = !!props.finishResult;
+  const isFinished = battleEnded && (displayMe.currentHp <= 0 || displayEnemy.currentHp <= 0);
   const isWin = isFinished && props.finishResult!.winnerId === props.me.id;
   const myIsLoser = isFinished && !isWin;
   const enemyIsLoser = isFinished && isWin;
 
   useEffect(() => {
-    if (!isFinished) setSelectedAction(null);
-  }, [props.me.lastActionCategory, isFinished]);
+    setSelectedAction(null);
+  }, [props.me.lastActionCategory, battleEnded]);
+
+  useEffect(() => {
+    if (props.turnResult) return;
+    prevTurnRef.current = null;
+    setDisplayResources({
+      [props.me.id]: { currentHp: props.me.currentHp, currentPp: props.me.currentPp },
+      [props.enemy.id]: { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp },
+    });
+  }, [props.turnResult, props.me.id, props.me.currentHp, props.me.currentPp, props.enemy.id, props.enemy.currentHp, props.enemy.currentPp]);
 
   useEffect(() => {
     if (!props.turnResult) return;
@@ -402,78 +420,22 @@ export function BattlePanel(props: {
     prevTurnRef.current = props.turnResult.turn;
 
     const turnResult = props.turnResult;
+    const playersById = { [props.me.id]: props.me, [props.enemy.id]: props.enemy };
+    const phases = getTurnAnimationPhases(turnResult, props.me, props.enemy);
+    const timers: number[] = [];
+    const schedule = (callback: () => void, delayMs: number) => {
+      timers.push(window.setTimeout(callback, delayMs));
+    };
 
     // Phase 1: reveal both players' chosen actions above their portraits for 2s
     setRevealedActions(turnResult.actions);
 
-    const revealTimer = setTimeout(() => {
+    const revealTimer = window.setTimeout(() => {
       setRevealedActions(null);
 
       // Phase 2: run damage/charge animation after the reveal disappears
       setShowFlash(true);
-      setTimeout(() => setShowFlash(false), 600);
-
-      const newFloaters: DamageFloater[] = turnResult.damageEvents.map((event) => ({
-        id: floaterIdRef.current++,
-        amount: event.amount,
-        avoided: event.avoided,
-        toMe: event.to === props.me.id,
-        type: "damage" as const,
-      }));
-
-      const hitIds = new Set(turnResult.damageEvents.filter((event) => !event.avoided && event.amount > 0).map((event) => event.to));
-      if (hitIds.size > 0) {
-        setShakingIds(hitIds);
-        setTimeout(() => setShakingIds(new Set()), 550);
-      }
-
-      for (const chargeEvent of turnResult.chargeEvents ?? []) {
-        const isMe = chargeEvent.playerId === props.me.id;
-        if (chargeEvent.hpRecover > 0) {
-          newFloaters.push({
-            id: floaterIdRef.current++,
-            amount: chargeEvent.hpRecover,
-            avoided: false,
-            toMe: isMe,
-            type: "hpRecover",
-          });
-        }
-        if (chargeEvent.ppRecover > 0) {
-          newFloaters.push({
-            id: floaterIdRef.current++,
-            amount: chargeEvent.ppRecover,
-            avoided: false,
-            toMe: isMe,
-            type: "ppRecover",
-          });
-        }
-      }
-      if (newFloaters.length > 0) {
-        setFloaters((prev) => [...prev, ...newFloaters]);
-        setTimeout(() => {
-          const ids = new Set(newFloaters.map((f) => f.id));
-          setFloaters((prev) => prev.filter((f) => !ids.has(f.id)));
-        }, 1500);
-      }
-
-      // Speed-order animation: charge > higher speed
-      const myAction = turnResult.actions[props.me.id];
-      const enemyAction = turnResult.actions[props.enemy.id];
-      let firstId: string;
-      let secondId: string;
-      if (myAction === "charge" && enemyAction !== "charge") {
-        firstId = props.me.id;
-        secondId = props.enemy.id;
-      } else if (enemyAction === "charge" && myAction !== "charge") {
-        firstId = props.enemy.id;
-        secondId = props.me.id;
-      } else if (props.me.stats.speed >= props.enemy.stats.speed) {
-        firstId = props.me.id;
-        secondId = props.enemy.id;
-      } else {
-        firstId = props.enemy.id;
-        secondId = props.me.id;
-      }
+      schedule(() => setShowFlash(false), 600);
 
       // わざが実際に発動するタイミングでSEを再生する。
       const playActionSe = (playerId: string) => {
@@ -482,17 +444,72 @@ export function BattlePanel(props: {
         if (sePath) soundManager.playSe(sePath);
       };
 
-      setActingPlayerId(firstId);
-      playActionSe(firstId);
-      setTimeout(() => {
-        setActingPlayerId(secondId);
-        playActionSe(secondId);
-      }, 850);
-      setTimeout(() => setActingPlayerId(null), 1700);
+      const runPhase = (phaseIndex: number) => {
+        const phase = phases[phaseIndex];
+        if (!phase) return;
+
+        setActingPlayerId(phase.actorId);
+        playActionSe(phase.actorId);
+        setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
+
+        const phaseFloaters: DamageFloater[] = phase.damageEvents.map((event) => ({
+          id: floaterIdRef.current++,
+          amount: event.amount,
+          avoided: event.avoided,
+          toMe: event.to === props.me.id,
+          type: "damage" as const,
+        }));
+
+        for (const chargeEvent of phase.chargeEvents) {
+          const isMe = chargeEvent.playerId === props.me.id;
+          if (chargeEvent.hpRecover > 0) {
+            phaseFloaters.push({
+              id: floaterIdRef.current++,
+              amount: chargeEvent.hpRecover,
+              avoided: false,
+              toMe: isMe,
+              type: "hpRecover",
+            });
+          }
+          if (chargeEvent.ppRecover > 0) {
+            phaseFloaters.push({
+              id: floaterIdRef.current++,
+              amount: chargeEvent.ppRecover,
+              avoided: false,
+              toMe: isMe,
+              type: "ppRecover",
+            });
+          }
+        }
+
+        if (phaseFloaters.length > 0) {
+          setFloaters((prev) => [...prev, ...phaseFloaters]);
+          schedule(() => {
+            const ids = new Set(phaseFloaters.map((floater) => floater.id));
+            setFloaters((prev) => prev.filter((floater) => !ids.has(floater.id)));
+          }, 1500);
+        }
+
+        const hitIds = new Set(phase.damageEvents.filter((event) => !event.avoided && event.amount > 0).map((event) => event.to));
+        if (hitIds.size > 0) {
+          setShakingIds(hitIds);
+          schedule(() => setShakingIds(new Set()), 550);
+        }
+      };
+
+      runPhase(0);
+      schedule(() => runPhase(1), 850);
+      schedule(() => {
+        setActingPlayerId(null);
+        setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
+      }, 1700);
     }, 2000);
 
-    return () => clearTimeout(revealTimer);
-  }, [props.turnResult, props.me.id, props.enemy.id, props.me.stats.speed, props.enemy.stats.speed]);
+    return () => {
+      clearTimeout(revealTimer);
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }, [props.turnResult, props.me, props.enemy]);
 
   // Stop battle BGM and play win/lose SE when the battle ends
   const prevFinishedRef = useRef(false);
@@ -678,8 +695,8 @@ export function BattlePanel(props: {
 
         {/* Name / HP / PP boxes, colored by character type */}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px 0" }}>
-          <NameHpBox player={props.me} align="left" />
-          <NameHpBox player={props.enemy} align="right" />
+          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" />
+          <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" />
         </div>
 
         {/* Portraits + timer */}
@@ -797,7 +814,7 @@ export function BattlePanel(props: {
         )}
 
         {/* Action buttons (hidden while finished) */}
-        {!isFinished && (
+        {!battleEnded && (
           <div style={{ padding: "10px 14px 14px", display: "flex", justifyContent: "space-between", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <ActionButtonsRow
