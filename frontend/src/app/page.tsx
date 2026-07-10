@@ -13,6 +13,8 @@ import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData,
 
 const DRAW_SECONDS = 300;
 const TURN_SECONDS = 30;
+const PARALYSIS_BOTH_TURN_SECONDS = 3;
+const PARALYSIS_SINGLE_EARLY_FINALIZE_MS = 250;
 const RECONNECT_SECONDS = 30;
 const ROOM_ID_PREFIX = "vsarttle-";
 
@@ -67,6 +69,57 @@ export default function Home() {
     connRef.current?.send(payload);
   };
 
+  const scheduleTurnFinalize = (turnNumber: number, delayMs: number) => {
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    turnTimerRef.current = window.setTimeout(() => finalizeTurn(turnNumber), delayMs);
+  };
+
+  const getBothParalyzed = (battle: Record<string, PlayerBattleState>) => {
+    const myId = myIdRef.current;
+    const enemyId = peerIdRef.current;
+    if (!battle[myId] || !battle[enemyId]) return false;
+    return !!battle[myId].paralyzedNextTurn && !!battle[enemyId].paralyzedNextTurn;
+  };
+
+  const getTurnWindowSeconds = (battle: Record<string, PlayerBattleState>) =>
+    getBothParalyzed(battle) ? PARALYSIS_BOTH_TURN_SECONDS : TURN_SECONDS;
+
+  const maybeFinalizeTurnEarly = (turnNumber: number) => {
+    if (roleRef.current !== "host") return;
+    const myId = myIdRef.current;
+    const enemyId = peerIdRef.current;
+    const battle = battleStateRef.current;
+    if (!battle[myId] || !battle[enemyId]) return;
+    const myParalyzed = !!battle[myId].paralyzedNextTurn;
+    const enemyParalyzed = !!battle[enemyId].paralyzedNextTurn;
+
+    const pending = pendingActionsRef.current;
+    if (pending[myId] && pending[enemyId]) {
+      scheduleTurnFinalize(turnNumber, myParalyzed || enemyParalyzed ? PARALYSIS_SINGLE_EARLY_FINALIZE_MS : 0);
+      return;
+    }
+
+    if (myParalyzed && enemyParalyzed) {
+      scheduleTurnFinalize(turnNumber, PARALYSIS_BOTH_TURN_SECONDS * 1000);
+      return;
+    }
+
+    if (myParalyzed !== enemyParalyzed) {
+      const nonParalyzedId = myParalyzed ? enemyId : myId;
+      if (pending[nonParalyzedId]) {
+        scheduleTurnFinalize(turnNumber, PARALYSIS_SINGLE_EARLY_FINALIZE_MS);
+      }
+    }
+  };
+
+  const startHostTurn = (turnNumber: number, battle: Record<string, PlayerBattleState>) => {
+    const durationSeconds = getTurnWindowSeconds(battle);
+    const deadline = Date.now() + durationSeconds * 1000;
+    sendWire({ type: "turn_start", payload: { turn: turnNumber, deadline } });
+    startCountdown(deadline);
+    scheduleTurnFinalize(turnNumber, durationSeconds * 1000);
+  };
+
   // Shared countdown timer used by both host and guest
   const startCountdown = (deadline: number) => {
     if (countdownIntervalRef.current !== null) {
@@ -117,11 +170,7 @@ export default function Home() {
     setStatus("対戦開始！");
 
     if (roleRef.current === "host") {
-      const deadline = Date.now() + TURN_SECONDS * 1000;
-      sendWire({ type: "turn_start", payload: { turn: 1, deadline } });
-      startCountdown(deadline);
-      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-      turnTimerRef.current = window.setTimeout(() => finalizeTurn(1), TURN_SECONDS * 1000);
+      startHostTurn(1, initial);
     }
   };
 
@@ -161,11 +210,7 @@ export default function Home() {
 
     const nextTurn = turnNumber + 1;
     setTurn(nextTurn);
-    const deadline = Date.now() + TURN_SECONDS * 1000;
-    sendWire({ type: "turn_start", payload: { turn: nextTurn, deadline } });
-    startCountdown(deadline);
-    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-    turnTimerRef.current = window.setTimeout(() => finalizeTurn(nextTurn), TURN_SECONDS * 1000);
+    startHostTurn(nextTurn, result.nextStates);
   };
 
   const handleWire = (message: WireMessage) => {
@@ -184,10 +229,7 @@ export default function Home() {
 
     if (message.type === "turn_action" && roleRef.current === "host") {
       pendingActionsRef.current[message.payload.playerId] = message.payload.action;
-      if (pendingActionsRef.current[myIdRef.current] && pendingActionsRef.current[peerIdRef.current]) {
-        if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-        finalizeTurn(message.payload.turn);
-      }
+      maybeFinalizeTurnEarly(message.payload.turn);
       return;
     }
 
@@ -372,10 +414,7 @@ export default function Home() {
     sendWire({ type: "turn_action", payload: { turn, playerId: myIdRef.current, action } });
     if (roleRef.current === "host") {
       pendingActionsRef.current[myIdRef.current] = action;
-      if (pendingActionsRef.current[myIdRef.current] && pendingActionsRef.current[peerIdRef.current]) {
-        if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-        finalizeTurn(turn);
-      }
+      maybeFinalizeTurnEarly(turn);
     }
   };
 
@@ -420,6 +459,7 @@ export default function Home() {
         <BattlePanel
           me={myState}
           enemy={enemyState}
+          turn={turn}
           turnResult={turnResult}
           countdown={turnCountdown}
           onActionSelect={onActionSelect}

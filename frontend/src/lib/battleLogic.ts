@@ -68,6 +68,12 @@ const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState,
 
 const maybeAvoid = (damage: number, evasion: number, rng: () => number) => (rng() < evasion ? 0 : damage);
 
+export function getDamageMultiplier(turn: number): number {
+  if (turn > 20) return 3;
+  if (turn > 15) return 2;
+  return 1;
+}
+
 export function resolveTurn(params: {
   turn: number;
   players: Record<string, PlayerBattleState>;
@@ -81,6 +87,7 @@ export function resolveTurn(params: {
   const right = structuredClone(params.players[rightId]);
   const leftAction = params.actions[leftId];
   const rightAction = params.actions[rightId];
+  const damageMultiplier = getDamageMultiplier(params.turn);
 
   const logs: string[] = [];
   const damageEvents: TurnDamageEvent[] = [];
@@ -96,7 +103,8 @@ export function resolveTurn(params: {
   }
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string) => {
-    const actual = maybeAvoid(amount, to.stats.evasion, rng);
+    const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
+    const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
       damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason });

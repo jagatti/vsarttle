@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getAvailableActions, magicCost } from "@/lib/battleLogic";
+import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
 
 const ACTION_LABELS: Record<ActionType, string> = {
@@ -348,6 +348,7 @@ function ActionButtonsRow({
 export function BattlePanel(props: {
   me: PlayerBattleState;
   enemy: PlayerBattleState;
+  turn: number;
   turnResult: TurnResult | null;
   countdown: number;
   onActionSelect: (action: ActionType) => void;
@@ -475,6 +476,18 @@ export function BattlePanel(props: {
   const countdown = props.countdown;
   const countdownColor = countdown <= 5 ? "#ef4444" : countdown <= 10 ? "#f59e0b" : "#fef3c7";
   const countdownPulse = countdown <= 5;
+  const currentDamageMultiplier = getDamageMultiplier(props.turn);
+  const upcomingDamageAnnouncement = (() => {
+    const milestones = [
+      { turn: 16, multiplier: 2 },
+      { turn: 21, multiplier: 3 },
+    ];
+    for (const milestone of milestones) {
+      const remain = milestone.turn - props.turn;
+      if (remain >= 1 && remain <= 3) return `あと${remain}ターンで常時ダメージ${milestone.multiplier}倍`;
+    }
+    return null;
+  })();
 
   return (
     <div style={{ position: "relative" }}>
@@ -613,8 +626,13 @@ export function BattlePanel(props: {
               letterSpacing: "0.05em",
             }}
           >
-            ⚔️ バトル {props.turnResult ? `ターン ${props.turnResult.turn}` : ""}
+            ⚔️ バトル ターン {props.turn}
           </span>
+          {upcomingDamageAnnouncement && (
+            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: 12, textShadow: "0 0 8px #f59e0b99" }}>
+              {upcomingDamageAnnouncement}
+            </span>
+          )}
         </div>
 
         {/* Name / HP / PP boxes, colored by character type */}
@@ -651,6 +669,20 @@ export function BattlePanel(props: {
               gap: 4,
             }}
           >
+            {currentDamageMultiplier > 1 && (
+              <div
+                style={{
+                  color: "#fde68a",
+                  fontWeight: "bold",
+                  fontSize: 13,
+                  textShadow: "0 0 8px #f59e0b",
+                  animation: "fadeInScale 0.25s ease-out, countdownPulse 1.2s ease-in-out infinite",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                現在ダメージ{currentDamageMultiplier}倍中
+              </div>
+            )}
             <div
               style={{
                 background: "#1c1206",
