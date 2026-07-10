@@ -335,8 +335,9 @@ function ActionButtonsRow({
                 soundManager.playSe("/sounds/se/ng.mp3");
                 return;
               }
-              const sePath = ACTION_SE[action];
-              if (sePath) soundManager.playSe(sePath);
+              // わざ選択時はbuttonのSEのみ再生する。
+              // わざ固有のSE（attack.mp3など）は実際にわざが発動するタイミングで再生する。
+              soundManager.playSe("/sounds/se/button.mp3");
               onSelect?.(action);
             }}
             style={{
@@ -473,8 +474,20 @@ export function BattlePanel(props: {
         firstId = props.enemy.id;
         secondId = props.me.id;
       }
+
+      // わざが実際に発動するタイミングでSEを再生する。
+      const playActionSe = (playerId: string) => {
+        const action = turnResult.actions[playerId];
+        const sePath = action ? ACTION_SE[action] : "";
+        if (sePath) soundManager.playSe(sePath);
+      };
+
       setActingPlayerId(firstId);
-      setTimeout(() => setActingPlayerId(secondId), 850);
+      playActionSe(firstId);
+      setTimeout(() => {
+        setActingPlayerId(secondId);
+        playActionSe(secondId);
+      }, 850);
       setTimeout(() => setActingPlayerId(null), 1700);
     }, 2000);
 
