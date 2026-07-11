@@ -95,6 +95,67 @@ function maskToSpans(mask: Uint8Array, width: number, height: number) {
   return spans;
 }
 
+// Renders the given strokes onto an OFFSCREEN, TRANSPARENT canvas (no white
+// background fill) and returns the resulting ImageData. This is used
+// exclusively for stat/type calculation, as opposed to the visible canvas
+// which always fills an opaque white background for the user to draw on.
+//
+// Why this matters: the visible canvas fills the entire 400x400 area with
+// fully-opaque white before drawing strokes. If that same ImageData were fed
+// into calculateStatsFromDrawing/detectCharacterType, every single pixel
+// (including all the untouched white background) would count as a "filled"
+// pixel with low saturation, which the trend detector buckets into the
+// "defense" (barrier) type. The practical effect was that a blank or
+// barely-touched canvas would still register ~100% coverage and get pushed
+// toward a high-HP defense character, regardless of what (if anything) was
+// actually drawn. By computing stats from a transparent-background render
+// instead, only pixels the player actually painted count as "filled", so an
+// empty canvas correctly yields near-zero coverage/effort (and a neutral
+// "balanced" type) instead of an artificial defense/HP-400 result.
+function renderStrokesForStats(strokes: Stroke[]): ImageData | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // Intentionally do NOT fill a background color here — leave it transparent
+  // so untouched areas have alpha 0 and are excluded from stat calculations.
+  for (const stroke of strokes) {
+    if (stroke.tool === "fill" && stroke.fillSpans) {
+      ctx.save();
+      ctx.fillStyle = stroke.color;
+      for (const span of stroke.fillSpans) {
+        ctx.fillRect(span.x1, span.y, span.x2 - span.x1 + 1, 1);
+      }
+      ctx.restore();
+      continue;
+    }
+    if (stroke.points.length < 2) continue;
+    ctx.save();
+    // Eraser strokes should punch actual transparency into the stats canvas
+    // (matching how they visually clear ink on the real white canvas),
+    // rather than painting an opaque white blob that would be misread as an
+    // intentional white-ink stroke.
+    if (stroke.tool === "eraser") {
+      ctx.globalCompositeOperation = "destination-out";
+    }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = stroke.size;
+    ctx.strokeStyle = stroke.tool === "eraser" ? "#000000" : stroke.color;
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    for (let i = 1; i < stroke.points.length; i += 1) {
+      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  return ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+}
+
 export function DrawPanel(props: {
   seconds: number;
   disabled?: boolean;
@@ -186,12 +247,16 @@ export function DrawPanel(props: {
       ctx.restore();
     }
 
-    // Calculate live stats after rendering
-    const imageData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    const stats = calculateStatsFromDrawing(drawingData, imageData);
-    const type = detectCharacterType(imageData);
-    setLiveStats(stats);
-    setLiveType(type);
+    // Calculate live stats from a transparent-background render of the same
+    // strokes (see renderStrokesForStats for why we don't reuse the visible
+    // canvas's white-background ImageData here).
+    const statsImageData = renderStrokesForStats(allStrokes);
+    if (statsImageData) {
+      const stats = calculateStatsFromDrawing(drawingData, statsImageData);
+      const type = detectCharacterType(statsImageData);
+      setLiveStats(stats);
+      setLiveType(type);
+    }
   }, [strokes, drawingStroke, drawingData]);
 
   const startStroke = (x: number, y: number) => {
@@ -259,8 +324,14 @@ export function DrawPanel(props: {
     if (!ctx) return;
     submittedRef.current = true;
     setSubmitted(true);
-    props.onComplete({ drawing: drawingData, imageData: ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE) });
-  }, [drawingData, props]);
+    // Use the transparent-background stats render (not the visible white
+    // canvas) so the final HP/type calculation is consistent with the live
+    // preview and isn't skewed by the white background — see
+    // renderStrokesForStats for details. Fall back to the visible canvas's
+    // ImageData only if the offscreen render is unavailable for some reason.
+    const statsImageData = renderStrokesForStats(strokes) ?? ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    props.onComplete({ drawing: drawingData, imageData: statsImageData });
+  }, [drawingData, props, strokes]);
 
   useEffect(() => {
     if (props.seconds <= 0) submit();
