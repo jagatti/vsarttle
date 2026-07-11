@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { CharacterStats, DrawingData, Stroke } from "@/types/game";
+import type { CharacterStats, DrawingData, Stroke, WireDrawingData } from "@/types/game";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { wireDrawingToStrokes } from "@/lib/drawingWire";
 import { soundManager } from "@/lib/soundManager";
 
 const COLORS = [
@@ -23,6 +24,9 @@ const COLORS = [
 ];
 
 const CANVAS_SIZE = 400;
+
+const SIZE_PRESETS = [3, 8, 14, 22, 32];
+const SIZE_SWATCH_BOX = 36;
 
 const TYPE_LABELS: Record<string, string> = {
   attack: "こうげき型",
@@ -94,16 +98,45 @@ function maskToSpans(mask: Uint8Array, width: number, height: number) {
 export function DrawPanel(props: {
   seconds: number;
   disabled?: boolean;
+  /** Previously submitted drawing to continue editing (e.g. 「描きなおしてもう１戦」). */
+  initialDrawing?: WireDrawingData;
   onComplete: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [tool, setTool] = useState<"pen" | "eraser" | "fill">("pen");
   const [color, setColor] = useState("#111111");
   const [size, setSize] = useState(8);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [strokes, setStrokes] = useState<Stroke[]>(() =>
+    props.initialDrawing ? wireDrawingToStrokes(props.initialDrawing) : [],
+  );
+  const [undoStack, setUndoStack] = useState<Stroke[][]>([]);
+  const [redoStack, setRedoStack] = useState<Stroke[][]>([]);
   const [drawingStroke, setDrawingStroke] = useState<Stroke | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const submittedRef = useRef(false);
+
+  // Push the current strokes onto the undo history before applying a mutation, and
+  // clear the redo history since a new action invalidates any previously undone state.
+  const pushHistory = () => {
+    setUndoStack((prev) => [...prev, strokes]);
+    setRedoStack([]);
+  };
+
+  const undo = () => {
+    if (submitted || undoStack.length === 0) return;
+    const previous = undoStack[undoStack.length - 1];
+    setUndoStack(undoStack.slice(0, -1));
+    setRedoStack((prev) => [...prev, strokes]);
+    setStrokes(previous);
+  };
+
+  const redo = () => {
+    if (submitted || redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack(redoStack.slice(0, -1));
+    setUndoStack((prev) => [...prev, strokes]);
+    setStrokes(next);
+  };
 
   const drawingData = useMemo<DrawingData>(
     () => ({
@@ -173,6 +206,7 @@ export function DrawPanel(props: {
       const mask = floodFillMask(imageData, ix, iy);
       const fillSpans = maskToSpans(mask, CANVAS_SIZE, CANVAS_SIZE);
       if (fillSpans.length === 0) return;
+      pushHistory();
       setStrokes((prev) => [
         ...prev,
         {
@@ -202,6 +236,7 @@ export function DrawPanel(props: {
   const endStroke = () => {
     setDrawingStroke((current) => {
       if (current && current.points.length > 1) {
+        pushHistory();
         setStrokes((prev) => [...prev, current]);
       }
       return null;
@@ -231,15 +266,102 @@ export function DrawPanel(props: {
     if (props.seconds <= 0) submit();
   }, [props.seconds, submit]);
 
+  const clearAll = () => {
+    if (strokes.length === 0) return;
+    if (!window.confirm("キャンバスの絵を全て消去します。よろしいですか？")) return;
+    pushHistory();
+    setStrokes([]);
+  };
+
   return (
     <section className="space-y-3 rounded-lg border p-4">
       <h2 className="text-xl font-bold">おえかき（残り {props.seconds} 秒）</h2>
       <div className="flex flex-wrap items-center gap-2">
-        <button className={`rounded border px-2 py-1 ${tool === "pen" ? "bg-gray-200" : ""}`} onClick={() => setTool("pen")} disabled={submitted}>ペン</button>
-        <button className={`rounded border px-2 py-1 ${tool === "eraser" ? "bg-gray-200" : ""}`} onClick={() => setTool("eraser")} disabled={submitted}>消しゴム</button>
-        <button className={`rounded border px-2 py-1 ${tool === "fill" ? "bg-gray-200" : ""}`} onClick={() => setTool("fill")} disabled={submitted}>塗りつぶし</button>
-        <button className="rounded border px-2 py-1" onClick={() => setStrokes([])} disabled={submitted}>全消去</button>
-        <label className="flex items-center gap-1">太さ<input type="range" min={1} max={40} value={size} onChange={(e) => setSize(Number(e.target.value))} disabled={submitted} /></label>
+        {(
+          [
+            { key: "pen", label: "ペン" },
+            { key: "eraser", label: "消しゴム" },
+            { key: "fill", label: "塗りつぶし" },
+          ] as const
+        ).map(({ key, label }) => {
+          const isSelected = tool === key;
+          return (
+            <button
+              key={key}
+              aria-pressed={isSelected}
+              className="rounded-md px-3 py-1.5 text-sm font-bold transition-all"
+              style={{
+                border: isSelected ? "2px solid #2563eb" : "2px solid #d1d5db",
+                background: isSelected ? "#2563eb" : "#ffffff",
+                color: isSelected ? "#ffffff" : "#374151",
+                boxShadow: isSelected ? "0 0 0 3px rgba(37,99,235,0.25)" : "none",
+                transform: isSelected ? "scale(1.05)" : "scale(1)",
+              }}
+              onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); setTool(key); }}
+              disabled={submitted}
+            >
+              {label}
+            </button>
+          );
+        })}
+        <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden />
+        <button
+          className="rounded-md border-2 border-gray-300 px-2 py-1.5 text-sm font-bold text-gray-500 disabled:opacity-30"
+          onClick={undo}
+          disabled={submitted || undoStack.length === 0}
+          aria-label="元に戻す"
+        >
+          ↶ 元に戻す
+        </button>
+        <button
+          className="rounded-md border-2 border-gray-300 px-2 py-1.5 text-sm font-bold text-gray-500 disabled:opacity-30"
+          onClick={redo}
+          disabled={submitted || redoStack.length === 0}
+          aria-label="やり直す"
+        >
+          ↷ やり直す
+        </button>
+        <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden />
+        <button
+          className="rounded-md border-2 border-red-400 bg-red-50 px-3 py-1.5 text-sm font-bold text-red-600"
+          onClick={clearAll}
+          disabled={submitted}
+        >
+          🗑 全消去
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-bold text-gray-600">太さ</span>
+        {SIZE_PRESETS.map((preset) => {
+          const isSelected = size === preset;
+          return (
+            <button
+              key={preset}
+              aria-label={`太さ ${preset}`}
+              aria-pressed={isSelected}
+              disabled={submitted}
+              className="flex items-center justify-center rounded-md transition-all"
+              style={{
+                width: SIZE_SWATCH_BOX,
+                height: SIZE_SWATCH_BOX,
+                border: isSelected ? "2px solid #2563eb" : "2px solid #d1d5db",
+                background: isSelected ? "#eff6ff" : "#ffffff",
+                boxShadow: isSelected ? "0 0 0 3px rgba(37,99,235,0.25)" : "none",
+              }}
+              onClick={() => setSize(preset)}
+            >
+              <span
+                style={{
+                  width: preset,
+                  height: preset,
+                  borderRadius: "50%",
+                  background: tool === "eraser" ? "#ffffff" : color,
+                  border: tool === "eraser" ? "1px solid #9ca3af" : "none",
+                }}
+              />
+            </button>
+          );
+        })}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {COLORS.map((preset) => (

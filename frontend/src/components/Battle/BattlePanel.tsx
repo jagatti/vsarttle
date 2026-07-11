@@ -377,8 +377,8 @@ export function BattlePanel(props: {
   countdown: number;
   onActionSelect: (action: ActionType) => void;
   finishResult?: { winnerId: string } | null;
-  onBackToRoom: () => void;
-  onRematch: () => void;
+  onRematchSame: () => void;
+  onRematchRedraw: () => void;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -620,22 +620,22 @@ export function BattlePanel(props: {
               }}
             >
               <button
-                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onBackToRoom(); }}
+                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 8,
-                  border: "2px solid #9ca3af",
-                  background: "rgba(30,30,30,0.9)",
-                  color: "#f3f4f6",
+                  border: "2px solid #22c55e",
+                  background: "rgba(6,60,20,0.9)",
+                  color: "#86efac",
                   fontWeight: "bold",
                   fontSize: 14,
                   cursor: "pointer",
                 }}
               >
-                ルーム作成へ戻る
+                再戦（絵を引き継ぐ）
               </button>
               <button
-                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematch(); }}
+                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 8,
@@ -647,7 +647,7 @@ export function BattlePanel(props: {
                   cursor: "pointer",
                 }}
               >
-                もう１戦
+                描きなおしてもう１戦
               </button>
             </div>
           )}
