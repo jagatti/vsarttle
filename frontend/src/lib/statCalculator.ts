@@ -103,6 +103,10 @@ function calculateStrokeMetrics(drawing: DrawingData): { strokeDistance: number;
 }
 
 // Type-specific stat ranges: each type guarantees its character's identity
+// Note: HP range width (max - min) was intentionally doubled from the original
+// design (min kept the same, max extended) to allow more room for well-drawn
+// characters to stand out, while barely-drawn ("effort" ≈ 0) characters are
+// still pulled toward the low end by the `effort` gate below.
 const STAT_RANGES: Record<ColorTrend, {
   hp: [number, number];
   pp: [number, number];
@@ -111,10 +115,12 @@ const STAT_RANGES: Record<ColorTrend, {
   speed: [number, number];
   evasion: [number, number];
 }> = {
-  attack:   { hp: [30, 180],   pp: [30, 60],   attack: [120, 199], defense: [50, 110],  speed: [5, 9], evasion: [0.03, 0.07] },
-  defense:  { hp: [150, 300],  pp: [40, 80],   attack: [50, 110],  defense: [100, 149], speed: [1, 5], evasion: [0.03, 0.05] },
-  magic:    { hp: [30, 150],   pp: [60, 99],   attack: [50, 100],  defense: [50, 100],  speed: [5, 9], evasion: [0.06, 0.1]  },
-  balanced: { hp: [80, 220],   pp: [40, 80],   attack: [80, 150],  defense: [80, 120],  speed: [3, 7], evasion: [0.04, 0.07] },
+  attack:   { hp: [30, 330],  pp: [30, 60], attack: [120, 199], defense: [50, 110],  speed: [5, 9], evasion: [0.03, 0.07] },
+  // defense(バリア)型: 高すぎた攻撃力・PPを引き下げ、守備特化の役割をはっきりさせる
+  defense:  { hp: [120, 400], pp: [20, 45], attack: [30, 70],   defense: [110, 160], speed: [1, 5], evasion: [0.02, 0.05] },
+  // magic(まほう)型: 一撃死しにくいようHP・防御力の下限を引き上げ
+  magic:    { hp: [60, 300],  pp: [60, 99], attack: [50, 100],  defense: [60, 110],  speed: [5, 9], evasion: [0.06, 0.1] },
+  balanced: { hp: [80, 360],  pp: [40, 80], attack: [80, 150],  defense: [80, 120],  speed: [3, 7], evasion: [0.04, 0.07] },
 };
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -130,6 +136,14 @@ export function calculateStatsFromDrawing(drawing: DrawingData, imageData: Image
   const coverage = imageData.width * imageData.height > 0 ? trendInfo.filledPixels / (imageData.width * imageData.height) : 0;
   const detailScore = clamp((trendInfo.uniqueColors / 25) * 0.4 + (strokeMetrics.strokeDistance / 5000) * 0.6, 0, 1);
   const volumeScore = clamp(coverage * 2.2 + strokeMetrics.avgStrokeSize / 40, 0, 1);
+
+  // "Effort" gate: how much was actually drawn (fill coverage + stroke thickness),
+  // independent of color trend. A blank or barely-touched canvas previously could
+  // still reach near-max stats (e.g. HP 300) purely because a few pixels leaned
+  // toward one color trend, giving trendRatio ≈ 1. Multiplying every score by
+  // `effort` ensures low-effort drawings stay near the low end of their type's
+  // range regardless of trendRatio, while well-filled drawings are unaffected.
+  const effort = clamp(coverage * 3 + strokeMetrics.avgStrokeSize / 30, 0, 1);
 
   // Base score mapping follows existing tendencies:
   // attack/speed → volume-heavy; pp/evasion → detail-heavy; defense → both equally
@@ -181,6 +195,15 @@ export function calculateStatsFromDrawing(drawing: DrawingData, imageData: Image
     speedScore   = baseSpeed;
     evasionScore = baseEvasion;
   }
+
+  // Apply the effort gate: a low-effort (near-blank) drawing is pulled toward
+  // the bottom of every stat range regardless of trend/trendRatio.
+  hpScore      = clamp(hpScore * effort, 0, 1);
+  ppScore      = clamp(ppScore * effort, 0, 1);
+  attackScore  = clamp(attackScore * effort, 0, 1);
+  defenseScore = clamp(defenseScore * effort, 0, 1);
+  speedScore   = clamp(speedScore * effort, 0, 1);
+  evasionScore = clamp(evasionScore * effort, 0, 1);
 
   const ranges = STAT_RANGES[trendInfo.trend];
 
