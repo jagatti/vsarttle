@@ -1,4 +1,4 @@
-import type { DrawingData, WireDrawingData, WirePoint } from "@/types/game";
+import type { DrawingData, Stroke, WireDrawingData, WirePoint } from "@/types/game";
 
 const MIN_POINT_DISTANCE = 1.5;
 
@@ -77,4 +77,22 @@ export function drawingToDataUrl(drawing: WireDrawingData): string {
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${drawing.canvas.width} ${drawing.canvas.height}" width="${drawing.canvas.width}" height="${drawing.canvas.height}"><rect width="100%" height="100%" fill="#ffffff" />${strokeMarkup}</svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Reconstructs editable canvas strokes from a previously-submitted WireDrawingData
+ * so a player can continue editing their last illustration (e.g. "描きなおしてもう１戦").
+ * WirePoint has no timestamp, so a placeholder `t` is synthesized for each point.
+ */
+export function wireDrawingToStrokes(drawing: WireDrawingData): Stroke[] {
+  return drawing.layers.flatMap((layer) =>
+    layer.strokes.map((stroke) => ({
+      id: stroke.id,
+      tool: stroke.tool,
+      color: stroke.color,
+      size: stroke.size,
+      points: stroke.points.map((point) => ({ x: point.x, y: point.y, t: 0 })),
+      ...(stroke.fillSpans ? { fillSpans: stroke.fillSpans } : {}),
+    })),
+  );
 }

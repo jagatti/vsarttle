@@ -30,12 +30,15 @@ interface PeerCharacter {
   characterType: CharacterType;
 }
 
+type RematchMode = "same" | "redraw";
+
 type WireMessage =
   | { type: "ready"; payload: PeerCharacter }
   | { type: "turn_start"; payload: { turn: number; deadline: number } }
   | { type: "turn_action"; payload: { turn: number; playerId: string; action: ActionType } }
   | { type: "turn_result"; payload: TurnResult }
-  | { type: "forfeit"; payload: { winnerId: string; reason: string } };
+  | { type: "forfeit"; payload: { winnerId: string; reason: string } }
+  | { type: "rematch"; payload: { mode: RematchMode } };
 
 export default function Home() {
   const peerRef = useRef<PeerType | null>(null);
@@ -50,6 +53,9 @@ export default function Home() {
   const localCharacterRef = useRef<PeerCharacter | null>(null);
   const remoteCharacterRef = useRef<PeerCharacter | null>(null);
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
+  // Guards against re-applying a "rematch" choice twice for the same battle finish
+  // (once from the local button click, once from the message echoed by the peer).
+  const rematchHandledRef = useRef(false);
 
   const [stage, setStage] = useState<Stage>("room");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
@@ -214,6 +220,53 @@ export default function Home() {
     startHostTurn(nextTurn, result.nextStates);
   };
 
+  // Reset the rematch guard whenever a new battle finish occurs, so the next
+  // "再戦"/"描きなおしてもう１戦" choice can be applied exactly once.
+  useEffect(() => {
+    if (battleFinish) rematchHandledRef.current = false;
+  }, [battleFinish]);
+
+  const applyRematch = (mode: RematchMode) => {
+    if (rematchHandledRef.current) return;
+    rematchHandledRef.current = true;
+
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    pendingActionsRef.current = {};
+    setTurnResult(null);
+
+    if (mode === "same") {
+      // 再戦: 前回のイラスト・ステータスをそのまま引き継ぎ、バトルパートから再開する。
+      const local = localCharacterRef.current;
+      const remote = remoteCharacterRef.current;
+      if (!local || !remote) return;
+      beginBattle(local, remote);
+      setStatus("再戦開始！");
+      return;
+    }
+
+    // 描きなおしてもう１戦: ラクガキパートに戻る。相手の新しい絵を待つ必要があるため
+    // remoteCharacterRef はクリアするが、自分の前回のイラストは DrawPanel の
+    // initialDrawing として引き継ぎ、続きから編集できるようにする。
+    remoteCharacterRef.current = null;
+    setBattleFinish(null);
+    setBattleState({});
+    setTurn(1);
+    setDrawSeconds(DRAW_SECONDS);
+    setStage("drawing");
+    setStatus("描きなおしてもう１戦！前回の絵を編集できます。");
+  };
+
+  const onRematchSame = () => {
+    sendWire({ type: "rematch", payload: { mode: "same" } });
+    applyRematch("same");
+  };
+
+  const onRematchRedraw = () => {
+    sendWire({ type: "rematch", payload: { mode: "redraw" } });
+    applyRematch("redraw");
+  };
+
   const handleWire = (message: WireMessage) => {
     if (message.type === "ready") {
       remoteCharacterRef.current = message.payload;
@@ -241,6 +294,11 @@ export default function Home() {
       if (message.payload.winnerId) {
         setBattleFinish({ winnerId: message.payload.winnerId });
       }
+      return;
+    }
+
+    if (message.type === "rematch") {
+      applyRematch(message.payload.mode);
       return;
     }
 
@@ -437,24 +495,12 @@ export default function Home() {
     setBattleFinish(null);
     setTurnResult(null);
     setBattleState({});
-    setStage("room");
-    setStatus("ルームを作成するか入室してください");
-  };
-
-  const onRematch = () => {
-    // Reset battle state and go back to drawing with same connection
-    setBattleFinish(null);
-    setTurnResult(null);
-    setBattleState({});
+    // Clear stale character data so a future room's drawing phase never gets
+    // prefilled with an illustration from a previous, unrelated match.
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
-    pendingActionsRef.current = {};
-    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    setTurn(1);
-    setDrawSeconds(DRAW_SECONDS);
-    setStage("drawing");
-    setStatus("もう１戦！新しい絵を描いてください。");
+    setStage("room");
+    setStatus("ルームを作成するか入室してください");
   };
 
   return (
@@ -465,7 +511,9 @@ export default function Home() {
         <RoomPanel status={status} roomCode={roomCode} canUseSignaling={true} onCreate={onCreate} onJoin={onJoin} />
       )}
 
-      {stage === "drawing" && <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} />}
+      {stage === "drawing" && (
+        <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={localCharacterRef.current?.drawing} />
+      )}
 
       {stage === "battle" && myState && enemyState && (
         <BattlePanel
@@ -476,8 +524,8 @@ export default function Home() {
           countdown={turnCountdown}
           onActionSelect={onActionSelect}
           finishResult={battleFinish}
-          onBackToRoom={onBackToRoom}
-          onRematch={onRematch}
+          onRematchSame={onRematchSame}
+          onRematchRedraw={onRematchRedraw}
         />
       )}
 
