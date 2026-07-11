@@ -372,6 +372,7 @@ function ActionButtonsRow({
 export function BattlePanel(props: {
   me: PlayerBattleState;
   enemy: PlayerBattleState;
+  role: "host" | "guest";
   turn: number;
   turnResult: TurnResult | null;
   countdown: number;
@@ -619,36 +620,42 @@ export function BattlePanel(props: {
                 animation: "finishButtonsIn 0.5s ease-out",
               }}
             >
-              <button
-                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 8,
-                  border: "2px solid #22c55e",
-                  background: "rgba(6,60,20,0.9)",
-                  color: "#86efac",
-                  fontWeight: "bold",
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                再戦（絵を引き継ぐ）
-              </button>
-              <button
-                onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 8,
-                  border: "2px solid #fbbf24",
-                  background: "rgba(120,60,0,0.9)",
-                  color: "#fbbf24",
-                  fontWeight: "bold",
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                描きなおしてもう１戦
-              </button>
+              {props.role === "host" ? (
+                <>
+                  <button
+                    onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 8,
+                      border: "2px solid #22c55e",
+                      background: "rgba(6,60,20,0.9)",
+                      color: "#86efac",
+                      fontWeight: "bold",
+                      fontSize: 14,
+                      cursor: "pointer",
+                    }}
+                  >
+                    再戦（絵を引き継ぐ）
+                  </button>
+                  <button
+                    onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 8,
+                      border: "2px solid #fbbf24",
+                      background: "rgba(120,60,0,0.9)",
+                      color: "#fbbf24",
+                      fontWeight: "bold",
+                      fontSize: 14,
+                      cursor: "pointer",
+                    }}
+                  >
+                    描きなおしてもう１戦
+                  </button>
+                </>
+              ) : (
+                <p style={{ color: "#fef3c7", fontWeight: "bold" }}>ホストの選択を待っています…</p>
+              )}
             </div>
           )}
         </div>

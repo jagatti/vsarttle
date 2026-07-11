@@ -241,6 +241,7 @@ export default function Home() {
       const remote = remoteCharacterRef.current;
       if (!local || !remote) return;
       beginBattle(local, remote);
+      soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
       setStatus("再戦開始！");
       return;
     }
@@ -258,11 +259,13 @@ export default function Home() {
   };
 
   const onRematchSame = () => {
+    if (roleRef.current !== "host") return;
     sendWire({ type: "rematch", payload: { mode: "same" } });
     applyRematch("same");
   };
 
   const onRematchRedraw = () => {
+    if (roleRef.current !== "host") return;
     sendWire({ type: "rematch", payload: { mode: "redraw" } });
     applyRematch("redraw");
   };
@@ -271,7 +274,7 @@ export default function Home() {
     if (message.type === "ready") {
       remoteCharacterRef.current = message.payload;
       const local = localCharacterRef.current;
-      if (local) beginBattle(local, message.payload);
+      if (local && stage === "drawing") beginBattle(local, message.payload);
       return;
     }
 
@@ -477,7 +480,7 @@ export default function Home() {
     sendWire({ type: "ready", payload: character });
     setStatus("準備完了。相手の完成を待っています。");
     const remote = remoteCharacterRef.current;
-    if (remote) beginBattle(character, remote);
+    if (remote && stage === "drawing") beginBattle(character, remote);
   };
 
   const onActionSelect = (action: ActionType) => {
@@ -519,6 +522,7 @@ export default function Home() {
         <BattlePanel
           me={myState}
           enemy={enemyState}
+          role={roleRef.current === "host" ? "host" : "guest"}
           turn={turn}
           turnResult={turnResult}
           countdown={turnCountdown}
