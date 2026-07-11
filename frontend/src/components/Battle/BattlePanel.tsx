@@ -68,14 +68,14 @@ function HpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   const color = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
   return (
-    <div style={{ height: "clamp(10px, 1.4vw, 20px)", background: "#111", borderRadius: 8, border: "2px solid #4b5563", overflow: "hidden", marginTop: 5 }}>
+    <div style={{ height: "clamp(8px, 1vw, 13px)", background: "#111", borderRadius: 6, border: "2px solid #4b5563", overflow: "hidden", marginTop: 3 }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
           background: `linear-gradient(to right, ${color}99, ${color})`,
           transition: "width 0.6s ease-in-out, background 0.3s",
-          borderRadius: 8,
+          borderRadius: 6,
           boxShadow: `0 0 6px ${color}88`,
         }}
       />
@@ -86,14 +86,14 @@ function HpBar({ current, max }: { current: number; max: number }) {
 function PpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   return (
-    <div style={{ height: "clamp(6px, 0.9vw, 12px)", background: "#111", borderRadius: 6, border: "1px solid #374151", overflow: "hidden", marginTop: 4 }}>
+    <div style={{ height: "clamp(5px, 0.65vw, 8px)", background: "#111", borderRadius: 4, border: "1px solid #374151", overflow: "hidden", marginTop: 2 }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
           background: "linear-gradient(to right, #06b6d499, #06b6d4)",
           transition: "width 0.6s ease-in-out",
-          borderRadius: 6,
+          borderRadius: 4,
         }}
       />
     </div>
@@ -114,26 +114,26 @@ function NameHpBox({ player, align }: { player: PlayerBattleState; align: "left"
     <div
       style={{
         background: "rgba(0,0,0,0.55)",
-        borderRadius: 14,
-        border: `4px solid ${borderColor}`,
-        padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-        minWidth: "clamp(150px, 20vw, 260px)",
+        borderRadius: 10,
+        border: `3px solid ${borderColor}`,
+        padding: "clamp(6px, 0.7vw, 9px) clamp(10px, 1.2vw, 16px)",
+        minWidth: "clamp(130px, 15vw, 190px)",
         textAlign: align,
-        boxShadow: `0 0 14px ${borderColor}55`,
+        boxShadow: `0 0 10px ${borderColor}55`,
       }}
     >
-      <div style={{ color: borderColor, fontWeight: "bold", fontSize: "clamp(11px, 1.1vw, 16px)", marginBottom: 2 }}>
+      <div style={{ color: borderColor, fontWeight: "bold", fontSize: "clamp(10px, 0.8vw, 12px)", marginBottom: 1 }}>
         （{TYPE_LABELS[player.characterType]}）
       </div>
-      <div style={{ color: "#fff", fontWeight: "bold", fontSize: "clamp(15px, 1.7vw, 24px)" }}>{player.nickname}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#d1fae5", fontSize: "clamp(11px, 1.1vw, 16px)", marginTop: 6 }}>
+      <div style={{ color: "#fff", fontWeight: "bold", fontSize: "clamp(13px, 1.2vw, 17px)" }}>{player.nickname}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", color: "#d1fae5", fontSize: "clamp(10px, 0.8vw, 12px)", marginTop: 4 }}>
         <span>HP</span>
         <span>
           {player.currentHp}/{player.stats.maxHp}
         </span>
       </div>
       <HpBar current={player.currentHp} max={player.stats.maxHp} />
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: "clamp(10px, 1vw, 15px)", marginTop: 5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: "clamp(9px, 0.75vw, 11px)", marginTop: 3 }}>
         <span>PP</span>
         <span>
           {player.currentPp}/{player.stats.maxPp}
@@ -172,27 +172,27 @@ function PortraitBlock({
   ]
     .filter(Boolean)
     .join(", ");
-  // Base portrait size scales with viewport width (and a little with height),
-  // clamped between a usable minimum and a maximum so it neither disappears
-  // on small windows nor grows absurdly large on ultra-wide screens.
-  const baseSize = "clamp(140px, 20vw, 340px)";
-  const chargedSize = "clamp(160px, 22.5vw, 380px)";
+  // Portrait size scales with BOTH viewport width and height (via vh), so it
+  // shrinks to fit short browser windows too instead of only reacting to
+  // width and forcing the page to scroll to reach the action buttons.
+  const baseSize = "clamp(90px, min(13vw, 20vh), 190px)";
+  const chargedSize = "clamp(100px, min(14.5vw, 22vh), 210px)";
 
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ color: "#fde68a", fontSize: "clamp(12px, 1.1vw, 16px)", marginBottom: 8 }}>{label}</div>
+      <div style={{ color: "#fde68a", fontSize: "clamp(11px, 0.9vw, 13px)", marginBottom: 4 }}>{label}</div>
       <div style={{ position: "relative" }}>
         {floaters.map((f) => (
           <div
             key={f.id}
             style={{
               position: "absolute",
-              top: -12,
+              top: -10,
               left: "50%",
               zIndex: 5,
               color: f.type === "hpRecover" ? "#22c55e" : f.type === "ppRecover" ? "#3b82f6" : f.avoided ? "#60a5fa" : "#f87171",
               fontWeight: "bold",
-              fontSize: "clamp(18px, 2.2vw, 34px)",
+              fontSize: "clamp(15px, 1.6vw, 24px)",
               textShadow: f.type === "hpRecover" ? "0 0 8px #22c55e" : f.type === "ppRecover" ? "0 0 8px #3b82f6" : f.avoided ? "0 0 8px #60a5fa" : "0 0 8px #f87171",
               animation: "floatUp 1.4s ease-out forwards",
               pointerEvents: "none",
@@ -206,16 +206,16 @@ function PortraitBlock({
           <div
             style={{
               position: "absolute",
-              top: -22,
+              top: -18,
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 6,
               background: ACTION_COLORS[revealedAction],
               color: "#fff",
               fontWeight: "bold",
-              fontSize: "clamp(13px, 1.3vw, 20px)",
-              padding: "5px 16px",
-              borderRadius: 8,
+              fontSize: "clamp(12px, 1vw, 15px)",
+              padding: "4px 12px",
+              borderRadius: 7,
               whiteSpace: "nowrap",
               boxShadow: "0 0 10px rgba(0,0,0,0.5)",
               animation: "fadeInScale 0.25s ease-out",
@@ -230,12 +230,12 @@ function PortraitBlock({
           style={{
             width: isCharged ? chargedSize : baseSize,
             height: isCharged ? chargedSize : baseSize,
-            borderRadius: 14,
+            borderRadius: 12,
             border: `3px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
             background: "#fff",
             objectFit: "contain",
             filter: isLoser ? "grayscale(100%)" : "none",
-            boxShadow: isCharged ? "0 0 28px 10px #facc15cc" : "none",
+            boxShadow: isCharged ? "0 0 22px 8px #facc15cc" : "none",
             transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease",
             transform: isActing ? "scale(1.06)" : "scale(1)",
             animation: imgAnimations || "none",
@@ -243,18 +243,18 @@ function PortraitBlock({
         />
       </div>
       {activeEffects.length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ marginTop: 6, display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
           {activeEffects.map((name) => (
             <span
               key={name}
               style={{
-                fontSize: "clamp(10px, 1vw, 14px)",
+                fontSize: "clamp(9px, 0.75vw, 12px)",
                 fontWeight: "bold",
                 color: "#f87171",
                 background: "rgba(0,0,0,0.6)",
                 border: "1px solid #f87171",
-                borderRadius: 6,
-                padding: "2px 10px",
+                borderRadius: 5,
+                padding: "2px 8px",
                 whiteSpace: "nowrap",
               }}
             >
@@ -272,12 +272,12 @@ function MatchupTable() {
     <span
       style={{
         display: "inline-block",
-        padding: "4px 12px",
-        borderRadius: 7,
+        padding: "3px 9px",
+        borderRadius: 6,
         background: `${ACTION_COLORS[t]}33`,
         color: ACTION_COLORS[t],
         fontWeight: "bold",
-        fontSize: "clamp(11px, 1.1vw, 15px)",
+        fontSize: "clamp(10px, 0.85vw, 12px)",
         border: `1px solid ${ACTION_COLORS[t]}`,
       }}
     >
@@ -287,30 +287,30 @@ function MatchupTable() {
   return (
     <div
       style={{
-        margin: "16px auto",
+        margin: "8px auto",
         background: "rgba(0,0,0,0.5)",
-        borderRadius: 10,
+        borderRadius: 8,
         border: "1px solid #92400e",
-        padding: "12px 18px",
-        maxWidth: "clamp(360px, 45vw, 640px)",
+        padding: "8px 14px",
+        maxWidth: "clamp(320px, 40vw, 520px)",
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 4,
       }}
     >
-      <div style={{ color: "#fde68a", fontSize: "clamp(11px, 1.1vw, 15px)", fontWeight: "bold", textAlign: "center", marginBottom: 2 }}>相性表</div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", fontSize: "clamp(11px, 1.1vw, 15px)" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ color: "#fde68a", fontSize: "clamp(10px, 0.85vw, 12px)", fontWeight: "bold", textAlign: "center", marginBottom: 1 }}>相性表</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap", fontSize: "clamp(10px, 0.85vw, 12px)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {chip("attack")} <span style={{ color: "#fde68a" }}>➜</span> {chip("barrier")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {chip("magicWeak")} <span style={{ color: "#fde68a" }}>➜</span> {chip("attack")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {chip("barrier")} <span style={{ color: "#fde68a" }}>➜</span> {chip("magicWeak")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {chip("charge")} <span style={{ color: "#9ca3af" }}>：HP/PP回復</span>
         </span>
       </div>
@@ -332,7 +332,7 @@ function ActionButtonsRow({
   readOnly?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" }}>
       {SELECTABLE_ACTIONS.map((action) => {
         const canUse = actions.includes(action);
         const isSelected = selectedAction === action;
@@ -352,8 +352,8 @@ function ActionButtonsRow({
               onSelect?.(action);
             }}
             style={{
-              padding: "clamp(8px, 1vw, 12px) clamp(12px, 1.6vw, 20px)",
-              borderRadius: 10,
+              padding: "clamp(6px, 0.7vw, 9px) clamp(9px, 1.1vw, 14px)",
+              borderRadius: 8,
               border: `2px solid ${canUse ? color : "#374151"}`,
               background: canUse ? (isSelected ? color : `${color}28`) : "#1f2937",
               color: canUse ? (isSelected ? "#fff" : color) : "#6b7280",
@@ -362,7 +362,7 @@ function ActionButtonsRow({
               transition: "all 0.15s",
               transform: isSelected ? "scale(1.06)" : "scale(1)",
               boxShadow: isSelected ? `0 0 10px ${color}88` : "none",
-              fontSize: "clamp(13px, 1.3vw, 18px)",
+              fontSize: "clamp(11px, 0.95vw, 14px)",
               opacity: canUse ? 1 : 0.45,
               pointerEvents: readOnly ? "none" : "auto",
             }}
@@ -555,7 +555,13 @@ export function BattlePanel(props: {
   })();
 
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 120px)" }}>
+    // Note: no forced minHeight here (unlike a previous revision). Forcing the
+    // panel to be at least 100vh tall caused the whole page to exceed the
+    // viewport on typical browser window sizes, pushing the action buttons
+    // below the fold and requiring a scroll to reach them. Instead, every
+    // element below sizes itself with clamp()s that account for vh as well
+    // as vw, so the layout naturally fits within the visible area.
+    <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
       {/* Battle event flash */}
       {showFlash && (
         <div
@@ -564,7 +570,7 @@ export function BattlePanel(props: {
             inset: 0,
             zIndex: 20,
             background: "rgba(255,255,255,0.85)",
-            borderRadius: 16,
+            borderRadius: 14,
             animation: "battleFlash 0.6s ease-out forwards",
             pointerEvents: "none",
           }}
@@ -579,18 +585,18 @@ export function BattlePanel(props: {
             inset: 0,
             zIndex: 30,
             background: isWin ? "rgba(0,0,0,0.55)" : "rgba(0,0,20,0.70)",
-            borderRadius: 16,
+            borderRadius: 14,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 24,
+            gap: 16,
           }}
         >
           {isWin ? (
             <div
               style={{
-                fontSize: "clamp(40px, 6vw, 88px)",
+                fontSize: "clamp(30px, 4.2vw, 60px)",
                 fontWeight: "900",
                 background: "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
                 backgroundSize: "300% 100%",
@@ -606,7 +612,7 @@ export function BattlePanel(props: {
           ) : (
             <div
               style={{
-                fontSize: "clamp(40px, 6vw, 88px)",
+                fontSize: "clamp(30px, 4.2vw, 60px)",
                 fontWeight: "900",
                 color: "#3b82f6",
                 textShadow: "0 0 24px #3b82f6aa, 0 2px 8px #000",
@@ -622,7 +628,7 @@ export function BattlePanel(props: {
             <div
               style={{
                 display: "flex",
-                gap: 18,
+                gap: 14,
                 animation: "finishButtonsIn 0.5s ease-out",
               }}
             >
@@ -631,13 +637,13 @@ export function BattlePanel(props: {
                   <button
                     onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
                     style={{
-                      padding: "clamp(10px, 1.4vw, 16px) clamp(18px, 2.6vw, 32px)",
-                      borderRadius: 10,
+                      padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                      borderRadius: 8,
                       border: "2px solid #22c55e",
                       background: "rgba(6,60,20,0.9)",
                       color: "#86efac",
                       fontWeight: "bold",
-                      fontSize: "clamp(14px, 1.6vw, 20px)",
+                      fontSize: "clamp(12px, 1.1vw, 15px)",
                       cursor: "pointer",
                     }}
                   >
@@ -646,13 +652,13 @@ export function BattlePanel(props: {
                   <button
                     onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
                     style={{
-                      padding: "clamp(10px, 1.4vw, 16px) clamp(18px, 2.6vw, 32px)",
-                      borderRadius: 10,
+                      padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                      borderRadius: 8,
                       border: "2px solid #fbbf24",
                       background: "rgba(120,60,0,0.9)",
                       color: "#fbbf24",
                       fontWeight: "bold",
-                      fontSize: "clamp(14px, 1.6vw, 20px)",
+                      fontSize: "clamp(12px, 1.1vw, 15px)",
                       cursor: "pointer",
                     }}
                   >
@@ -660,7 +666,7 @@ export function BattlePanel(props: {
                   </button>
                 </>
               ) : (
-                <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(14px, 1.6vw, 20px)" }}>ホストの選択を待っています…</p>
+                <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(12px, 1.1vw, 15px)" }}>ホストの選択を待っています…</p>
               )}
             </div>
           )}
@@ -671,20 +677,17 @@ export function BattlePanel(props: {
         style={{
           background:
             "linear-gradient(to bottom, #1c0a00 0%, #3b1a00 20%, #6b3310 45%, #8b4513 55%, #5c2d0a 75%, #2d1205 100%)",
-          borderRadius: 16,
+          borderRadius: 14,
           border: "3px solid #92400e",
           boxShadow: "0 6px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(251,191,36,0.2)",
           overflow: "hidden",
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
         }}
       >
         {/* Header bar */}
         <div
           style={{
             background: "linear-gradient(to right, #0f0500, #3b1a00, #0f0500)",
-            padding: "clamp(8px, 1.2vw, 14px) clamp(14px, 2vw, 26px)",
+            padding: "clamp(6px, 0.9vw, 10px) clamp(12px, 1.6vw, 20px)",
             borderBottom: "2px solid #92400e",
             display: "flex",
             justifyContent: "space-between",
@@ -695,7 +698,7 @@ export function BattlePanel(props: {
             style={{
               color: "#fbbf24",
               fontWeight: "bold",
-              fontSize: "clamp(16px, 2vw, 26px)",
+              fontSize: "clamp(14px, 1.5vw, 19px)",
               textShadow: "0 0 8px #fbbf2488",
               letterSpacing: "0.05em",
             }}
@@ -703,14 +706,14 @@ export function BattlePanel(props: {
             ⚔️ バトル ターン {props.turn}
           </span>
           {upcomingDamageAnnouncement && (
-            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: "clamp(12px, 1.3vw, 17px)", textShadow: "0 0 8px #f59e0b99" }}>
+            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: "clamp(11px, 1vw, 13px)", textShadow: "0 0 8px #f59e0b99" }}>
               {upcomingDamageAnnouncement}
             </span>
           )}
         </div>
 
         {/* Name / HP / PP boxes, colored by character type */}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "clamp(12px, 1.7vw, 22px) clamp(14px, 2.2vw, 28px) 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
           <NameHpBox player={{ ...props.me, ...displayMe }} align="left" />
           <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" />
         </div>
@@ -719,11 +722,10 @@ export function BattlePanel(props: {
         <div
           style={{
             display: "flex",
-            gap: "clamp(10px, 1.8vw, 24px)",
-            padding: "clamp(16px, 2.5vw, 32px) clamp(14px, 2.2vw, 28px) 16px",
+            gap: "clamp(8px, 1.2vw, 14px)",
+            padding: "clamp(10px, 1.6vw, 18px) clamp(12px, 1.6vw, 18px) 8px",
             alignItems: "center",
             justifyContent: "center",
-            flex: 1,
           }}
         >
           <PortraitBlock
@@ -742,7 +744,7 @@ export function BattlePanel(props: {
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              gap: 8,
+              gap: 6,
             }}
           >
             {currentDamageMultiplier > 1 && (
@@ -750,7 +752,7 @@ export function BattlePanel(props: {
                 style={{
                   color: "#fde68a",
                   fontWeight: "bold",
-                  fontSize: "clamp(12px, 1.3vw, 17px)",
+                  fontSize: "clamp(11px, 1vw, 13px)",
                   textShadow: "0 0 8px #f59e0b",
                   animation: "fadeInScale 0.25s ease-out, countdownPulse 1.2s ease-in-out infinite",
                   whiteSpace: "nowrap",
@@ -763,11 +765,11 @@ export function BattlePanel(props: {
               style={{
                 background: "#1c1206",
                 border: "2px solid #92400e",
-                borderRadius: 12,
-                padding: "clamp(8px, 1.2vw, 12px) clamp(14px, 2vw, 22px)",
+                borderRadius: 10,
+                padding: "clamp(6px, 0.9vw, 9px) clamp(10px, 1.5vw, 16px)",
                 color: countdownColor,
                 fontWeight: "bold",
-                fontSize: "clamp(22px, 2.8vw, 34px)",
+                fontSize: "clamp(17px, 2vw, 24px)",
                 textShadow: countdown <= 5 ? "0 0 12px #ef4444" : "none",
                 animation: countdownPulse ? "countdownPulse 0.8s ease-in-out infinite" : "none",
               }}
@@ -791,7 +793,7 @@ export function BattlePanel(props: {
         {/* Wood floor strip */}
         <div
           style={{
-            height: 14,
+            height: 10,
             background:
               "repeating-linear-gradient(90deg, #5c3317 0px, #6b3a1a 50px, #7a4520 55px, #5c3317 100px)",
             borderTop: "2px solid #92400e",
@@ -803,21 +805,21 @@ export function BattlePanel(props: {
         {props.turnResult && !revealedActions && (
           <div
             style={{
-              margin: "16px clamp(14px, 2.2vw, 28px) 10px",
+              margin: "10px clamp(12px, 1.6vw, 18px) 6px",
               background: "rgba(0,0,0,0.65)",
-              borderRadius: 10,
+              borderRadius: 8,
               border: "1px solid #92400e",
-              padding: "12px 18px",
+              padding: "8px 14px",
               animation: "slideInFromBottom 0.4s ease-out",
             }}
           >
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
               {props.turnResult.damageEvents.map((event, i) => (
                 <li
                   key={`${event.from}-${event.to}-${i}`}
                   style={{
                     color: event.avoided ? "#93c5fd" : "#fca5a5",
-                    fontSize: "clamp(13px, 1.4vw, 16px)",
+                    fontSize: "clamp(11px, 1vw, 13px)",
                     animation: `slideInFromLeft 0.35s ease-out ${i * 0.08}s both`,
                     display: "inline-block",
                   }}
@@ -833,7 +835,7 @@ export function BattlePanel(props: {
 
         {/* Action buttons (hidden while finished) */}
         {!battleEnded && (
-          <div style={{ padding: "16px clamp(14px, 2.2vw, 28px) 26px", display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ padding: "10px clamp(12px, 1.6vw, 18px) 16px", display: "flex", justifyContent: "space-between", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <ActionButtonsRow
                 actions={availableActions}
