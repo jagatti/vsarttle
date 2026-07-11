@@ -397,12 +397,12 @@ export function DrawPanel(props: {
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
         />
-        <div className="w-full max-w-[240px] rounded border bg-gray-50 p-3 text-sm">
+        <div className="w-full max-w-[240px] rounded border bg-gray-50 p-3 text-sm text-gray-900">
           <div className="mb-1 font-bold" style={{ color: TYPE_COLORS[liveType] }}>
             タイプ: {liveStats ? TYPE_LABELS[liveType] : "-"}
           </div>
           {liveStats && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-900">
               <span>HP: {liveStats.hp}</span>
               <span>PP: {liveStats.pp}</span>
               <span>攻撃: {liveStats.attack}</span>
