@@ -1,19 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --bg-deep: #05060d;
+  --bg-panel: rgba(15, 18, 32, 0.72);
+  --bg-panel-solid: #12142080;
+  --border-glow: rgba(99, 102, 241, 0.35);
+  --border-glow-strong: rgba(129, 140, 248, 0.55);
+  --text-primary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --accent: #818cf8;
+}
+
+html {
+  background: var(--bg-deep);
 }
 
 body {
   margin: 0;
-  background: #f9fafb;
-  color: #111827;
+  min-height: 100vh;
+  color: var(--text-primary);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Unified dark background: a deep navy/indigo radial glow over a near-black
+     base, plus a very subtle diagonal hairline pattern so large empty areas
+     don't look flat/cheap. This replaces the plain light-gray page background
+     that clashed with the neon-styled battle screen. */
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(99, 102, 241, 0.20), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 100% 10%, rgba(168, 85, 247, 0.14), transparent 55%),
+    radial-gradient(ellipse 1000px 800px at 50% 120%, rgba(56, 189, 248, 0.10), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 42px);
+  background-attachment: fixed;
 }
 
 button,
 input {
   font: inherit;
+}
+
+/* Shared card/panel look used across the room, drawing, and result screens so
+   the whole app reads as one consistent dark UI instead of mixing light-gray
+   Tailwind default cards with the neon battle screen. */
+.app-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 0.9rem;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
 }
 
 @keyframes floatUp {
