@@ -68,14 +68,14 @@ function HpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   const color = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
   return (
-    <div style={{ height: 12, background: "#111", borderRadius: 6, border: "2px solid #4b5563", overflow: "hidden", marginTop: 3 }}>
+    <div style={{ height: 20, background: "#111", borderRadius: 8, border: "2px solid #4b5563", overflow: "hidden", marginTop: 5 }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
           background: `linear-gradient(to right, ${color}99, ${color})`,
           transition: "width 0.6s ease-in-out, background 0.3s",
-          borderRadius: 6,
+          borderRadius: 8,
           boxShadow: `0 0 6px ${color}88`,
         }}
       />
@@ -86,14 +86,14 @@ function HpBar({ current, max }: { current: number; max: number }) {
 function PpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   return (
-    <div style={{ height: 7, background: "#111", borderRadius: 4, border: "1px solid #374151", overflow: "hidden", marginTop: 2 }}>
+    <div style={{ height: 12, background: "#111", borderRadius: 6, border: "1px solid #374151", overflow: "hidden", marginTop: 4 }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
           background: "linear-gradient(to right, #06b6d499, #06b6d4)",
           transition: "width 0.6s ease-in-out",
-          borderRadius: 4,
+          borderRadius: 6,
         }}
       />
     </div>
@@ -114,26 +114,26 @@ function NameHpBox({ player, align }: { player: PlayerBattleState; align: "left"
     <div
       style={{
         background: "rgba(0,0,0,0.55)",
-        borderRadius: 10,
-        border: `3px solid ${borderColor}`,
-        padding: "6px 12px",
-        minWidth: 150,
+        borderRadius: 14,
+        border: `4px solid ${borderColor}`,
+        padding: "12px 22px",
+        minWidth: 260,
         textAlign: align,
-        boxShadow: `0 0 10px ${borderColor}55`,
+        boxShadow: `0 0 14px ${borderColor}55`,
       }}
     >
-      <div style={{ color: borderColor, fontWeight: "bold", fontSize: 10, marginBottom: 1 }}>
+      <div style={{ color: borderColor, fontWeight: "bold", fontSize: 16, marginBottom: 2 }}>
         （{TYPE_LABELS[player.characterType]}）
       </div>
-      <div style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>{player.nickname}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#d1fae5", fontSize: 11, marginTop: 3 }}>
+      <div style={{ color: "#fff", fontWeight: "bold", fontSize: 24 }}>{player.nickname}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", color: "#d1fae5", fontSize: 16, marginTop: 6 }}>
         <span>HP</span>
         <span>
           {player.currentHp}/{player.stats.maxHp}
         </span>
       </div>
       <HpBar current={player.currentHp} max={player.stats.maxHp} />
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: 11, marginTop: 2 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: 15, marginTop: 5 }}>
         <span>PP</span>
         <span>
           {player.currentPp}/{player.stats.maxPp}
@@ -175,19 +175,19 @@ function PortraitBlock({
 
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ color: "#fde68a", fontSize: 12, marginBottom: 4 }}>{label}</div>
+      <div style={{ color: "#fde68a", fontSize: 16, marginBottom: 8 }}>{label}</div>
       <div style={{ position: "relative" }}>
         {floaters.map((f) => (
           <div
             key={f.id}
             style={{
               position: "absolute",
-              top: -8,
+              top: -12,
               left: "50%",
               zIndex: 5,
               color: f.type === "hpRecover" ? "#22c55e" : f.type === "ppRecover" ? "#3b82f6" : f.avoided ? "#60a5fa" : "#f87171",
               fontWeight: "bold",
-              fontSize: 22,
+              fontSize: 34,
               textShadow: f.type === "hpRecover" ? "0 0 8px #22c55e" : f.type === "ppRecover" ? "0 0 8px #3b82f6" : f.avoided ? "0 0 8px #60a5fa" : "0 0 8px #f87171",
               animation: "floatUp 1.4s ease-out forwards",
               pointerEvents: "none",
@@ -201,16 +201,16 @@ function PortraitBlock({
           <div
             style={{
               position: "absolute",
-              top: -14,
+              top: -22,
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 6,
               background: ACTION_COLORS[revealedAction],
               color: "#fff",
               fontWeight: "bold",
-              fontSize: 13,
-              padding: "3px 10px",
-              borderRadius: 6,
+              fontSize: 20,
+              padding: "5px 16px",
+              borderRadius: 8,
               whiteSpace: "nowrap",
               boxShadow: "0 0 10px rgba(0,0,0,0.5)",
               animation: "fadeInScale 0.25s ease-out",
@@ -223,14 +223,14 @@ function PortraitBlock({
           src={safeImageUrl(player.imageDataUrl)}
           alt={`${player.nickname} のキャラクター`}
           style={{
-            width: isCharged ? 124 : 110,
-            height: isCharged ? 124 : 110,
-            borderRadius: 8,
-            border: `2px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
+            width: isCharged ? 300 : 264,
+            height: isCharged ? 300 : 264,
+            borderRadius: 14,
+            border: `3px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
             background: "#fff",
             objectFit: "contain",
             filter: isLoser ? "grayscale(100%)" : "none",
-            boxShadow: isCharged ? "0 0 18px 6px #facc15cc" : "none",
+            boxShadow: isCharged ? "0 0 28px 10px #facc15cc" : "none",
             transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease",
             transform: isActing ? "scale(1.06)" : "scale(1)",
             animation: imgAnimations || "none",
@@ -238,18 +238,18 @@ function PortraitBlock({
         />
       </div>
       {activeEffects.length > 0 && (
-        <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
           {activeEffects.map((name) => (
             <span
               key={name}
               style={{
-                fontSize: 10,
+                fontSize: 14,
                 fontWeight: "bold",
                 color: "#f87171",
                 background: "rgba(0,0,0,0.6)",
                 border: "1px solid #f87171",
-                borderRadius: 4,
-                padding: "1px 6px",
+                borderRadius: 6,
+                padding: "2px 10px",
                 whiteSpace: "nowrap",
               }}
             >
@@ -267,12 +267,12 @@ function MatchupTable() {
     <span
       style={{
         display: "inline-block",
-        padding: "2px 8px",
-        borderRadius: 5,
+        padding: "4px 12px",
+        borderRadius: 7,
         background: `${ACTION_COLORS[t]}33`,
         color: ACTION_COLORS[t],
         fontWeight: "bold",
-        fontSize: 11,
+        fontSize: 15,
         border: `1px solid ${ACTION_COLORS[t]}`,
       }}
     >
@@ -282,29 +282,29 @@ function MatchupTable() {
   return (
     <div
       style={{
-        margin: "10px auto",
+        margin: "16px auto",
         background: "rgba(0,0,0,0.5)",
-        borderRadius: 8,
+        borderRadius: 10,
         border: "1px solid #92400e",
-        padding: "8px 12px",
-        maxWidth: 420,
+        padding: "12px 18px",
+        maxWidth: 620,
         display: "flex",
         flexDirection: "column",
-        gap: 4,
+        gap: 6,
       }}
     >
-      <div style={{ color: "#fde68a", fontSize: 11, fontWeight: "bold", textAlign: "center", marginBottom: 2 }}>相性表</div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap", fontSize: 11 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div style={{ color: "#fde68a", fontSize: 15, fontWeight: "bold", textAlign: "center", marginBottom: 2 }}>相性表</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", fontSize: 15 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {chip("attack")} <span style={{ color: "#fde68a" }}>➜</span> {chip("barrier")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {chip("magicWeak")} <span style={{ color: "#fde68a" }}>➜</span> {chip("attack")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {chip("barrier")} <span style={{ color: "#fde68a" }}>➜</span> {chip("magicWeak")}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {chip("charge")} <span style={{ color: "#9ca3af" }}>：HP/PP回復</span>
         </span>
       </div>
@@ -326,7 +326,7 @@ function ActionButtonsRow({
   readOnly?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
       {SELECTABLE_ACTIONS.map((action) => {
         const canUse = actions.includes(action);
         const isSelected = selectedAction === action;
@@ -346,8 +346,8 @@ function ActionButtonsRow({
               onSelect?.(action);
             }}
             style={{
-              padding: "6px 10px",
-              borderRadius: 7,
+              padding: "12px 20px",
+              borderRadius: 10,
               border: `2px solid ${canUse ? color : "#374151"}`,
               background: canUse ? (isSelected ? color : `${color}28`) : "#1f2937",
               color: canUse ? (isSelected ? "#fff" : color) : "#6b7280",
@@ -356,7 +356,7 @@ function ActionButtonsRow({
               transition: "all 0.15s",
               transform: isSelected ? "scale(1.06)" : "scale(1)",
               boxShadow: isSelected ? `0 0 10px ${color}88` : "none",
-              fontSize: 12,
+              fontSize: 18,
               opacity: canUse ? 1 : 0.45,
               pointerEvents: readOnly ? "none" : "auto",
             }}
@@ -549,7 +549,7 @@ export function BattlePanel(props: {
   })();
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 120px)" }}>
       {/* Battle event flash */}
       {showFlash && (
         <div
@@ -558,7 +558,7 @@ export function BattlePanel(props: {
             inset: 0,
             zIndex: 20,
             background: "rgba(255,255,255,0.85)",
-            borderRadius: 12,
+            borderRadius: 16,
             animation: "battleFlash 0.6s ease-out forwards",
             pointerEvents: "none",
           }}
@@ -573,18 +573,18 @@ export function BattlePanel(props: {
             inset: 0,
             zIndex: 30,
             background: isWin ? "rgba(0,0,0,0.55)" : "rgba(0,0,20,0.70)",
-            borderRadius: 12,
+            borderRadius: 16,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 16,
+            gap: 24,
           }}
         >
           {isWin ? (
             <div
               style={{
-                fontSize: 60,
+                fontSize: 88,
                 fontWeight: "900",
                 background: "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
                 backgroundSize: "300% 100%",
@@ -600,7 +600,7 @@ export function BattlePanel(props: {
           ) : (
             <div
               style={{
-                fontSize: 60,
+                fontSize: 88,
                 fontWeight: "900",
                 color: "#3b82f6",
                 textShadow: "0 0 24px #3b82f6aa, 0 2px 8px #000",
@@ -616,7 +616,7 @@ export function BattlePanel(props: {
             <div
               style={{
                 display: "flex",
-                gap: 12,
+                gap: 18,
                 animation: "finishButtonsIn 0.5s ease-out",
               }}
             >
@@ -625,13 +625,13 @@ export function BattlePanel(props: {
                   <button
                     onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
                     style={{
-                      padding: "10px 20px",
-                      borderRadius: 8,
+                      padding: "16px 32px",
+                      borderRadius: 10,
                       border: "2px solid #22c55e",
                       background: "rgba(6,60,20,0.9)",
                       color: "#86efac",
                       fontWeight: "bold",
-                      fontSize: 14,
+                      fontSize: 20,
                       cursor: "pointer",
                     }}
                   >
@@ -640,13 +640,13 @@ export function BattlePanel(props: {
                   <button
                     onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
                     style={{
-                      padding: "10px 20px",
-                      borderRadius: 8,
+                      padding: "16px 32px",
+                      borderRadius: 10,
                       border: "2px solid #fbbf24",
                       background: "rgba(120,60,0,0.9)",
                       color: "#fbbf24",
                       fontWeight: "bold",
-                      fontSize: 14,
+                      fontSize: 20,
                       cursor: "pointer",
                     }}
                   >
@@ -654,7 +654,7 @@ export function BattlePanel(props: {
                   </button>
                 </>
               ) : (
-                <p style={{ color: "#fef3c7", fontWeight: "bold" }}>ホストの選択を待っています…</p>
+                <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: 20 }}>ホストの選択を待っています…</p>
               )}
             </div>
           )}
@@ -665,17 +665,20 @@ export function BattlePanel(props: {
         style={{
           background:
             "linear-gradient(to bottom, #1c0a00 0%, #3b1a00 20%, #6b3310 45%, #8b4513 55%, #5c2d0a 75%, #2d1205 100%)",
-          borderRadius: 12,
+          borderRadius: 16,
           border: "3px solid #92400e",
           boxShadow: "0 6px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(251,191,36,0.2)",
           overflow: "hidden",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {/* Header bar */}
         <div
           style={{
             background: "linear-gradient(to right, #0f0500, #3b1a00, #0f0500)",
-            padding: "8px 16px",
+            padding: "14px 26px",
             borderBottom: "2px solid #92400e",
             display: "flex",
             justifyContent: "space-between",
@@ -686,7 +689,7 @@ export function BattlePanel(props: {
             style={{
               color: "#fbbf24",
               fontWeight: "bold",
-              fontSize: 17,
+              fontSize: 26,
               textShadow: "0 0 8px #fbbf2488",
               letterSpacing: "0.05em",
             }}
@@ -694,14 +697,14 @@ export function BattlePanel(props: {
             ⚔️ バトル ターン {props.turn}
           </span>
           {upcomingDamageAnnouncement && (
-            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: 12, textShadow: "0 0 8px #f59e0b99" }}>
+            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: 17, textShadow: "0 0 8px #f59e0b99" }}>
               {upcomingDamageAnnouncement}
             </span>
           )}
         </div>
 
         {/* Name / HP / PP boxes, colored by character type */}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "22px 28px 0" }}>
           <NameHpBox player={{ ...props.me, ...displayMe }} align="left" />
           <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" />
         </div>
@@ -710,9 +713,11 @@ export function BattlePanel(props: {
         <div
           style={{
             display: "flex",
-            gap: 10,
-            padding: "18px 14px 8px",
+            gap: 24,
+            padding: "32px 28px 16px",
             alignItems: "center",
+            justifyContent: "center",
+            flex: 1,
           }}
         >
           <PortraitBlock
@@ -731,7 +736,7 @@ export function BattlePanel(props: {
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              gap: 4,
+              gap: 8,
             }}
           >
             {currentDamageMultiplier > 1 && (
@@ -739,7 +744,7 @@ export function BattlePanel(props: {
                 style={{
                   color: "#fde68a",
                   fontWeight: "bold",
-                  fontSize: 13,
+                  fontSize: 17,
                   textShadow: "0 0 8px #f59e0b",
                   animation: "fadeInScale 0.25s ease-out, countdownPulse 1.2s ease-in-out infinite",
                   whiteSpace: "nowrap",
@@ -752,11 +757,11 @@ export function BattlePanel(props: {
               style={{
                 background: "#1c1206",
                 border: "2px solid #92400e",
-                borderRadius: 8,
-                padding: "6px 12px",
+                borderRadius: 12,
+                padding: "12px 22px",
                 color: countdownColor,
                 fontWeight: "bold",
-                fontSize: 22,
+                fontSize: 34,
                 textShadow: countdown <= 5 ? "0 0 12px #ef4444" : "none",
                 animation: countdownPulse ? "countdownPulse 0.8s ease-in-out infinite" : "none",
               }}
@@ -780,7 +785,7 @@ export function BattlePanel(props: {
         {/* Wood floor strip */}
         <div
           style={{
-            height: 10,
+            height: 14,
             background:
               "repeating-linear-gradient(90deg, #5c3317 0px, #6b3a1a 50px, #7a4520 55px, #5c3317 100px)",
             borderTop: "2px solid #92400e",
@@ -792,21 +797,21 @@ export function BattlePanel(props: {
         {props.turnResult && !revealedActions && (
           <div
             style={{
-              margin: "10px 14px 6px",
+              margin: "16px 28px 10px",
               background: "rgba(0,0,0,0.65)",
-              borderRadius: 8,
+              borderRadius: 10,
               border: "1px solid #92400e",
-              padding: "8px 12px",
+              padding: "12px 18px",
               animation: "slideInFromBottom 0.4s ease-out",
             }}
           >
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               {props.turnResult.damageEvents.map((event, i) => (
                 <li
                   key={`${event.from}-${event.to}-${i}`}
                   style={{
                     color: event.avoided ? "#93c5fd" : "#fca5a5",
-                    fontSize: 12,
+                    fontSize: 16,
                     animation: `slideInFromLeft 0.35s ease-out ${i * 0.08}s both`,
                     display: "inline-block",
                   }}
@@ -822,7 +827,7 @@ export function BattlePanel(props: {
 
         {/* Action buttons (hidden while finished) */}
         {!battleEnded && (
-          <div style={{ padding: "10px 14px 14px", display: "flex", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ padding: "16px 28px 26px", display: "flex", justifyContent: "space-between", gap: 16 }}>
             <div style={{ flex: 1 }}>
               <ActionButtonsRow
                 actions={availableActions}
