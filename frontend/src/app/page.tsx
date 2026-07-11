@@ -56,6 +56,10 @@ export default function Home() {
   // Guards against re-applying a "rematch" choice twice for the same battle finish
   // (once from the local button click, once from the message echoed by the peer).
   const rematchHandledRef = useRef(false);
+  // Tracks the previously-completed drawing (kept only so DrawPanel can prefill an
+  // edit after choosing "描きなおしてもう１戦"). This must NOT be treated as a
+  // completed "ready" character for the new match.
+  const previousDrawingRef = useRef<WireDrawingData | null>(null);
 
   const [stage, setStage] = useState<Stage>("room");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
@@ -249,6 +253,12 @@ export default function Home() {
     // 描きなおしてもう１戦: ラクガキパートに戻る。相手の新しい絵を待つ必要があるため
     // remoteCharacterRef はクリアするが、自分の前回のイラストは DrawPanel の
     // initialDrawing として引き継ぎ、続きから編集できるようにする。
+    // localCharacterRef も必ずクリアすること。クリアしないと、自分がまだ描き直して
+    // いない間に相手の "ready"（新しい絵）を受信した際、handleWire の ready 処理が
+    // 古い(前回戦の) localCharacterRef を使って beginBattle してしまい、
+    // 片方だけが勝手にバトルパートへ進んでしまう不具合が起きる。
+    previousDrawingRef.current = localCharacterRef.current?.drawing ?? previousDrawingRef.current;
+    localCharacterRef.current = null;
     remoteCharacterRef.current = null;
     setBattleFinish(null);
     setBattleState({});
@@ -502,6 +512,7 @@ export default function Home() {
     // prefilled with an illustration from a previous, unrelated match.
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
+    previousDrawingRef.current = null;
     setStage("room");
     setStatus("ルームを作成するか入室してください");
   };
@@ -515,7 +526,7 @@ export default function Home() {
       )}
 
       {stage === "drawing" && (
-        <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={localCharacterRef.current?.drawing} />
+        <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={previousDrawingRef.current ?? undefined} />
       )}
 
       {stage === "battle" && myState && enemyState && (
