@@ -6,6 +6,8 @@ import type { CharacterStats, DrawingData, Stroke, WireDrawingData } from "@/typ
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { wireDrawingToStrokes } from "@/lib/drawingWire";
 import { soundManager } from "@/lib/soundManager";
+import { createThumbnail, loadSlots, persistSlots, SLOT_COUNT } from "@/lib/drawingSlots";
+import type { DrawingSlot } from "@/lib/drawingSlots";
 
 const COLORS = [
   "#111111",
@@ -210,6 +212,48 @@ export function DrawPanel(props: {
 
   const [liveStats, setLiveStats] = useState<CharacterStats | null>(null);
   const [liveType, setLiveType] = useState<string>("balanced");
+
+  // ── Save Slots ────────────────────────────────────────────────────────────
+  const [slots, setSlots] = useState<(DrawingSlot | null)[]>(() => loadSlots());
+
+  const saveToSlot = (index: number) => {
+    if (submitted) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const existing = slots[index];
+    if (existing !== null) {
+      if (!window.confirm(`スロット ${index + 1} に上書き保存します。よろしいですか？`)) return;
+    }
+
+    soundManager.playSe("/sounds/se/button.mp3");
+    const thumbnail = createThumbnail(canvas);
+    const newSlot: DrawingSlot = { drawingData, thumbnail };
+    const updated = slots.map((s, i) => (i === index ? newSlot : s));
+    setSlots(updated);
+    persistSlots(updated);
+  };
+
+  const loadFromSlot = (index: number) => {
+    if (submitted) return;
+    const slot = slots[index];
+    if (!slot) return;
+
+    if (strokes.length > 0) {
+      if (!window.confirm(`スロット ${index + 1} の絵を読み込みます。現在の描画は失われます。よろしいですか？`)) return;
+    }
+
+    soundManager.playSe("/sounds/se/button.mp3");
+    const loaded = wireDrawingToStrokes({
+      version: slot.drawingData.version,
+      canvas: slot.drawingData.canvas,
+      layers: slot.drawingData.layers,
+    });
+    setStrokes(loaded);
+    setUndoStack([]);
+    setRedoStack([]);
+  };
+  // ── End Save Slots ────────────────────────────────────────────────────────
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -484,6 +528,70 @@ export function DrawPanel(props: {
           )}
         </div>
       </div>
+      {/* ── Save Slots ─────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-3">
+        {Array.from({ length: SLOT_COUNT }, (_, i) => {
+          const slot = slots[i];
+          const isDisabled = submitted;
+          return (
+            <div
+              key={i}
+              className="flex flex-col items-center gap-1"
+              style={{ width: 100 }}
+            >
+              <div
+                className="flex items-center justify-center overflow-hidden rounded-lg border-2 bg-white"
+                style={{
+                  width: 100,
+                  height: 100,
+                  borderColor: isDisabled ? "#d1d5db" : "#9ca3af",
+                  cursor: slot && !isDisabled ? "pointer" : "default",
+                  opacity: isDisabled ? 0.6 : 1,
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                }}
+                onClick={() => !isDisabled && slot && loadFromSlot(i)}
+                title={slot && !isDisabled ? `スロット ${i + 1} を読み込む` : undefined}
+              >
+                {slot ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={slot.thumbnail}
+                    alt={`スロット ${i + 1}`}
+                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  />
+                ) : (
+                  <button
+                    disabled={isDisabled}
+                    className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg text-xs font-bold text-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveToSlot(i);
+                    }}
+                    title={`スロット ${i + 1} に保存`}
+                  >
+                    <span style={{ fontSize: 22 }}>💾</span>
+                    保存
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <span className="text-xs text-gray-500">{i + 1}</span>
+                {slot && (
+                  <button
+                    disabled={isDisabled}
+                    className="text-xs text-blue-500 hover:underline disabled:opacity-40"
+                    onClick={() => saveToSlot(i)}
+                    title={`スロット ${i + 1} に上書き保存`}
+                  >
+                    上書き
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* ── End Save Slots ──────────────────────────────────────────────── */}
       {submitted ? (
         <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
       ) : (
