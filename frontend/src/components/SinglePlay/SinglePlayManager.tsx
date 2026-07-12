@@ -419,11 +419,19 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     if (spStage === "drawing") {
       soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
     } else if (spStage === "battle") {
-      soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
+      let bgm = "/sounds/bgm/battle_loop.mp3";
+      if (floor === 3) {
+        bgm = "/sounds/bgm/boss3_loop.mp3";
+      } else if (floor === 4) {
+        bgm = "/sounds/bgm/boss4_loop.mp3";
+      } else if (floor === 5) {
+        bgm = bossPhase === 2 ? "/sounds/bgm/boss5-2_loop.mp3" : "/sounds/bgm/boss5-1_loop.mp3";
+      }
+      soundManager.playBgm(bgm);
     } else {
       soundManager.stopBgm();
     }
-  }, [spStage]);
+  }, [spStage, floor, bossPhase]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
