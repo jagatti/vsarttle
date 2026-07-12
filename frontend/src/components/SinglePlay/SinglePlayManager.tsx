@@ -19,9 +19,15 @@ import type {
 
 const TOTAL_FLOORS = 5;
 const TURN_SECONDS = 30;
+// When the active player is まひ (paralyzed), they cannot select any action,
+// so there is no need to wait for the full turn timer before auto-advancing.
+const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
+// The final (5th floor) boss should only use チャージ (charge) once its HP
+// has dropped to this fraction (or below) of its max HP.
+const FLOOR5_BOSS_CHARGE_HP_THRESHOLD = 0.3;
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface SpCharacter {
   slotIndex: number;
@@ -42,7 +48,7 @@ type SpStage =
   | "floor_lose"
   | "all_clear";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toPlayerState(char: SpCharacter): PlayerBattleState {
   return {
@@ -73,13 +79,23 @@ function buildEnemyState(floor: number, phase: 1 | 2): PlayerBattleState {
   };
 }
 
-function pickCpuAction(enemy: PlayerBattleState): ActionType {
-  const available = getAvailableActions(enemy);
+// `isFloor5Boss` restricts チャージ (charge) so that the final boss (floor 5,
+// either phase) will only use it once its HP has dropped to 30% or below of
+// its max HP. This keeps the CPU from charging early when it doesn't need to.
+function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean): ActionType {
+  let available = getAvailableActions(enemy);
+  if (isFloor5Boss) {
+    const hpRatio = enemy.stats.maxHp > 0 ? enemy.currentHp / enemy.stats.maxHp : 0;
+    if (hpRatio > FLOOR5_BOSS_CHARGE_HP_THRESHOLD) {
+      const withoutCharge = available.filter((a) => a !== "charge");
+      if (withoutCharge.length > 0) available = withoutCharge;
+    }
+  }
   if (available.length === 0) return "paralysis";
   return available[Math.floor(Math.random() * available.length)];
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function SlotPreview({ char, label }: { char: SpCharacter | null; label: string }) {
   const borderColor = char ? "#6366f1" : "#374151";
@@ -356,10 +372,10 @@ function CharSelectScreen(props: {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export function SinglePlayManager(props: { onBackToTitle: () => void }) {
-  // ── Stage ──────────────────────────────────────────────────────────────────
+  // ── Stage ───────────────────────────────────────────────────────────────
   const [spStage, setSpStage] = useState<SpStage>("drawing");
 
   // ── Drawing phase state ────────────────────────────────────────────────────
@@ -370,7 +386,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const [bossPhase, setBossPhase] = useState<1 | 2>(1);
   const [activeCharIndex, setActiveCharIndex] = useState<number | null>(null);
 
-  // ── Battle UI state ────────────────────────────────────────────────────────
+  // ── Battle UI state ─────────────────────────────────────────────────────────
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
   const [turnResult, setTurnResult] = useState<TurnResult | null>(null);
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
@@ -419,12 +435,12 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   }, []);
 
   // ── Countdown ─────────────────────────────────────────────────────────────
-  const startCountdown = useCallback(() => {
+  const startCountdown = useCallback((seconds: number = TURN_SECONDS) => {
     if (countdownIntervalRef.current !== null) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    const deadline = Date.now() + TURN_SECONDS * 1000;
+    const deadline = Date.now() + seconds * 1000;
     const update = () => {
       const remain = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setTurnCountdown(remain);
@@ -490,9 +506,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           : "attack";
       })();
 
+      const isFloor5Boss = floorRef.current === 5 && enemyIdParam.startsWith("boss-5-");
       const cpuAction: ActionType = currentBattle[enemyIdParam].paralyzedNextTurn
         ? "paralysis"
-        : pickCpuAction(currentBattle[enemyIdParam]);
+        : pickCpuAction(currentBattle[enemyIdParam], isFloor5Boss);
 
       const result = resolveTurn({
         turn: turnNumber,
@@ -602,7 +619,13 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         const nextTurn = turnNumber + 1;
         setTurn(nextTurn);
         turnRef.current = nextTurn;
-        startCountdown();
+        // If the active player is まひ (paralyzed) for the upcoming turn, they
+        // have no action to choose, so shorten the wait before auto-advancing
+        // instead of forcing the full 30-second turn timer.
+        const nextTurnSeconds = nextStates[playerIdParam]?.paralyzedNextTurn
+          ? PARALYSIS_TURN_SECONDS
+          : TURN_SECONDS;
+        startCountdown(nextTurnSeconds);
         doScheduleAutoActionRef.current(nextTurn, nextStates, playerIdParam, enemyIdParam);
       }
     };
@@ -611,15 +634,21 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   useEffect(() => {
     doScheduleAutoActionRef.current = (
       turnNumber: number,
-      _battle: Record<string, PlayerBattleState>,
+      battle: Record<string, PlayerBattleState>,
       playerIdParam: string,
       enemyIdParam: string,
     ) => {
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      // When the active player is まひ (paralyzed), there is nothing for them
+      // to select, so advance to the next phase after a short delay instead
+      // of waiting for the full turn timer.
+      const delaySeconds = battle[playerIdParam]?.paralyzedNextTurn
+        ? PARALYSIS_TURN_SECONDS
+        : TURN_SECONDS;
       turnTimerRef.current = window.setTimeout(() => {
         doFinalizeTurnRef.current(turnNumber, pendingActionRef.current, playerIdParam, enemyIdParam);
         pendingActionRef.current = null;
-      }, TURN_SECONDS * 1000);
+      }, delaySeconds * 1000);
     };
   });
 
@@ -659,13 +688,13 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       resumeBattleWithNextCharRef.current = false;
       setSpStage("battle");
 
-      startCountdown();
+      startCountdown(initial[playerState.id]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS);
       doScheduleAutoActionRef.current(nextTurn, initial, playerState.id, enemyState.id);
     },
     [startCountdown],
   );
 
-  // ── Event handlers ─────────────────────────────────────────────────────────
+  // ── Event handlers ────────────────────────────────────────────────────────
 
   const handleSetSlot = useCallback(
     (payload: { drawing: DrawingData; imageData: ImageData }) => {
@@ -816,7 +845,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     );
   }
 
-  // ── Drawing phase ──────────────────────────────────────────────────────────
+  // ── Drawing phase ────────────────────────────────────────────────────────
   if (spStage === "drawing") {
     return (
       <div>
@@ -853,7 +882,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     );
   }
 
-  // ── Battle ─────────────────────────────────────────────────────────────────
+  // ── Battle ──────────────────────────────────────────────────────────────
   if ((spStage === "battle" || spStage === "floor_win" || spStage === "floor_lose") && myState && enemyState) {
     const isWin = !!battleFinish && battleFinish.winnerId === myState.id;
     const isLose = !!battleFinish && battleFinish.winnerId === enemyState.id;
