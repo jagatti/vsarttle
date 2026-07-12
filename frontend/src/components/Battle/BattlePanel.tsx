@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
@@ -386,6 +387,12 @@ export function BattlePanel(props: {
   finishResult?: { winnerId: string } | null;
   onRematchSame: () => void;
   onRematchRedraw: () => void;
+  /**
+   * When provided, these nodes are shown as the finish-screen buttons instead of
+   * the default multiplayer rematch buttons. Useful for single-play mode where the
+   * post-battle choices differ (e.g. "次の層へ", "タイトルに戻る", "再開").
+   */
+  customFinishButtons?: ReactNode;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -632,41 +639,43 @@ export function BattlePanel(props: {
                 animation: "finishButtonsIn 0.5s ease-out",
               }}
             >
-              {props.role === "host" ? (
-                <>
-                  <button
-                    onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
-                    style={{
-                      padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                      borderRadius: 8,
-                      border: "2px solid #22c55e",
-                      background: "rgba(6,60,20,0.9)",
-                      color: "#86efac",
-                      fontWeight: "bold",
-                      fontSize: "clamp(12px, 1.1vw, 15px)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    再戦（絵を引き継ぐ）
-                  </button>
-                  <button
-                    onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
-                    style={{
-                      padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                      borderRadius: 8,
-                      border: "2px solid #fbbf24",
-                      background: "rgba(120,60,0,0.9)",
-                      color: "#fbbf24",
-                      fontWeight: "bold",
-                      fontSize: "clamp(12px, 1.1vw, 15px)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    描きなおしてもう１戦
-                  </button>
-                </>
-              ) : (
-                <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(12px, 1.1vw, 15px)" }}>ホストの選択を待っています…</p>
+              {props.customFinishButtons ?? (
+                props.role === "host" ? (
+                  <>
+                    <button
+                      onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
+                      style={{
+                        padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                        borderRadius: 8,
+                        border: "2px solid #22c55e",
+                        background: "rgba(6,60,20,0.9)",
+                        color: "#86efac",
+                        fontWeight: "bold",
+                        fontSize: "clamp(12px, 1.1vw, 15px)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      再戦（絵を引き継ぐ）
+                    </button>
+                    <button
+                      onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
+                      style={{
+                        padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                        borderRadius: 8,
+                        border: "2px solid #fbbf24",
+                        background: "rgba(120,60,0,0.9)",
+                        color: "#fbbf24",
+                        fontWeight: "bold",
+                        fontSize: "clamp(12px, 1.1vw, 15px)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      描きなおしてもう１戦
+                    </button>
+                  </>
+                ) : (
+                  <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(12px, 1.1vw, 15px)" }}>ホストの選択を待っています…</p>
+                )
               )}
             </div>
           )}
