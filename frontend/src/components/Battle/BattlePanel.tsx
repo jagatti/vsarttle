@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
+import { safeImageUrl } from "@/lib/imageUrl";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
 import {
@@ -62,8 +63,6 @@ function getActionLabel(action: ActionType, player: PlayerBattleState): string {
   if (cost > 0) return `${ACTION_LABELS[action]}（-${cost}PP）`;
   return ACTION_LABELS[action];
 }
-
-const safeImageUrl = (value: string) => (value.startsWith("data:image/") ? value : "");
 
 function HpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
