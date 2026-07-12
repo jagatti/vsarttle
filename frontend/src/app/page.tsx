@@ -474,6 +474,9 @@ export default function Home() {
       soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
     } else if (stage === "battle") {
       soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
+    } else if (stage === "singleplay") {
+      // SinglePlayManager manages BGM internally for its own drawing/battle stages.
+      return;
     } else {
       soundManager.stopBgm();
     }
@@ -532,7 +535,10 @@ export default function Home() {
 
       {stage === "title" && (
         <TitleScreen
-          onSinglePlay={() => setStage("singleplay")}
+          onSinglePlay={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            setStage("singleplay");
+          }}
           onMultiPlay={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             setStage("room");

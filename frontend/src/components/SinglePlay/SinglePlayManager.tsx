@@ -388,6 +388,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const countdownIntervalRef = useRef<number | null>(null);
   const postTurnTimerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<ActionType | null>(null);
+  const resumeBattleWithNextCharRef = useRef(false);
   const turnRef = useRef(1);
 
   // Keep refs in sync
@@ -588,6 +589,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         }
 
         if (otherAlive) {
+          resumeBattleWithNextCharRef.current = true;
           setSpStage("char_select");
           setTurnResult(null);
           setBattleFinish(null);
@@ -629,7 +631,17 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       if (!char) return;
 
       const playerState = toPlayerState(char);
-      const enemyState = buildEnemyState(currentFloor, currentBossPhase);
+      const existingEnemy = Object.values(battleStateRef.current).find((state) =>
+        state.id.startsWith("boss-"),
+      );
+      const shouldResumeBattle =
+        resumeBattleWithNextCharRef.current &&
+        !!existingEnemy &&
+        existingEnemy.currentHp > 0;
+      const enemyState = shouldResumeBattle
+        ? existingEnemy
+        : buildEnemyState(currentFloor, currentBossPhase);
+      const nextTurn = shouldResumeBattle ? turnRef.current + 1 : 1;
 
       const initial = {
         [playerState.id]: playerState,
@@ -640,14 +652,15 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       setBattleState(initial);
       setBattleFinish(null);
       setTurnResult(null);
-      setTurn(1);
-      turnRef.current = 1;
+      setTurn(nextTurn);
+      turnRef.current = nextTurn;
       setActiveCharIndex(charIndex);
       pendingActionRef.current = null;
+      resumeBattleWithNextCharRef.current = false;
       setSpStage("battle");
 
       startCountdown();
-      doScheduleAutoActionRef.current(1, initial, playerState.id, enemyState.id);
+      doScheduleAutoActionRef.current(nextTurn, initial, playerState.id, enemyState.id);
     },
     [startCountdown],
   );
@@ -716,6 +729,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
 
   const handleNextFloor = useCallback(() => {
     soundManager.playSe("/sounds/se/button.mp3");
+    resumeBattleWithNextCharRef.current = false;
     const nextFloor = floorRef.current + 1;
 
     if (nextFloor > TOTAL_FLOORS) {
@@ -738,6 +752,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
 
   const handleRetryFloor = useCallback(() => {
     soundManager.playSe("/sounds/se/button.mp3");
+    resumeBattleWithNextCharRef.current = false;
 
     setCharacters((prev) =>
       prev.map((c) =>
