@@ -164,6 +164,14 @@ export function DrawPanel(props: {
   /** Previously submitted drawing to continue editing (e.g. 「描きなおしてもう１戦」). */
   initialDrawing?: WireDrawingData;
   onComplete: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
+  /** When true, hides the countdown timer display and disables auto-submit on timer expiry. */
+  noTimer?: boolean;
+  /**
+   * When provided, a "セット" button is shown (instead of the normal "完成" button) that
+   * captures the current drawing without marking it as submitted, allowing the user to keep
+   * drawing after capturing. Used in single-play mode for building a party of characters.
+   */
+  onSet?: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [tool, setTool] = useState<"pen" | "eraser" | "fill">("pen");
@@ -360,12 +368,19 @@ export function DrawPanel(props: {
     };
   };
 
+  const captureState = useCallback((): { drawing: DrawingData; imageData: ImageData } | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    const statsImageData = renderStrokesForStats(strokes) ?? ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    return { drawing: drawingData, imageData: statsImageData };
+  }, [drawingData, strokes]);
+
   const submit = useCallback(() => {
     if (submittedRef.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const state = captureState();
+    if (!state) return;
     submittedRef.current = true;
     setSubmitted(true);
     // Use the transparent-background stats render (not the visible white
@@ -373,13 +388,12 @@ export function DrawPanel(props: {
     // preview and isn't skewed by the white background — see
     // renderStrokesForStats for details. Fall back to the visible canvas's
     // ImageData only if the offscreen render is unavailable for some reason.
-    const statsImageData = renderStrokesForStats(strokes) ?? ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    props.onComplete({ drawing: drawingData, imageData: statsImageData });
-  }, [drawingData, props, strokes]);
+    props.onComplete(state);
+  }, [captureState, props]);
 
   useEffect(() => {
-    if (props.seconds <= 0) submit();
-  }, [props.seconds, submit]);
+    if (!props.noTimer && props.seconds <= 0) submit();
+  }, [props.noTimer, props.seconds, submit]);
 
   const clearAll = () => {
     if (strokes.length === 0) return;
@@ -390,7 +404,11 @@ export function DrawPanel(props: {
 
   return (
     <section className="space-y-3 rounded-lg border p-4">
-      <h2 className="text-xl font-bold">おえかき（残り {props.seconds} 秒）</h2>
+      {props.noTimer ? (
+        <h2 className="text-xl font-bold">おえかき</h2>
+      ) : (
+        <h2 className="text-xl font-bold">おえかき（残り {props.seconds} 秒）</h2>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
@@ -592,7 +610,19 @@ export function DrawPanel(props: {
         })}
       </div>
       {/* ── End Save Slots ──────────────────────────────────────────────── */}
-      {submitted ? (
+      {props.onSet ? (
+        <button
+          className="rounded bg-indigo-600 px-3 py-2 text-white"
+          disabled={submitted}
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            const state = captureState();
+            if (state) props.onSet!(state);
+          }}
+        >
+          セット
+        </button>
+      ) : submitted ? (
         <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
       ) : (
         <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>完成</button>

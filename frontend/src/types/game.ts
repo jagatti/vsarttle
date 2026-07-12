@@ -1,4 +1,4 @@
-export type Stage = "room" | "drawing" | "battle" | "result";
+export type Stage = "room" | "drawing" | "battle" | "result" | "title" | "singleplay";
 
 export interface Point {
   x: number;

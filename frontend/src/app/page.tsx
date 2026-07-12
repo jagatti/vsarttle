@@ -7,6 +7,8 @@ import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
+import { TitleScreen } from "@/components/Title/TitleScreen";
+import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
@@ -61,7 +63,7 @@ export default function Home() {
   // completed "ready" character for the new match.
   const previousDrawingRef = useRef<WireDrawingData | null>(null);
 
-  const [stage, setStage] = useState<Stage>("room");
+  const [stage, setStage] = useState<Stage>("title");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
   const [roomCode, setRoomCode] = useState("");
   const [nickname, setNickname] = useState("プレイヤー");
@@ -524,7 +526,23 @@ export default function Home() {
 
   return (
     <main className={`mx-auto flex min-h-screen w-full ${containerMaxWidthClass} flex-col gap-4 p-4`}>
-      <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
+      {stage !== "title" && stage !== "singleplay" && (
+        <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
+      )}
+
+      {stage === "title" && (
+        <TitleScreen
+          onSinglePlay={() => setStage("singleplay")}
+          onMultiPlay={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            setStage("room");
+          }}
+        />
+      )}
+
+      {stage === "singleplay" && (
+        <SinglePlayManager onBackToTitle={() => setStage("title")} />
+      )}
 
       {stage === "room" && (
         <RoomPanel status={status} roomCode={roomCode} canUseSignaling={true} onCreate={onCreate} onJoin={onJoin} />
