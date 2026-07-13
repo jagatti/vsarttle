@@ -444,8 +444,11 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   useEffect(() => { turnRef.current = turn; }, [turn]);
 
   // ── BGM ───────────────────────────────────────────────────────────────────
+  const limitBreakUsed =
+    Object.values(battleState).find((state) => state.id.startsWith("boss-"))?.limitBreakUsed ?? false;
+
   useEffect(() => {
-    if (limitBreaking) {
+    if (limitBreaking || limitBreakUsed) {
       soundManager.playBgm(LIMIT_BREAK_BGM_PATH);
     } else if (spStage === "drawing") {
       soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
@@ -462,7 +465,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     } else {
       soundManager.stopBgm();
     }
-  }, [spStage, floor, bossPhase, limitBreaking]);
+  }, [spStage, floor, bossPhase, limitBreaking, limitBreakUsed]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
