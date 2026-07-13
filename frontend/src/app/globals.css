@@ -126,3 +126,8 @@ input {
   0%, 100% { box-shadow: 0 0 12px 4px #facc15aa; }
   50% { box-shadow: 0 0 26px 10px #facc15ee; }
 }
+
+@keyframes limitBreakAuraPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.85; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
