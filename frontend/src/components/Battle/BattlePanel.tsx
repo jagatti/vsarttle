@@ -401,6 +401,10 @@ export function BattlePanel(props: {
   const [revealedActions, setRevealedActions] = useState<Record<string, ActionType> | null>(null);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
+  // True while the turn-result reveal/damage animation is playing. Used to keep
+  // the action buttons locked for the whole animation, not just until the
+  // player's own selection is echoed back (see readOnly usage below).
+  const [isAnimating, setIsAnimating] = useState(false);
   const prevTurnRef = useRef<number | null>(null);
   const floaterIdRef = useRef(0);
   const availableActions = useMemo(() => getAvailableActions(props.me), [props.me]);
@@ -432,6 +436,13 @@ export function BattlePanel(props: {
     if (prevTurnRef.current === props.turnResult.turn) return;
     prevTurnRef.current = props.turnResult.turn;
 
+    // Lock action input for the whole reveal + damage animation sequence
+    // (roughly 2000ms reveal + 1700ms of damage phases below), not just until
+    // the player's own click is registered. Without this, a click landing
+    // mid-animation could race with the next turn's resolution and corrupt
+    // displayResources (see the cleanup handling below).
+    setIsAnimating(true);
+
     const turnResult = props.turnResult;
     const playersById = { [props.me.id]: props.me, [props.enemy.id]: props.enemy };
     const phases = getTurnAnimationPhases(turnResult, props.me, props.enemy);
@@ -439,6 +450,11 @@ export function BattlePanel(props: {
     const schedule = (callback: () => void, delayMs: number) => {
       timers.push(window.setTimeout(callback, delayMs));
     };
+    // Tracks whether the final "snap to real values" step below has already
+    // run, so the cleanup function can finish it immediately if this effect
+    // is torn down early (e.g. a new turnResult arrives before the previous
+    // turn's animation finished playing).
+    let finalized = false;
 
     // Phase 1: reveal both players' chosen actions above their portraits for 2s
     setRevealedActions(turnResult.actions);
@@ -513,14 +529,32 @@ export function BattlePanel(props: {
       runPhase(0);
       schedule(() => runPhase(1), 850);
       schedule(() => {
+        finalized = true;
         setActingPlayerId(null);
         setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
+        setIsAnimating(false);
       }, 1700);
     }, 2000);
 
     return () => {
       clearTimeout(revealTimer);
       for (const timer of timers) clearTimeout(timer);
+
+      // If this effect is torn down before the animation naturally finished
+      // (e.g. the next turn's result arrived early), immediately snap
+      // displayResources to this turn's real final values instead of leaving
+      // them at a mid-animation intermediate value. Previously, cancelling
+      // these timers here without applying their effect could leave
+      // displayResources permanently out of sync with the real battle state,
+      // making the HP/PP bars appear frozen for the rest of the match.
+      if (!finalized) {
+        setActingPlayerId(null);
+        setRevealedActions(null);
+        setShowFlash(false);
+        setShakingIds(new Set());
+        setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
+        setIsAnimating(false);
+      }
     };
   }, [props.turnResult, props.me, props.enemy]);
 
@@ -849,9 +883,9 @@ export function BattlePanel(props: {
                 actions={availableActions}
                 player={props.me}
                 selectedAction={selectedAction}
-                readOnly={!!selectedAction}
+                readOnly={!!selectedAction || isAnimating}
                 onSelect={(action) => {
-                  if (selectedAction) return;
+                  if (selectedAction || isAnimating) return;
                   setSelectedAction(action);
                   props.onActionSelect(action);
                 }}
