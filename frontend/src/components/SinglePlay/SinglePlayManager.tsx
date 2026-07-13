@@ -83,6 +83,7 @@ function buildEnemyState(floor: number, phase: 1 | 2): PlayerBattleState {
 // either phase) will only use it once its HP has dropped to 30% or below of
 // its max HP. This keeps the CPU from charging early when it doesn't need to.
 function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean): ActionType {
+  if (enemy.limitBreakActive) return "magicStrong";
   let available = getAvailableActions(enemy);
   if (isFloor5Boss) {
     const hpRatio = enemy.stats.maxHp > 0 ? enemy.currentHp / enemy.stats.maxHp : 0;
@@ -97,7 +98,7 @@ function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean): ActionT
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function SlotPreview({ char, label }: { char: SpCharacter | null; label: string }) {
+function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label: string; onClear?: () => void }) {
   const borderColor = char ? "#6366f1" : "#374151";
   const pct = char ? Math.max(0, Math.min(100, (char.currentHp / char.stats.maxHp) * 100)) : 0;
   const hpColor = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
@@ -168,6 +169,23 @@ function SlotPreview({ char, label }: { char: SpCharacter | null; label: string 
           </div>
         </div>
       )}
+      {char && onClear && (
+        <button
+          onClick={onClear}
+          style={{
+            marginTop: 2,
+            padding: "2px 8px",
+            borderRadius: 5,
+            border: "1px solid #6b7280",
+            background: "rgba(55,65,81,0.8)",
+            color: "#9ca3af",
+            fontSize: 11,
+            cursor: "pointer",
+          }}
+        >
+          ✕ 解除
+        </button>
+      )}
     </div>
   );
 }
@@ -176,6 +194,7 @@ function DrawingPhase(props: {
   slots: (SpCharacter | null)[];
   onSet: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
   onComplete: () => void;
+  onClear: (index: number) => void;
 }) {
   const filledCount = props.slots.filter(Boolean).length;
   const nextSlotIndex = props.slots.findIndex((s) => s === null);
@@ -212,7 +231,7 @@ function DrawingPhase(props: {
         </div>
 
         {props.slots.map((char, i) => (
-          <SlotPreview key={i} char={char} label={`枠 ${i + 1}`} />
+          <SlotPreview key={i} char={char} label={`枠 ${i + 1}`} onClear={char ? () => props.onClear(i) : undefined} />
         ))}
 
         <div style={{ color: "#9ca3af", fontSize: 11, textAlign: "center" }}>
@@ -393,6 +412,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const [turn, setTurn] = useState(1);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [bossTransforming, setBossTransforming] = useState(false);
+  const [limitBreaking, setLimitBreaking] = useState(false);
 
   // ── Mutable refs (avoid stale closures) ───────────────────────────────────
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -515,7 +535,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       })();
 
       const isFloor5Boss = floorRef.current === 5 && enemyIdParam.startsWith("boss-5-");
-      const cpuAction: ActionType = currentBattle[enemyIdParam].paralyzedNextTurn
+      const cpuAction: ActionType = currentBattle[enemyIdParam].limitBreakActive
+        ? "magicStrong"
+        : currentBattle[enemyIdParam].paralyzedNextTurn
         ? "paralysis"
         : pickCpuAction(currentBattle[enemyIdParam], isFloor5Boss);
 
@@ -553,6 +575,42 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       const currentActiveCharIndex = activeCharIndexRef.current;
 
       if (nextStates[enemyIdParam] && nextStates[enemyIdParam].currentHp <= 0) {
+        // Check for limit break trigger: boss-5-2, first time HP reaches 0
+        if (enemyIdParam === "boss-5-2" && !nextStates[enemyIdParam].limitBreakUsed) {
+          const limitBrokenEnemy: PlayerBattleState = {
+            ...nextStates[enemyIdParam],
+            currentHp: 1,
+            stats: {
+              ...nextStates[enemyIdParam].stats,
+              maxHp: 999,
+              pp: 999,
+              maxPp: 999,
+              attack: 999,
+              defense: 999,
+              speed: 999,
+            },
+            limitBreakUsed: true,
+            limitBreakActive: true,
+          };
+          const newBattle = {
+            [playerIdParam]: nextStates[playerIdParam],
+            [enemyIdParam]: limitBrokenEnemy,
+          };
+          battleStateRef.current = newBattle;
+          setBattleState(newBattle);
+          setTurnResult(null);
+          setLimitBreaking(true);
+          window.setTimeout(() => {
+            setLimitBreaking(false);
+            const nextTurn = turnNumber + 1;
+            setTurn(nextTurn);
+            turnRef.current = nextTurn;
+            startCountdown(TURN_SECONDS);
+            doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
+          }, 2500);
+          return;
+        }
+
         // Enemy defeated
         if (currentFloor === 5 && currentBossPhase === 1) {
           // Boss floor 5 phase 1 → transform to phase 2
@@ -745,6 +803,11 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     setSpStage("char_select");
   }, []);
 
+  const handleClearSlot = useCallback((index: number) => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    setCharacters((prev) => prev.map((c, i) => (i === index ? null : c)));
+  }, []);
+
   const handleCharSelect = useCallback(
     (index: number) => {
       startFloorBattle(index, floorRef.current, bossPhaseRef.current);
@@ -853,6 +916,64 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     );
   }
 
+  // ── Limit break overlay ────────────────────────────────────────────────────
+  if (limitBreaking) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "70vh",
+          gap: 24,
+          background: "rgba(80,0,0,0.5)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: "900",
+            color: "#ff2222",
+            textShadow: "0 0 16px #ff0000, 0 0 32px #ff6600",
+            animation: "rainbowShift 0.3s linear infinite",
+            background:
+              "linear-gradient(90deg, #f00, #f80, #f00, #f80, #f00)",
+            backgroundSize: "300% 100%",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          💥 リミットブレイク！ 💥
+        </div>
+        <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
+          ステータスが激変した！
+        </div>
+        <div
+          style={{
+            color: "#fca5a5",
+            fontSize: 15,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            textAlign: "center",
+            border: "2px solid #ef4444",
+            borderRadius: 10,
+            padding: "12px 24px",
+            background: "rgba(0,0,0,0.5)",
+          }}
+        >
+          <div>HP 1/999</div>
+          <div>PP 999/999</div>
+          <div>攻撃力 999</div>
+          <div>防御力 999</div>
+          <div>速度 999</div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Drawing phase ────────────────────────────────────────────────────────
   if (spStage === "drawing") {
     return (
@@ -874,6 +995,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           slots={characters}
           onSet={handleSetSlot}
           onComplete={handleDrawingComplete}
+          onClear={handleClearSlot}
         />
       </div>
     );
