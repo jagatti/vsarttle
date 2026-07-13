@@ -93,6 +93,10 @@ export interface PlayerBattleState {
   chargeBanTurns?: number;
   /** When true, this player is まひ (paralyzed) for the upcoming turn and cannot select any action. */
   paralyzedNextTurn?: boolean;
+  /** When true, this player has already triggered its limit break and cannot trigger it again. */
+  limitBreakUsed?: boolean;
+  /** When true, this player is in limit break mode and must always use magicStrong, ignoring all restrictions. */
+  limitBreakActive?: boolean;
 }
 
 export interface TurnDamageEvent {

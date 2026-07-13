@@ -32,6 +32,7 @@ export const WEAK_MAGIC_EFFECTS: { kind: "barrierBan" | "chargeBan" | "paralysis
 ];
 
 export function getAvailableActions(player: PlayerBattleState): ActionType[] {
+  if (player.limitBreakActive) return ["magicStrong"];
   if (player.paralyzedNextTurn) return [];
   const disallowed = player.lastActionCategory;
   return (["attack", "magicWeak", "magicStrong", "barrier", "charge"] as ActionType[]).filter((action) => {
@@ -89,8 +90,8 @@ export function resolveTurn(params: {
   const [leftId, rightId] = ids;
   const left = structuredClone(params.players[leftId]);
   const right = structuredClone(params.players[rightId]);
-  const leftAction = params.actions[leftId];
-  const rightAction = params.actions[rightId];
+  const leftAction = left.limitBreakActive ? ("magicStrong" as ActionType) : params.actions[leftId];
+  const rightAction = right.limitBreakActive ? ("magicStrong" as ActionType) : params.actions[rightId];
   const damageMultiplier = getDamageMultiplier(params.turn);
 
   const logs: string[] = [];
