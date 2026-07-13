@@ -1,11 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
+import {
+  applySinglePlayLimitBreak,
+  getSinglePlayLimitBreakDisplayDurationMs,
+  getSinglePlayLimitBreakStatusLines,
+  LIMIT_BREAK_BGM_PATH,
+  LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS,
+} from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
 import { getBossData } from "@/data/bosses";
 import type {
@@ -413,6 +420,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [bossTransforming, setBossTransforming] = useState(false);
   const [limitBreaking, setLimitBreaking] = useState(false);
+  const [visibleLimitBreakStatCount, setVisibleLimitBreakStatCount] = useState(0);
 
   // ── Mutable refs (avoid stale closures) ───────────────────────────────────
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -423,6 +431,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const turnTimerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const postTurnTimerRef = useRef<number | null>(null);
+  const limitBreakTimerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<ActionType | null>(null);
   const resumeBattleWithNextCharRef = useRef(false);
   const turnRef = useRef(1);
@@ -436,7 +445,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
 
   // ── BGM ───────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (spStage === "drawing") {
+    if (limitBreaking) {
+      soundManager.playBgm(LIMIT_BREAK_BGM_PATH);
+    } else if (spStage === "drawing") {
       soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
     } else if (spStage === "battle") {
       let bgm = "/sounds/bgm/battle_loop.mp3";
@@ -451,16 +462,44 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     } else {
       soundManager.stopBgm();
     }
-  }, [spStage, floor, bossPhase]);
+  }, [spStage, floor, bossPhase, limitBreaking]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
+      if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
+
+  const limitBreakEnemyState =
+    Object.values(battleState).find((state) => state.id.startsWith("boss-")) ?? null;
+  const limitBreakStatusLines = useMemo(
+    () => (limitBreakEnemyState ? getSinglePlayLimitBreakStatusLines(limitBreakEnemyState) : []),
+    [limitBreakEnemyState],
+  );
+
+  useEffect(() => {
+    if (!limitBreaking) {
+      setVisibleLimitBreakStatCount(0);
+      return;
+    }
+
+    if (limitBreakStatusLines.length === 0) return;
+
+    setVisibleLimitBreakStatCount(1);
+    const revealTimers = limitBreakStatusLines.slice(1).map((_, index) =>
+      window.setTimeout(() => {
+        setVisibleLimitBreakStatCount(index + 2);
+      }, (index + 1) * LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS),
+    );
+
+    return () => {
+      revealTimers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [limitBreaking, limitBreakStatusLines]);
 
   // ── Countdown ─────────────────────────────────────────────────────────────
   const startCountdown = useCallback((seconds: number = TURN_SECONDS) => {
@@ -577,21 +616,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       if (nextStates[enemyIdParam] && nextStates[enemyIdParam].currentHp <= 0) {
         // Check for limit break trigger: boss-5-2, first time HP reaches 0
         if (enemyIdParam === "boss-5-2" && !nextStates[enemyIdParam].limitBreakUsed) {
-          const limitBrokenEnemy: PlayerBattleState = {
-            ...nextStates[enemyIdParam],
-            currentHp: 1,
-            stats: {
-              ...nextStates[enemyIdParam].stats,
-              maxHp: 999,
-              pp: 999,
-              maxPp: 999,
-              attack: 999,
-              defense: 999,
-              speed: 999,
-            },
-            limitBreakUsed: true,
-            limitBreakActive: true,
-          };
+          const limitBrokenEnemy = applySinglePlayLimitBreak(nextStates[enemyIdParam]);
           const newBattle = {
             [playerIdParam]: nextStates[playerIdParam],
             [enemyIdParam]: limitBrokenEnemy,
@@ -600,14 +625,17 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           setBattleState(newBattle);
           setTurnResult(null);
           setLimitBreaking(true);
-          window.setTimeout(() => {
+          if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
+          limitBreakTimerRef.current = window.setTimeout(() => {
             setLimitBreaking(false);
             const nextTurn = turnNumber + 1;
             setTurn(nextTurn);
             turnRef.current = nextTurn;
             startCountdown(TURN_SECONDS);
             doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
-          }, 2500);
+          }, getSinglePlayLimitBreakDisplayDurationMs(
+            getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
+          ));
           return;
         }
 
@@ -950,6 +978,58 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
           ステータスが激変した！
         </div>
+        {limitBreakEnemyState && (
+          <div
+            style={{
+              position: "relative",
+              width: 240,
+              height: 240,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: -16,
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
+                backgroundSize: "300% 300%",
+                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
+                filter: "blur(18px)",
+                opacity: 0.95,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: -4,
+                borderRadius: 28,
+                background:
+                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
+                backgroundSize: "300% 300%",
+                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
+                boxShadow: "0 0 36px rgba(255,255,255,0.35)",
+              }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={limitBreakEnemyState.imageDataUrl}
+              alt={limitBreakEnemyState.nickname}
+              style={{
+                position: "relative",
+                width: 220,
+                height: 220,
+                objectFit: "contain",
+                borderRadius: 24,
+                background: "rgba(0,0,0,0.35)",
+                boxShadow: "0 0 30px rgba(255,255,255,0.25)",
+              }}
+            />
+          </div>
+        )}
         <div
           style={{
             color: "#fca5a5",
@@ -964,11 +1044,22 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
             background: "rgba(0,0,0,0.5)",
           }}
         >
-          <div>HP 1/999</div>
-          <div>PP 999/999</div>
-          <div>攻撃力 999</div>
-          <div>防御力 999</div>
-          <div>速度 999</div>
+          {limitBreakStatusLines.map((line, index) => {
+            const isVisible = index < visibleLimitBreakStatCount;
+            return (
+              <div
+                key={line}
+                style={{
+                  opacity: isVisible ? 1 : 0,
+                  transform: isVisible ? "translateY(0)" : "translateY(8px)",
+                  transition: "opacity 500ms ease, transform 500ms ease",
+                  minHeight: 22,
+                }}
+              >
+                {isVisible ? line : "\u00a0"}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
