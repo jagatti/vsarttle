@@ -267,52 +267,145 @@ function PortraitBlock({
   );
 }
 
-function MatchupTable() {
-  const chip = (t: ActionType) => (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 9px",
-        borderRadius: 6,
-        background: `${ACTION_COLORS[t]}33`,
-        color: ACTION_COLORS[t],
-        fontWeight: "bold",
-        fontSize: "clamp(10px, 0.85vw, 12px)",
-        border: `1px solid ${ACTION_COLORS[t]}`,
-      }}
-    >
-      {ACTION_LABELS[t]}
-    </span>
-  );
+function MatchupModal({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        margin: "8px auto",
-        background: "rgba(0,0,0,0.5)",
-        borderRadius: 8,
-        border: "1px solid #92400e",
-        padding: "8px 14px",
-        maxWidth: "clamp(320px, 40vw, 520px)",
-        width: "100%",
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(0,0,0,0.78)",
         display: "flex",
-        flexDirection: "column",
-        gap: 4,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
       }}
+      onClick={onClose}
     >
-      <div style={{ color: "#fde68a", fontSize: "clamp(10px, 0.85vw, 12px)", fontWeight: "bold", textAlign: "center", marginBottom: 1 }}>相性表</div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap", fontSize: "clamp(10px, 0.85vw, 12px)" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {chip("attack")} <span style={{ color: "#fde68a" }}>➜</span> {chip("barrier")}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {chip("magicWeak")} <span style={{ color: "#fde68a" }}>➜</span> {chip("attack")}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {chip("barrier")} <span style={{ color: "#fde68a" }}>➜</span> {chip("magicWeak")}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {chip("charge")} <span style={{ color: "#9ca3af" }}>：HP/PP回復</span>
-        </span>
+      <div
+        style={{
+          background: "linear-gradient(to bottom, #1c0a00, #2d1205)",
+          border: "2px solid #92400e",
+          borderRadius: 16,
+          padding: "clamp(14px, 2vw, 24px)",
+          maxWidth: "clamp(300px, 55vw, 500px)",
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          position: "relative",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.85)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          aria-label="閉じる"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 10,
+            background: "none",
+            border: "1px solid #4b5563",
+            borderRadius: 6,
+            color: "#9ca3af",
+            fontSize: "clamp(16px, 1.8vw, 22px)",
+            cursor: "pointer",
+            lineHeight: 1,
+            padding: "2px 8px",
+          }}
+        >
+          ×
+        </button>
+
+        {/* Title */}
+        <div style={{ color: "#fbbf24", fontSize: "clamp(14px, 1.4vw, 18px)", fontWeight: "bold", textAlign: "center", marginBottom: 12, paddingRight: 30 }}>
+          ⚔️ 相性表
+        </div>
+
+        {/* SVG Diagram */}
+        <svg
+          viewBox="0 0 400 295"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ width: "100%", display: "block" }}
+        >
+          <defs>
+            <marker id="mArrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#fde68a" />
+            </marker>
+            <marker id="mArrowGray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            </marker>
+          </defs>
+
+          {/* Arrow: こうげき → バリア (こうげきの勝ち) */}
+          <path d="M 244,40 Q 308,132 284,222" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="296" y="122" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
+
+          {/* Arrow: バリア → まほう (バリアの勝ち) */}
+          <path d="M 276,246 Q 200,270 124,246" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="200" y="278" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
+
+          {/* Arrow: まほう → こうげき (まほうの勝ち) */}
+          <path d="M 79,222 Q 96,132 156,56" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="96" y="124" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
+
+          {/* Arrow: バリア → チャージ (カウンター, dashed) */}
+          <path d="M 282,230 L 248,170" stroke="#94a3b8" strokeWidth="1.5" fill="none" strokeDasharray="5,3" markerEnd="url(#mArrowGray)" />
+          <text x="280" y="208" fill="#94a3b8" fontSize="10" textAnchor="middle">カウンター</text>
+
+          {/* こうげき chip */}
+          <rect x="155" y="24" width="90" height="28" rx="6" fill="#dc262633" stroke="#dc2626" strokeWidth="1.5" />
+          <text x="200" y="43" textAnchor="middle" fill="#dc2626" fontWeight="bold" fontSize="14">こうげき</text>
+
+          {/* まほう chip */}
+          <rect x="35" y="224" width="90" height="28" rx="6" fill="#2563eb33" stroke="#2563eb" strokeWidth="1.5" />
+          <text x="80" y="243" textAnchor="middle" fill="#93c5fd" fontWeight="bold" fontSize="14">まほう</text>
+
+          {/* バリア chip */}
+          <rect x="275" y="224" width="90" height="28" rx="6" fill="#ea580c33" stroke="#ea580c" strokeWidth="1.5" />
+          <text x="320" y="243" textAnchor="middle" fill="#ea580c" fontWeight="bold" fontSize="14">バリア</text>
+
+          {/* チャージ chip */}
+          <rect x="155" y="142" width="90" height="28" rx="6" fill="#16a34a33" stroke="#16a34a" strokeWidth="1.5" />
+          <text x="200" y="161" textAnchor="middle" fill="#16a34a" fontWeight="bold" fontSize="14">チャージ</text>
+        </svg>
+
+        {/* Game system description */}
+        <div
+          style={{
+            borderTop: "1px solid #92400e",
+            marginTop: 10,
+            paddingTop: 10,
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+            fontSize: "clamp(10px, 0.95vw, 13px)",
+            color: "#d1d5db",
+            lineHeight: 1.65,
+          }}
+        >
+          <div>
+            <span style={{ color: "#fde68a", fontWeight: "bold" }}>▶ 相性なしの場合：</span>
+            素早さが高い方が先に攻撃する（同値の場合はランダム）
+          </div>
+          <div>
+            <span style={{ color: "#16a34a", fontWeight: "bold" }}>▶ チャージ：</span>
+            HP/PPが最大値の25%分回復し、次の攻撃系コマンド（こうげき・まほう・バリア）のダメージが1.5倍になる
+          </div>
+          <div>
+            <span style={{ color: "#ea580c", fontWeight: "bold" }}>▶ バリア vs まほう：</span>
+            まほうのダメージをバリア側に反射する
+          </div>
+          <div>
+            <span style={{ color: "#ea580c", fontWeight: "bold" }}>▶ バリア vs チャージ：</span>
+            バリア側が防御力の25%分のカウンターダメージを与える
+          </div>
+          <div>
+            <span style={{ color: "#fde68a", fontWeight: "bold" }}>▶ ダメージ倍率：</span>
+            16ターン目からダメージ2倍、21ターン目から3倍になる
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -399,6 +492,7 @@ export function BattlePanel(props: {
   const [actingPlayerId, setActingPlayerId] = useState<string | null>(null);
   const [showFinishButtons, setShowFinishButtons] = useState(false);
   const [revealedActions, setRevealedActions] = useState<Record<string, ActionType> | null>(null);
+  const [showMatchupModal, setShowMatchupModal] = useState(false);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
   // True while the turn-result reveal/damage animation is playing. Used to keep
@@ -602,6 +696,9 @@ export function BattlePanel(props: {
     // element below sizes itself with clamp()s that account for vh as well
     // as vw, so the layout naturally fits within the visible area.
     <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
+      {/* Matchup modal */}
+      {showMatchupModal && <MatchupModal onClose={() => setShowMatchupModal(false)} />}
+
       {/* Battle event flash */}
       {showFlash && (
         <div
@@ -752,6 +849,22 @@ export function BattlePanel(props: {
               {upcomingDamageAnnouncement}
             </span>
           )}
+          <button
+            onClick={() => setShowMatchupModal(true)}
+            style={{
+              background: "rgba(146,64,14,0.35)",
+              border: "1px solid #92400e",
+              borderRadius: 6,
+              color: "#fde68a",
+              fontWeight: "bold",
+              fontSize: "clamp(10px, 0.9vw, 13px)",
+              cursor: "pointer",
+              padding: "clamp(3px, 0.4vw, 5px) clamp(7px, 0.9vw, 11px)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            相性表
+          </button>
         </div>
 
         {/* Name / HP / PP boxes, colored by character type */}
@@ -829,8 +942,6 @@ export function BattlePanel(props: {
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
           />
         </div>
-
-        <MatchupTable />
 
         {/* Wood floor strip */}
         <div
