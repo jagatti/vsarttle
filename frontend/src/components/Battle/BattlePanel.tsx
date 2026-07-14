@@ -333,26 +333,19 @@ function MatchupModal({ onClose }: { onClose: () => void }) {
             <marker id="mArrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#fde68a" />
             </marker>
-            <marker id="mArrowGray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
-            </marker>
           </defs>
 
           {/* Arrow: こうげき → バリア (こうげきの勝ち) */}
-          <path d="M 244,40 Q 308,132 284,222" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
-          <text x="296" y="122" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
+          <path d="M 213,61 L 307,215" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="272" y="135" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
 
           {/* Arrow: バリア → まほう (バリアの勝ち) */}
-          <path d="M 276,246 Q 200,270 124,246" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
-          <text x="200" y="278" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
+          <path d="M 265,238 L 135,238" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="200" y="258" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
 
           {/* Arrow: まほう → こうげき (まほうの勝ち) */}
-          <path d="M 79,222 Q 96,132 156,56" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
-          <text x="96" y="124" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
-
-          {/* Arrow: バリア → チャージ (カウンター, dashed) */}
-          <path d="M 282,230 L 248,170" stroke="#94a3b8" strokeWidth="1.5" fill="none" strokeDasharray="5,3" markerEnd="url(#mArrowGray)" />
-          <text x="280" y="208" fill="#94a3b8" fontSize="10" textAnchor="middle">カウンター</text>
+          <path d="M 93,215 L 187,61" stroke="#fde68a" strokeWidth="2.5" fill="none" markerEnd="url(#mArrow)" />
+          <text x="128" y="135" fill="#fde68a" fontSize="12" textAnchor="middle">勝ち</text>
 
           {/* こうげき chip */}
           <rect x="155" y="24" width="90" height="28" rx="6" fill="#dc262633" stroke="#dc2626" strokeWidth="1.5" />
@@ -394,12 +387,8 @@ function MatchupModal({ onClose }: { onClose: () => void }) {
             HP/PPが最大値の25%分回復し、次の攻撃系コマンド（こうげき・まほう・バリア）のダメージが1.5倍になる
           </div>
           <div>
-            <span style={{ color: "#ea580c", fontWeight: "bold" }}>▶ バリア vs まほう：</span>
-            まほうのダメージをバリア側に反射する
-          </div>
-          <div>
-            <span style={{ color: "#ea580c", fontWeight: "bold" }}>▶ バリア vs チャージ：</span>
-            バリア側が防御力の25%分のカウンターダメージを与える
+            <span style={{ color: "#a78bfa", fontWeight: "bold" }}>▶ 弱まほう：</span>
+            ダメージを与えた相手にランダムで状態異常の効果が付与される
           </div>
           <div>
             <span style={{ color: "#fde68a", fontWeight: "bold" }}>▶ ダメージ倍率：</span>
