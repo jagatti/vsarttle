@@ -81,148 +81,77 @@ function detectTrend(imageData: ImageDataLike): { trend: ColorTrend; trendRatio:
   return { trend, trendRatio, uniqueColors: colorSet.size, filledPixels };
 }
 
-function calculateStrokeMetrics(drawing: DrawingData): { strokeDistance: number; avgStrokeSize: number } {
-  let strokeDistance = 0;
-  let strokeSizeTotal = 0;
-  let strokeCount = 0;
+function calculateStrokeMetrics(drawing: DrawingData): { thickStrokeTravel: number; thinStrokeTravel: number } {
+  let thickStrokeTravel = 0;
+  let thinStrokeTravel = 0;
 
   for (const layer of drawing.layers) {
     for (const stroke of layer.strokes) {
-      strokeCount += 1;
-      strokeSizeTotal += stroke.size;
+      if (stroke.tool === "eraser") continue;
+      const dotTravel = Math.max(1, stroke.size * 0.5);
+      if (stroke.points.length < 2) {
+        if (stroke.size >= 8) thickStrokeTravel += dotTravel;
+        if (stroke.size <= 4) thinStrokeTravel += dotTravel;
+        continue;
+      }
       for (let i = 1; i < stroke.points.length; i += 1) {
-        strokeDistance += distance(stroke.points[i - 1], stroke.points[i]);
+        const segDistance = distance(stroke.points[i - 1], stroke.points[i]);
+        if (stroke.size >= 8) thickStrokeTravel += segDistance;
+        if (stroke.size <= 4) thinStrokeTravel += segDistance;
       }
     }
   }
 
   return {
-    strokeDistance,
-    avgStrokeSize: strokeCount > 0 ? strokeSizeTotal / strokeCount : 1,
+    thickStrokeTravel,
+    thinStrokeTravel,
   };
 }
 
-// Type-specific stat ranges: each type guarantees its character's identity
-// Note: HP range width (max - min) was intentionally doubled from the original
-// design (min kept the same, max extended) to allow more room for well-drawn
-// characters to stand out, while barely-drawn ("effort" ≈ 0) characters are
-// still pulled toward the low end by the `effort` gate below.
-const STAT_RANGES: Record<ColorTrend, {
-  hp: [number, number];
-  pp: [number, number];
-  attack: [number, number];
-  defense: [number, number];
-  speed: [number, number];
-  evasion: [number, number];
+const BASE_STATS: Record<ColorTrend, {
+  hp: number;
+  pp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  evasion: number;
 }> = {
-  attack:   { hp: [30, 330],  pp: [30, 60], attack: [120, 199], defense: [50, 110],  speed: [5, 9], evasion: [0.03, 0.07] },
-  // defense(バリア)型: 高すぎた攻撃力・PPを引き下げ、守備特化の役割をはっきりさせる
-  defense:  { hp: [120, 400], pp: [20, 45], attack: [30, 70],   defense: [110, 160], speed: [1, 5], evasion: [0.02, 0.05] },
-  // magic(まほう)型: 一撃死しにくいようHP・防御力の下限を引き上げ
-  magic:    { hp: [60, 300],  pp: [60, 99], attack: [50, 100],  defense: [60, 110],  speed: [5, 9], evasion: [0.06, 0.1] },
-  balanced: { hp: [80, 360],  pp: [40, 80], attack: [80, 150],  defense: [80, 120],  speed: [3, 7], evasion: [0.04, 0.07] },
+  balanced: { hp: 250, pp: 50, attack: 100, defense: 100, speed: 6, evasion: 0.01 },
+  attack:   { hp: 300, pp: 50, attack: 199, defense: 100, speed: 6, evasion: 0.01 },
+  magic:    { hp: 280, pp: 90, attack: 100, defense: 100, speed: 7, evasion: 0.01 },
+  defense:  { hp: 360, pp: 50, attack: 80, defense: 160, speed: 5, evasion: 0.01 },
 };
 
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-// Pull score toward the high end of the range (characteristic "strong" stat for this type)
-const pushHigh = (score: number, trendRatio: number) => clamp(score + (1 - score) * trendRatio * 0.7, 0, 1);
-// Pull score toward the low end of the range (characteristic "weak" stat for this type)
-const pushLow = (score: number, trendRatio: number) => clamp(score * (1 - trendRatio * 0.7), 0, 1);
+function calculateHpPpBonusRates(
+  drawing: DrawingData,
+  trendInfo: { uniqueColors: number },
+): { hpBonusRate: number; ppBonusRate: number } {
+  const { thickStrokeTravel, thinStrokeTravel } = calculateStrokeMetrics(drawing);
+  const diagonal = Math.max(1, Math.hypot(drawing.canvas.width, drawing.canvas.height));
+  const thickTravelScore = clamp((thickStrokeTravel / diagonal) / 3, 0, 1);
+  const thinTravelScore = clamp((thinStrokeTravel / diagonal) / 3, 0, 1);
+  const multiColorScore = clamp((trendInfo.uniqueColors - 1) / 12, 0, 1);
+  const hpBonusRate = thickTravelScore * 0.1;
+  const ppBonusRate = clamp(thinTravelScore * 0.6 + multiColorScore * 0.4, 0, 1) * 0.1;
+  return { hpBonusRate, ppBonusRate };
+}
 
 export function calculateStatsFromDrawing(drawing: DrawingData, imageData: ImageDataLike): CharacterStats {
   const trendInfo = detectTrend(imageData);
-  const strokeMetrics = calculateStrokeMetrics(drawing);
-  const coverage = imageData.width * imageData.height > 0 ? trendInfo.filledPixels / (imageData.width * imageData.height) : 0;
-  const detailScore = clamp((trendInfo.uniqueColors / 25) * 0.4 + (strokeMetrics.strokeDistance / 5000) * 0.6, 0, 1);
-  const volumeScore = clamp(coverage * 2.2 + strokeMetrics.avgStrokeSize / 40, 0, 1);
-
-  // "Effort" gate: how much was actually drawn (fill coverage + stroke thickness),
-  // independent of color trend. A blank or barely-touched canvas previously could
-  // still reach near-max stats (e.g. HP 300) purely because a few pixels leaned
-  // toward one color trend, giving trendRatio ≈ 1. Multiplying every score by
-  // `effort` ensures low-effort drawings stay near the low end of their type's
-  // range regardless of trendRatio, while well-filled drawings are unaffected.
-  const effort = clamp(coverage * 3 + strokeMetrics.avgStrokeSize / 30, 0, 1);
-
-  // Base score mapping follows existing tendencies:
-  // attack/speed → volume-heavy; pp/evasion → detail-heavy; defense → both equally
-  const baseHp = volumeScore;
-  const basePp = detailScore;
-  const baseAttack = volumeScore;
-  const baseDefense = detailScore * 0.5 + volumeScore * 0.5;
-  const baseSpeed = volumeScore;
-  const baseEvasion = detailScore;
-
-  const tR = trendInfo.trendRatio;
-  let hpScore: number;
-  let ppScore: number;
-  let attackScore: number;
-  let defenseScore: number;
-  let speedScore: number;
-  let evasionScore: number;
-
-  if (trendInfo.trend === "attack") {
-    // attack型: HP・PP低め、攻撃力・速さ高め
-    hpScore      = pushLow(baseHp, tR);
-    ppScore      = pushLow(basePp, tR);
-    attackScore  = pushHigh(baseAttack, tR);
-    defenseScore = pushLow(baseDefense, tR);
-    speedScore   = pushHigh(baseSpeed, tR);
-    evasionScore = baseEvasion;
-  } else if (trendInfo.trend === "defense") {
-    // defense型: 攻撃力・回避低め、HP・防御力高め
-    hpScore      = pushHigh(baseHp, tR);
-    ppScore      = basePp;
-    attackScore  = pushLow(baseAttack, tR);
-    defenseScore = pushHigh(baseDefense, tR);
-    speedScore   = pushLow(baseSpeed, tR);
-    evasionScore = pushLow(baseEvasion, tR);
-  } else if (trendInfo.trend === "magic") {
-    // magic型: 攻撃力・防御力低め、PP・速さ・回避高め
-    hpScore      = pushLow(baseHp, tR);
-    ppScore      = pushHigh(basePp, tR);
-    attackScore  = pushLow(baseAttack, tR);
-    defenseScore = pushLow(baseDefense, tR);
-    speedScore   = pushHigh(baseSpeed, tR);
-    evasionScore = pushHigh(baseEvasion, tR);
-  } else {
-    // balanced型: 補正なし — 描き方の差が最も出やすい
-    hpScore      = baseHp;
-    ppScore      = basePp;
-    attackScore  = baseAttack;
-    defenseScore = baseDefense;
-    speedScore   = baseSpeed;
-    evasionScore = baseEvasion;
-  }
-
-  // Apply the effort gate: a low-effort (near-blank) drawing is pulled toward
-  // the bottom of every stat range regardless of trend/trendRatio.
-  hpScore      = clamp(hpScore * effort, 0, 1);
-  ppScore      = clamp(ppScore * effort, 0, 1);
-  attackScore  = clamp(attackScore * effort, 0, 1);
-  defenseScore = clamp(defenseScore * effort, 0, 1);
-  speedScore   = clamp(speedScore * effort, 0, 1);
-  evasionScore = clamp(evasionScore * effort, 0, 1);
-
-  const ranges = STAT_RANGES[trendInfo.trend];
-
-  const hp      = clamp(Math.round(lerp(ranges.hp[0],      ranges.hp[1],      hpScore)),      ranges.hp[0],      ranges.hp[1]);
-  const pp      = clamp(Math.round(lerp(ranges.pp[0],      ranges.pp[1],      ppScore)),      ranges.pp[0],      ranges.pp[1]);
-  const attack  = clamp(Math.round(lerp(ranges.attack[0],  ranges.attack[1],  attackScore)),  ranges.attack[0],  ranges.attack[1]);
-  const defense = clamp(Math.round(lerp(ranges.defense[0], ranges.defense[1], defenseScore)), ranges.defense[0], ranges.defense[1]);
-  const speed   = clamp(Math.round(lerp(ranges.speed[0],   ranges.speed[1],   speedScore)),   ranges.speed[0],   ranges.speed[1]);
-  const evasion = clamp(Number(lerp(ranges.evasion[0], ranges.evasion[1], evasionScore).toFixed(3)), ranges.evasion[0], ranges.evasion[1]);
+  const base = BASE_STATS[trendInfo.trend];
+  const { hpBonusRate, ppBonusRate } = calculateHpPpBonusRates(drawing, trendInfo);
+  const hp = Math.round(base.hp * (1 + hpBonusRate));
+  const pp = Math.round(base.pp * (1 + ppBonusRate));
 
   return {
     hp,
     maxHp: hp,
     pp,
     maxPp: pp,
-    attack,
-    defense,
-    speed,
-    evasion,
+    attack: base.attack,
+    defense: base.defense,
+    speed: base.speed,
+    evasion: base.evasion,
   };
 }
 
