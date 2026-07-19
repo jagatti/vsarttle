@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
+import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { safeImageUrl } from "@/lib/imageUrl";
 import { soundManager } from "@/lib/soundManager";
-import type { ActionType, CharacterType, PlayerBattleState, TurnResult } from "@/types/game";
+import type { ActionType, CharacterType, EnhancementSlot, PlayerBattleState, TurnResult } from "@/types/game";
 import {
   applyAnimationPhaseToDisplayResources,
   buildDisplayBattleResources,
@@ -152,6 +153,8 @@ function PortraitBlock({
   isLoser,
   isShaking,
   revealedAction,
+  enhancementSlot,
+  enhancementAlign,
 }: {
   player: PlayerBattleState;
   label: string;
@@ -160,6 +163,8 @@ function PortraitBlock({
   isLoser?: boolean;
   isShaking?: boolean;
   revealedAction?: ActionType | null;
+  enhancementSlot?: EnhancementSlot | null;
+  enhancementAlign: "left" | "right";
 }) {
   const isCharged = player.chargeMultiplier > 1;
   const activeEffects: string[] = [];
@@ -241,6 +246,30 @@ function PortraitBlock({
             animation: imgAnimations || "none",
           }}
         />
+        {enhancementSlot && (
+          <div
+            title={ENHANCEMENT_SLOT_META[enhancementSlot].effectText}
+            style={{
+              position: "absolute",
+              top: -12,
+              left: enhancementAlign === "left" ? -12 : undefined,
+              right: enhancementAlign === "right" ? -12 : undefined,
+              width: 30,
+              height: 30,
+              borderRadius: 9999,
+              border: "2px solid #fbbf24",
+              background: "rgba(0,0,0,0.82)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              zIndex: 8,
+              boxShadow: "0 0 10px rgba(251,191,36,0.5)",
+            }}
+          >
+            {ENHANCEMENT_SLOT_META[enhancementSlot].icon}
+          </div>
+        )}
       </div>
       {activeEffects.length > 0 && (
         <div style={{ marginTop: 6, display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
@@ -880,6 +909,8 @@ export function BattlePanel(props: {
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
             revealedAction={revealedActions ? revealedActions[props.me.id] : null}
+            enhancementSlot={props.me.enhancementSlot}
+            enhancementAlign="left"
           />
           <div
             style={{
@@ -929,6 +960,8 @@ export function BattlePanel(props: {
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
+            enhancementSlot={props.enemy.enhancementSlot}
+            enhancementAlign="right"
           />
         </div>
 

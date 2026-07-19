@@ -70,6 +70,8 @@ export interface CharacterStats {
   evasion: number;
 }
 
+export type EnhancementSlot = "pp" | "speed" | "evasion";
+
 export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge" | "paralysis";
 export type ActionCategory = "attack" | "magic" | "barrier" | "charge" | "paralysis";
 
@@ -81,6 +83,7 @@ export interface PlayerBattleState {
   imageDataUrl: string;
   stats: CharacterStats;
   characterType: CharacterType;
+  enhancementSlot?: EnhancementSlot | null;
   currentHp: number;
   currentPp: number;
   chargeMultiplier: number;

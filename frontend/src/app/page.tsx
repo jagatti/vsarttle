@@ -11,8 +11,9 @@ import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
-import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData, CharacterType } from "@/types/game";
+import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData, CharacterType, EnhancementSlot } from "@/types/game";
 
 const DRAW_SECONDS = 300;
 const TURN_SECONDS = 30;
@@ -30,6 +31,7 @@ interface PeerCharacter {
   drawing: WireDrawingData;
   stats: PlayerBattleState["stats"];
   characterType: CharacterType;
+  enhancementSlot: EnhancementSlot | null;
 }
 
 type RematchMode = "same" | "redraw";
@@ -74,6 +76,11 @@ export default function Home() {
   const [winnerText, setWinnerText] = useState("");
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
+  const [pendingCharacterBase, setPendingCharacterBase] = useState<{
+    drawing: WireDrawingData;
+    stats: PlayerBattleState["stats"];
+    characterType: CharacterType;
+  } | null>(null);
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
@@ -158,6 +165,7 @@ export default function Home() {
       imageDataUrl: drawingToDataUrl(local.drawing),
       stats: local.stats,
       characterType: local.characterType,
+      enhancementSlot: local.enhancementSlot,
       currentHp: local.stats.maxHp,
       currentPp: local.stats.maxPp,
       chargeMultiplier: 1,
@@ -169,6 +177,7 @@ export default function Home() {
       imageDataUrl: drawingToDataUrl(remote.drawing),
       stats: remote.stats,
       characterType: remote.characterType,
+      enhancementSlot: remote.enhancementSlot,
       currentHp: remote.stats.maxHp,
       currentPp: remote.stats.maxPp,
       chargeMultiplier: 1,
@@ -262,6 +271,7 @@ export default function Home() {
     previousDrawingRef.current = localCharacterRef.current?.drawing ?? previousDrawingRef.current;
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
+    setPendingCharacterBase(null);
     setBattleFinish(null);
     setBattleState({});
     setTurn(1);
@@ -485,12 +495,24 @@ export default function Home() {
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
     const characterType = detectCharacterType(payload.imageData);
-    const character: PeerCharacter = {
-      nickname,
+    setPendingCharacterBase({
       drawing: prepareDrawingForWire(payload.drawing),
       stats,
       characterType,
+    });
+    setStatus("強化スロットを1つ選択してください。");
+  };
+
+  const onEnhancementSlotSelect = (slot: EnhancementSlot) => {
+    if (!pendingCharacterBase) return;
+    const character: PeerCharacter = {
+      nickname,
+      drawing: pendingCharacterBase.drawing,
+      stats: applyEnhancementSlot(pendingCharacterBase.stats, slot),
+      characterType: pendingCharacterBase.characterType,
+      enhancementSlot: slot,
     };
+    setPendingCharacterBase(null);
     localCharacterRef.current = character;
     sendWire({ type: "ready", payload: character });
     setStatus("準備完了。相手の完成を待っています。");
@@ -518,6 +540,7 @@ export default function Home() {
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
+    setPendingCharacterBase(null);
     setStage("room");
     setStatus("ルームを作成するか入室してください");
   };
@@ -555,7 +578,32 @@ export default function Home() {
       )}
 
       {stage === "drawing" && (
-        <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={previousDrawingRef.current ?? undefined} />
+        <>
+          <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={previousDrawingRef.current ?? undefined} />
+          {pendingCharacterBase && (
+            <section className="rounded-lg border border-amber-600 bg-black/70 p-4 text-amber-100">
+              <h2 className="mb-2 text-lg font-bold">強化スロットを選択</h2>
+              <p className="mb-3 text-sm">絵の完成ボーナスとして1つ選べます（マルチプレイのみ）</p>
+              <div className="flex flex-wrap gap-3">
+                {ENHANCEMENT_SLOT_CHOICES.map((slot) => (
+                  <button
+                    key={slot}
+                    className="min-w-[160px] rounded border border-amber-400 bg-amber-900/40 px-3 py-2 text-left hover:bg-amber-800/60"
+                    onClick={() => {
+                      soundManager.playSe("/sounds/se/button.mp3");
+                      onEnhancementSlotSelect(slot);
+                    }}
+                  >
+                    <div className="text-lg font-bold">
+                      {ENHANCEMENT_SLOT_META[slot].icon} {ENHANCEMENT_SLOT_META[slot].label}
+                    </div>
+                    <div className="text-sm">{ENHANCEMENT_SLOT_META[slot].effectText}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {stage === "battle" && myState && enemyState && (
