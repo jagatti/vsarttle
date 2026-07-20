@@ -503,6 +503,10 @@ export function BattlePanel(props: {
    * post-battle choices differ (e.g. "次の層へ", "タイトルに戻る", "再開").
    */
   customFinishButtons?: ReactNode;
+  /** Cumulative win/loss record against the current opponent (multiplayer only). */
+  matchRecord?: { wins: number; losses: number };
+  /** Called when the player wants to return to the title screen (multiplayer only). */
+  onReturnToTitle?: () => void;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -783,48 +787,83 @@ export function BattlePanel(props: {
             <div
               style={{
                 display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
                 gap: 14,
                 animation: "finishButtonsIn 0.5s ease-out",
               }}
             >
-              {props.customFinishButtons ?? (
-                props.role === "host" ? (
-                  <>
-                    <button
-                      onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
-                      style={{
-                        padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                        borderRadius: 8,
-                        border: "2px solid #22c55e",
-                        background: "rgba(6,60,20,0.9)",
-                        color: "#86efac",
-                        fontWeight: "bold",
-                        fontSize: "clamp(12px, 1.1vw, 15px)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      再戦（絵を引き継ぐ）
-                    </button>
-                    <button
-                      onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
-                      style={{
-                        padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                        borderRadius: 8,
-                        border: "2px solid #fbbf24",
-                        background: "rgba(120,60,0,0.9)",
-                        color: "#fbbf24",
-                        fontWeight: "bold",
-                        fontSize: "clamp(12px, 1.1vw, 15px)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      描きなおしてもう１戦
-                    </button>
-                  </>
-                ) : (
-                  <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(12px, 1.1vw, 15px)" }}>ホストの選択を待っています…</p>
-                )
+              {/* Win/loss record (multiplayer only) */}
+              {props.matchRecord && (
+                <div
+                  style={{
+                    color: "#fbbf24",
+                    fontWeight: "bold",
+                    fontSize: "clamp(13px, 1.2vw, 16px)",
+                    textShadow: "0 0 8px #fbbf2488",
+                  }}
+                >
+                  対戦成績：{props.matchRecord.wins}勝 {props.matchRecord.losses}敗
+                </div>
               )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+                {props.customFinishButtons ?? (
+                  props.role === "host" ? (
+                    <>
+                      <button
+                        onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
+                        style={{
+                          padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                          borderRadius: 8,
+                          border: "2px solid #22c55e",
+                          background: "rgba(6,60,20,0.9)",
+                          color: "#86efac",
+                          fontWeight: "bold",
+                          fontSize: "clamp(12px, 1.1vw, 15px)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        再戦（絵を引き継ぐ）
+                      </button>
+                      <button
+                        onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
+                        style={{
+                          padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                          borderRadius: 8,
+                          border: "2px solid #fbbf24",
+                          background: "rgba(120,60,0,0.9)",
+                          color: "#fbbf24",
+                          fontWeight: "bold",
+                          fontSize: "clamp(12px, 1.1vw, 15px)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        描きなおしてもう１戦
+                      </button>
+                    </>
+                  ) : (
+                    <p style={{ color: "#fef3c7", fontWeight: "bold", fontSize: "clamp(12px, 1.1vw, 15px)" }}>ホストの選択を待っています…</p>
+                  )
+                )}
+                {/* Title-return button (multiplayer only, shown for both host and guest) */}
+                {props.onReturnToTitle && (
+                  <button
+                    onClick={props.onReturnToTitle}
+                    style={{
+                      padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
+                      borderRadius: 8,
+                      border: "2px solid #6b7280",
+                      background: "rgba(30,30,30,0.9)",
+                      color: "#9ca3af",
+                      fontWeight: "bold",
+                      fontSize: "clamp(12px, 1.1vw, 15px)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    タイトルへ戻る
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

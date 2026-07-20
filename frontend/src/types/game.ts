@@ -100,6 +100,8 @@ export interface PlayerBattleState {
   limitBreakUsed?: boolean;
   /** When true, this player is in limit break mode and must always use magicStrong, ignoring all restrictions. */
   limitBreakActive?: boolean;
+  /** When true, this player used チャージ on the previous turn; the 1.5x chargeMultiplier is active for this turn only and will be reset at the end of this turn regardless of what action is taken. */
+  chargedPreviousTurn?: boolean;
 }
 
 export interface TurnDamageEvent {
