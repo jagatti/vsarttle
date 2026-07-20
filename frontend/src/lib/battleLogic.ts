@@ -68,8 +68,7 @@ const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState,
   Math.max(MIN_DAMAGE, Math.round(magicCost(magicAction, magicUser.stats) * 5 * magicUser.chargeMultiplier - targetDefense / 2));
 
 // 相手がチャージ、自身がバリアを選んだ際に発生するカウンターダメージ。
-// 自身のぼうぎょ力の25%分（相手のぼうぎょ力等は考慮しない）を固定で与える。
-const barrierVsChargeDamage = (defender: PlayerBattleState) => Math.max(MIN_DAMAGE, Math.round(defender.stats.defense * 0.25));
+// バリア衝突と同じ計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
 
 const maybeAvoid = (damage: number, evasion: number, rng: () => number) => (rng() < evasion ? 0 : damage);
 
@@ -93,6 +92,14 @@ export function resolveTurn(params: {
   const leftAction = left.limitBreakActive ? ("magicStrong" as ActionType) : params.actions[leftId];
   const rightAction = right.limitBreakActive ? ("magicStrong" as ActionType) : params.actions[rightId];
   const damageMultiplier = getDamageMultiplier(params.turn);
+
+  // Capture whether each player charged on the previous turn (before any new
+  // charge this turn can overwrite the flag). The 1.5x multiplier expires at
+  // the end of this turn regardless of what action is taken.
+  const leftHadChargedPrevious = !!left.chargedPreviousTurn;
+  const rightHadChargedPrevious = !!right.chargedPreviousTurn;
+  left.chargedPreviousTurn = false;
+  right.chargedPreviousTurn = false;
 
   const logs: string[] = [];
   const damageEvents: TurnDamageEvent[] = [];
@@ -135,6 +142,7 @@ export function resolveTurn(params: {
     player.currentHp = clamp(player.currentHp + hpRecover, 0, player.stats.maxHp);
     player.currentPp = clamp(player.currentPp + ppRecover, 0, player.stats.maxPp);
     player.chargeMultiplier = 1.5;
+    player.chargedPreviousTurn = true;
     player.lastChargeHpRecover = hpRecover;
     player.lastChargePpRecover = ppRecover;
   };
@@ -181,9 +189,6 @@ export function resolveTurn(params: {
     if (action === "barrier" && targetAction === "barrier") {
       applyDamage(actor, target, barrierCollisionDamage(actor, target), "バリア衝突");
     }
-    if (actor.chargeMultiplier > 1 && ["attack", "magicWeak", "magicStrong", "barrier"].includes(action)) {
-      actor.chargeMultiplier = 1;
-    }
   };
 
   if (leftCategory === "magic" && rightCategory === "barrier") {
@@ -192,21 +197,22 @@ export function resolveTurn(params: {
     // The magic caster (left) takes the reflected damage, so a 弱まほう effect
     // applies to themself instead of the barrier user.
     if (leftAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(left, left, true);
-    if (right.chargeMultiplier > 1) right.chargeMultiplier = 1;
-    if (left.chargeMultiplier > 1) left.chargeMultiplier = 1;
   } else if (rightCategory === "magic" && leftCategory === "barrier") {
     consumePp(right, rightAction);
     const dealt = applyDamage(left, right, reflectionDamage(rightAction, right, right.stats.defense), "バリア反射");
     if (rightAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(right, right, true);
-    if (left.chargeMultiplier > 1) left.chargeMultiplier = 1;
-    if (right.chargeMultiplier > 1) right.chargeMultiplier = 1;
   } else if (leftCategory === "barrier" && rightCategory === "charge") {
     // 相手がチャージ、自身がバリアの場合はバリアでカウンターダメージを与える。
-    applyDamage(left, right, barrierVsChargeDamage(left), "バリアカウンター");
-    if (left.chargeMultiplier > 1) left.chargeMultiplier = 1;
+    // 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]（バリア衝突と同じ）
+    applyDamage(left, right, barrierCollisionDamage(left, right), "バリアカウンター");
   } else if (rightCategory === "barrier" && leftCategory === "charge") {
-    applyDamage(right, left, barrierVsChargeDamage(right), "バリアカウンター");
-    if (right.chargeMultiplier > 1) right.chargeMultiplier = 1;
+    applyDamage(right, left, barrierCollisionDamage(right, left), "バリアカウンター");
+  } else if (leftCategory === "barrier" && rightCategory === "paralysis") {
+    // 相手がまひで行動不能、自身がバリアの場合もカウンターダメージを与える。
+    // 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
+    applyDamage(left, right, barrierCollisionDamage(left, right), "バリアカウンター");
+  } else if (rightCategory === "barrier" && leftCategory === "paralysis") {
+    applyDamage(right, left, barrierCollisionDamage(right, left), "バリアカウンター");
   } else if (winner === null) {
     processStrike(speedFirst, speedFirst.id === left.id ? leftAction : rightAction, speedSecond, speedSecond.id === left.id ? leftAction : rightAction);
     processStrike(speedSecond, speedSecond.id === left.id ? leftAction : rightAction, speedFirst, speedFirst.id === left.id ? leftAction : rightAction);
@@ -217,6 +223,12 @@ export function resolveTurn(params: {
 
   left.lastActionCategory = leftCategory;
   right.lastActionCategory = rightCategory;
+
+  // Turn-based chargeMultiplier reset: if a player used チャージ last turn, the
+  // 1.5x boost was active for this turn only. Reset it now regardless of what
+  // action was taken this turn (including paralysis / no action).
+  if (leftHadChargedPrevious) left.chargeMultiplier = 1;
+  if (rightHadChargedPrevious) right.chargeMultiplier = 1;
 
   const winnerId = left.currentHp <= 0 && right.currentHp <= 0 ? null : left.currentHp <= 0 ? right.id : right.currentHp <= 0 ? left.id : null;
 

@@ -42,7 +42,8 @@ type WireMessage =
   | { type: "turn_action"; payload: { turn: number; playerId: string; action: ActionType } }
   | { type: "turn_result"; payload: TurnResult }
   | { type: "forfeit"; payload: { winnerId: string; reason: string } }
-  | { type: "rematch"; payload: { mode: RematchMode } };
+  | { type: "rematch"; payload: { mode: RematchMode } }
+  | { type: "return_to_title"; payload: Record<string, never> };
 
 export default function Home() {
   const peerRef = useRef<PeerType | null>(null);
@@ -81,6 +82,10 @@ export default function Home() {
     stats: PlayerBattleState["stats"];
     characterType: CharacterType;
   } | null>(null);
+  /** Cumulative win/loss record against the current opponent (resets on room change). */
+  const [matchRecord, setMatchRecord] = useState({ wins: 0, losses: 0 });
+  /** When non-empty, shows an overlay informing this player that the peer returned to title. */
+  const [peerReturnMsg, setPeerReturnMsg] = useState("");
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
@@ -241,6 +246,16 @@ export default function Home() {
     if (battleFinish) rematchHandledRef.current = false;
   }, [battleFinish]);
 
+  // Update the cumulative win/loss record whenever a battle concludes.
+  useEffect(() => {
+    if (!battleFinish) return;
+    const myId = myIdRef.current;
+    setMatchRecord((prev) => ({
+      wins: prev.wins + (battleFinish.winnerId === myId ? 1 : 0),
+      losses: prev.losses + (battleFinish.winnerId !== myId ? 1 : 0),
+    }));
+  }, [battleFinish]);
+
   const applyRematch = (mode: RematchMode) => {
     if (rematchHandledRef.current) return;
     rematchHandledRef.current = true;
@@ -292,6 +307,36 @@ export default function Home() {
     applyRematch("redraw");
   };
 
+  const destroyPeer = () => {
+    connRef.current?.close();
+    connRef.current = null;
+    peerRef.current?.destroy();
+    peerRef.current = null;
+  };
+
+  /** Clean up the current multiplayer session and return to the title screen. */
+  const goToTitle = () => {
+    destroyPeer();
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setBattleFinish(null);
+    setTurnResult(null);
+    setBattleState({});
+    localCharacterRef.current = null;
+    remoteCharacterRef.current = null;
+    previousDrawingRef.current = null;
+    setPendingCharacterBase(null);
+    setMatchRecord({ wins: 0, losses: 0 });
+    setStage("title");
+    setStatus("ルームを作成するか入室してください");
+  };
+
+  const onReturnToTitle = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    sendWire({ type: "return_to_title", payload: {} });
+    goToTitle();
+  };
+
   const handleWire = (message: WireMessage) => {
     if (message.type === "ready") {
       remoteCharacterRef.current = message.payload;
@@ -327,6 +372,16 @@ export default function Home() {
       return;
     }
 
+    if (message.type === "return_to_title") {
+      // Peer pressed "タイトルへ戻る" — display a notification then auto-navigate.
+      setPeerReturnMsg("ホストがタイトルへ戻りました");
+      window.setTimeout(() => {
+        goToTitle();
+        setPeerReturnMsg("");
+      }, 2000);
+      return;
+    }
+
     if (message.type === "forfeit") {
       // Only used for disconnection-based forfeits (not HP=0 game end)
       setStage("result");
@@ -339,13 +394,6 @@ export default function Home() {
   useEffect(() => {
     handleWireRef.current = handleWire;
   });
-
-  const destroyPeer = () => {
-    connRef.current?.close();
-    connRef.current = null;
-    peerRef.current?.destroy();
-    peerRef.current = null;
-  };
 
   const attachConnectionHandlers = (conn: DataConnection) => {
     connRef.current = conn;
@@ -541,6 +589,7 @@ export default function Home() {
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
     setPendingCharacterBase(null);
+    setMatchRecord({ wins: 0, losses: 0 });
     setStage("room");
     setStatus("ルームを作成するか入室してください");
   };
@@ -552,6 +601,38 @@ export default function Home() {
 
   return (
     <main className={`mx-auto flex min-h-screen w-full ${containerMaxWidthClass} flex-col gap-4 p-4`}>
+      {/* Peer-returned-to-title overlay (visible regardless of stage) */}
+      {peerReturnMsg && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(30,10,0,0.95)",
+              border: "2px solid #fbbf24",
+              borderRadius: 16,
+              padding: "32px 40px",
+              textAlign: "center",
+              color: "#fef3c7",
+              maxWidth: 400,
+            }}
+          >
+            <div style={{ fontSize: 24, fontWeight: "bold", marginBottom: 12 }}>
+              {peerReturnMsg}
+            </div>
+            <div style={{ fontSize: 14, color: "#d1d5db" }}>まもなくタイトルへ戻ります…</div>
+          </div>
+        </div>
+      )}
+
       {stage !== "title" && stage !== "singleplay" && (
         <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
       )}
@@ -580,28 +661,64 @@ export default function Home() {
       {stage === "drawing" && (
         <>
           <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={previousDrawingRef.current ?? undefined} />
+          {/* Enhancement slot selection — shown as a modal overlay after drawing is complete */}
           {pendingCharacterBase && (
-            <section className="rounded-lg border border-amber-600 bg-black/70 p-4 text-amber-100">
-              <h2 className="mb-2 text-lg font-bold">強化スロットを選択</h2>
-              <p className="mb-3 text-sm">絵の完成ボーナスとして1つ選べます（マルチプレイのみ）</p>
-              <div className="flex flex-wrap gap-3">
-                {ENHANCEMENT_SLOT_CHOICES.map((slot) => (
-                  <button
-                    key={slot}
-                    className="min-w-[160px] rounded border border-amber-400 bg-amber-900/40 px-3 py-2 text-left hover:bg-amber-800/60"
-                    onClick={() => {
-                      soundManager.playSe("/sounds/se/button.mp3");
-                      onEnhancementSlotSelect(slot);
-                    }}
-                  >
-                    <div className="text-lg font-bold">
-                      {ENHANCEMENT_SLOT_META[slot].icon} {ENHANCEMENT_SLOT_META[slot].label}
-                    </div>
-                    <div className="text-sm">{ENHANCEMENT_SLOT_META[slot].effectText}</div>
-                  </button>
-                ))}
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 1000,
+                background: "rgba(0,0,0,0.75)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(20,8,0,0.97)",
+                  border: "2px solid #d97706",
+                  borderRadius: 16,
+                  padding: "32px 36px",
+                  maxWidth: 480,
+                  width: "90vw",
+                  color: "#fef3c7",
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.8)",
+                }}
+              >
+                <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>強化スロットを選択</h2>
+                <p style={{ fontSize: 14, color: "#fbbf24", marginBottom: 20 }}>絵の完成ボーナスとして1つ選べます（マルチプレイのみ）</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {ENHANCEMENT_SLOT_CHOICES.map((slot) => (
+                    <button
+                      key={slot}
+                      style={{
+                        minWidth: 140,
+                        borderRadius: 10,
+                        border: "2px solid #d97706",
+                        background: "rgba(120,50,0,0.4)",
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        color: "#fef3c7",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(180,80,0,0.6)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(120,50,0,0.4)"; }}
+                      onClick={() => {
+                        soundManager.playSe("/sounds/se/button.mp3");
+                        onEnhancementSlotSelect(slot);
+                      }}
+                    >
+                      <div style={{ fontSize: 18, fontWeight: "bold", marginBottom: 4 }}>
+                        {ENHANCEMENT_SLOT_META[slot].icon} {ENHANCEMENT_SLOT_META[slot].label}
+                      </div>
+                      <div style={{ fontSize: 13, color: "#fbbf24" }}>{ENHANCEMENT_SLOT_META[slot].effectText}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </section>
+            </div>
           )}
         </>
       )}
@@ -618,6 +735,8 @@ export default function Home() {
           finishResult={battleFinish}
           onRematchSame={onRematchSame}
           onRematchRedraw={onRematchRedraw}
+          matchRecord={matchRecord}
+          onReturnToTitle={onReturnToTitle}
         />
       )}
 
