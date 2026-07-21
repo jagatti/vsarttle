@@ -586,8 +586,8 @@ export function BattlePanel(props: {
   // resolution and corrupt displayResources. Comparing turnResult.turn against
   // prevTurnRef.current here closes that window immediately on render.
   const pendingAnimation = !!props.turnResult && prevTurnRef.current !== props.turnResult.turn;
-  const availableActions = useMemo(() => getAvailableActions(props.me), [props.me]);
-  const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy), [props.enemy]);
+  const availableActions = useMemo(() => getAvailableActions(props.me, props.turn), [props.me, props.turn]);
+  const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
 
