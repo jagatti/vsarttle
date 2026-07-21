@@ -523,6 +523,14 @@ export function BattlePanel(props: {
   const [isAnimating, setIsAnimating] = useState(false);
   const prevTurnRef = useRef<number | null>(null);
   const floaterIdRef = useRef(0);
+  // Derived directly at render time (not from isAnimating state, which is only set
+  // inside a useEffect that runs *after* the browser paints). Without this, there is
+  // a brief window right after a new turnResult arrives — before the effect below has
+  // had a chance to run and flip isAnimating to true — where the buttons render as
+  // unlocked. A click landing in that window can race with the next turn's
+  // resolution and corrupt displayResources. Comparing turnResult.turn against
+  // prevTurnRef.current here closes that window immediately on render.
+  const pendingAnimation = !!props.turnResult && prevTurnRef.current !== props.turnResult.turn;
   const availableActions = useMemo(() => getAvailableActions(props.me), [props.me]);
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy), [props.enemy]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
@@ -1055,9 +1063,9 @@ export function BattlePanel(props: {
                 actions={availableActions}
                 player={props.me}
                 selectedAction={selectedAction}
-                readOnly={!!selectedAction || isAnimating}
+                readOnly={!!selectedAction || isAnimating || pendingAnimation}
                 onSelect={(action) => {
-                  if (selectedAction || isAnimating) return;
+                  if (selectedAction || isAnimating || pendingAnimation) return;
                   setSelectedAction(action);
                   props.onActionSelect(action);
                 }}
