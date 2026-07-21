@@ -28,7 +28,7 @@ test("getAvailableActions blocks previous category and PP shortage", () => {
   const player = makePlayer("a");
   player.lastActionCategory = "magic";
   player.currentPp = 5;
-  const actions = getAvailableActions(player);
+  const actions = getAvailableActions(player, 2);
   assert.deepEqual(actions.sort(), ["attack", "barrier", "charge"].sort());
 });
 
@@ -45,7 +45,14 @@ test("resolveTurn applies attack vs attack formula with defense mitigation", () 
 test("getAvailableActions returns no actions while paralyzed", () => {
   const player = makePlayer("a");
   player.paralyzedNextTurn = true;
-  assert.deepEqual(getAvailableActions(player), []);
+  assert.deepEqual(getAvailableActions(player, 2), []);
+});
+
+test("getAvailableActions excludes charge on turn 1", () => {
+  const player = makePlayer("a");
+  const actions = getAvailableActions(player, 1);
+  assert.ok(!actions.includes("charge"), "charge should be excluded on turn 1");
+  assert.ok(actions.includes("attack"), "attack should be available on turn 1");
 });
 
 test("resolveTurn: paralyzed player deals no damage while opponent's action still lands", () => {

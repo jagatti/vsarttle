@@ -31,7 +31,7 @@ export const WEAK_MAGIC_EFFECTS: { kind: "barrierBan" | "chargeBan" | "paralysis
   { kind: "paralysis", name: "まひ", turns: 1 },
 ];
 
-export function getAvailableActions(player: PlayerBattleState): ActionType[] {
+export function getAvailableActions(player: PlayerBattleState, turn: number): ActionType[] {
   if (player.limitBreakActive) return ["magicStrong"];
   if (player.paralyzedNextTurn) return [];
   const disallowed = player.lastActionCategory;
@@ -39,6 +39,7 @@ export function getAvailableActions(player: PlayerBattleState): ActionType[] {
     if (disallowed && actionCategory(action) === disallowed) return false;
     if (action === "barrier" && (player.barrierBanTurns ?? 0) > 0) return false;
     if (action === "charge" && (player.chargeBanTurns ?? 0) > 0) return false;
+    if (action === "charge" && turn === 1) return false;
     const cost = magicCost(action, player.stats);
     return player.currentPp >= cost;
   });

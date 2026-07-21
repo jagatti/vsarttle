@@ -214,7 +214,7 @@ export default function Home() {
       if (currentBattle[id].paralyzedNextTurn) return "paralysis";
       const selected = current[id];
       if (selected) return selected;
-      const available = getAvailableActions(currentBattle[id]);
+      const available = getAvailableActions(currentBattle[id], turnNumber);
       return available[Math.floor(Math.random() * available.length)] ?? "attack";
     };
 

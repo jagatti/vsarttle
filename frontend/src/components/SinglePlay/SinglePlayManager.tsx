@@ -89,9 +89,9 @@ function buildEnemyState(floor: number, phase: 1 | 2): PlayerBattleState {
 // `isFloor5Boss` restricts チャージ (charge) so that the final boss (floor 5,
 // either phase) will only use it once its HP has dropped to 30% or below of
 // its max HP. This keeps the CPU from charging early when it doesn't need to.
-function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean): ActionType {
+function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean, turn: number): ActionType {
   if (enemy.limitBreakActive) return "magicStrong";
-  let available = getAvailableActions(enemy);
+  let available = getAvailableActions(enemy, turn);
   if (isFloor5Boss) {
     const hpRatio = enemy.stats.maxHp > 0 ? enemy.currentHp / enemy.stats.maxHp : 0;
     if (hpRatio > FLOOR5_BOSS_CHARGE_HP_THRESHOLD) {
@@ -570,7 +570,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       const resolvedPlayerAction = ((): ActionType => {
         if (currentBattle[playerIdParam].paralyzedNextTurn) return "paralysis";
         if (playerAction) return playerAction;
-        const avail = getAvailableActions(currentBattle[playerIdParam]);
+        const avail = getAvailableActions(currentBattle[playerIdParam], turnNumber);
         return avail.length > 0
           ? avail[Math.floor(Math.random() * avail.length)]
           : "attack";
@@ -581,7 +581,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         ? "magicStrong"
         : currentBattle[enemyIdParam].paralyzedNextTurn
         ? "paralysis"
-        : pickCpuAction(currentBattle[enemyIdParam], isFloor5Boss);
+        : pickCpuAction(currentBattle[enemyIdParam], isFloor5Boss, turnNumber);
 
       const result = resolveTurn({
         turn: turnNumber,
