@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
+import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { safeImageUrl } from "@/lib/imageUrl";
 import { soundManager } from "@/lib/soundManager";
@@ -166,6 +167,7 @@ function PortraitBlock({
   enhancementSlot?: EnhancementSlot | null;
   enhancementAlign: "left" | "right";
 }) {
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const isCharged = player.chargeMultiplier > 1;
   const activeEffects: string[] = [];
   if (player.paralyzedNextTurn) activeEffects.push("まひ");
@@ -232,6 +234,9 @@ function PortraitBlock({
         <img
           src={safeImageUrl(player.imageDataUrl)}
           alt={`${player.nickname} のキャラクター`}
+          onMouseEnter={() => setTooltipVisible(true)}
+          onMouseLeave={() => setTooltipVisible(false)}
+          onClick={() => setTooltipVisible((v) => !v)}
           style={{
             width: isCharged ? chargedSize : baseSize,
             height: isCharged ? chargedSize : baseSize,
@@ -244,8 +249,58 @@ function PortraitBlock({
             transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease",
             transform: isActing ? "scale(1.06)" : "scale(1)",
             animation: imgAnimations || "none",
+            cursor: "pointer",
           }}
         />
+        {tooltipVisible && (() => {
+          const s = getEffectiveStats(player);
+          return (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: enhancementAlign === "left" ? 0 : undefined,
+                right: enhancementAlign === "right" ? 0 : undefined,
+                zIndex: 10,
+                background: "rgba(0,0,0,0.88)",
+                border: "1px solid #4b5563",
+                borderRadius: 8,
+                padding: "8px 12px",
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+                fontSize: "clamp(11px, 0.9vw, 13px)",
+                color: "#e5e7eb",
+                lineHeight: 1.8,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.7)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#d1fae5" }}>HP(MAX)</span>
+                <span>{s.maxHp}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#a5f3fc" }}>PP(MAX)</span>
+                <span>{s.maxPp}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#fca5a5" }}>攻撃力</span>
+                <span>{s.attack}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#fdba74" }}>防御力</span>
+                <span>{s.defense}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#fde68a" }}>速度</span>
+                <span>{s.speed}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#c4b5fd" }}>回避</span>
+                <span>{Math.round(s.evasion * 100)}%</span>
+              </div>
+            </div>
+          );
+        })()}
         {enhancementSlot && (
           <div
             title={ENHANCEMENT_SLOT_META[enhancementSlot].effectText}
