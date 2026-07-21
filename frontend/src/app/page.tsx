@@ -594,10 +594,8 @@ export default function Home() {
     setStatus("ルームを作成するか入室してください");
   };
 
-  // Battle stage uses a much wider layout so the portraits/UI can be displayed
-  // larger and make better use of the available browser width, per user feedback
-  // that the battle screen felt too small relative to the browser window.
-  const containerMaxWidthClass = stage === "battle" ? "max-w-[1600px]" : "max-w-5xl";
+  // Keep the same container ratio as single play so battle layouts don't stretch unnaturally.
+  const containerMaxWidthClass = "max-w-5xl";
 
   return (
     <main className={`mx-auto flex min-h-screen w-full ${containerMaxWidthClass} flex-col gap-4 p-4`}>
