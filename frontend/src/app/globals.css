@@ -131,3 +131,93 @@ input {
   0%, 100% { transform: scale(0.96); opacity: 0.85; }
   50% { transform: scale(1.05); opacity: 1; }
 }
+
+@keyframes singlePlayDarkFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes singlePlayResultRollUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(-120%); }
+}
+
+@keyframes singlePlayResultTotalIn {
+  from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes singlePlayResultButtonFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.singleplay-result-roll-screen {
+  position: relative;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #f3f4f6;
+}
+
+.singleplay-result-roll-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  animation: singlePlayDarkFadeIn 1.2s ease forwards;
+}
+
+.singleplay-result-roll-viewport {
+  position: relative;
+  width: min(560px, 92vw);
+  height: min(62vh, 620px);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.singleplay-result-roll-track {
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+  align-items: center;
+  animation: singlePlayResultRollUp linear forwards;
+}
+
+.singleplay-result-roll-block {
+  width: min(460px, 86vw);
+  text-align: center;
+  line-height: 1.8;
+  font-size: clamp(20px, 2.8vw, 32px);
+  font-weight: 700;
+}
+
+.singleplay-result-roll-floor-title {
+  font-size: clamp(34px, 4.8vw, 58px);
+  margin-bottom: 20px;
+  font-weight: 900;
+}
+
+.singleplay-result-roll-floor-score {
+  margin-top: 14px;
+  font-size: clamp(30px, 4.2vw, 46px);
+}
+
+.singleplay-result-total-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  text-align: center;
+  animation: singlePlayResultTotalIn 0.7s ease-out;
+}
+
+.singleplay-result-total-label {
+  color: #fcd34d;
+  font-weight: 900;
+  font-size: clamp(28px, 4vw, 56px);
+  letter-spacing: 0.06em;
+}
