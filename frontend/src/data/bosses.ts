@@ -46,8 +46,8 @@ export const BOSSES: BossData[] = [
   boss(2, 1, "まほう型",   "magic",    500, 80, 125, 120, 9,  8,  "boss2.png"),
   boss(3, 1, "バリア型",   "defense",  256, 77, 150, 200, 1,  33, "boss3.png"),
   boss(4, 1, "まほう型",   "magic",    666, 88, 150, 150, 9,  9,  "boss4.png"),
-  boss(5, 1, "？？？型",   "balanced", 444, 44, 170, 160, 4,  4,  "boss5-1.png"),
-  boss(5, 2, "？？？型",   "balanced", 999, 99, 199, 199, 9,  9,  "boss5-2.png"),
+  boss(5, 1, "？？？型",   "balanced", 444, 44, 144, 144, 4,  4,  "boss5-1.png"),
+  boss(5, 2, "？？？型",   "balanced", 999, 99, 188, 177, 6,  6,  "boss5-2.png"),
 ];
 
 export function getBossData(floor: number, phase: 1 | 2 = 1): BossData {
