@@ -19,6 +19,7 @@ export function applySinglePlayLimitBreak(enemy: PlayerBattleState): PlayerBattl
       attack: LIMIT_BREAK_MAX_STAT,
       defense: LIMIT_BREAK_MAX_STAT,
       speed: LIMIT_BREAK_MAX_STAT,
+      evasion: 0,
     },
     limitBreakUsed: true,
     limitBreakActive: true,
