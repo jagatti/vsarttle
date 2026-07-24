@@ -15,6 +15,13 @@ import {
 } from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
 import { getBossData } from "@/data/bosses";
+import {
+  getFloorScoreDetail,
+  getTotalScoreRank,
+  type BasicRank,
+  type FloorRecord,
+  type ScoreRank,
+} from "@/lib/scoreRank";
 import type {
   ActionType,
   CharacterStats,
@@ -30,6 +37,9 @@ const TURN_SECONDS = 30;
 // so there is no need to wait for the full turn timer before auto-advancing.
 const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
+const FINAL_FLOOR_WIN_TO_RESULT_MS = 2200;
+const RESULT_ROLL_SCROLL_MS = 18000;
+const RESULT_TOTAL_BUTTON_DELAY_MS = 3000;
 // The final (5th floor) boss should only use チャージ (charge) once its HP
 // has dropped to this fraction (or below) of its max HP.
 const FLOOR5_BOSS_CHARGE_HP_THRESHOLD = 0.3;
@@ -53,7 +63,10 @@ type SpStage =
   | "battle"
   | "floor_win"
   | "floor_lose"
-  | "all_clear";
+  | "all_clear"
+  | "result_roll";
+
+type FloorRecords = Partial<Record<number, FloorRecord>>;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +97,25 @@ function buildEnemyState(floor: number, phase: 1 | 2): PlayerBattleState {
     chargeMultiplier: 1,
     lastActionCategory: null,
   };
+}
+
+function getRankTextStyle(rank: BasicRank | ScoreRank): React.CSSProperties {
+  if (rank === "SS") {
+    return {
+      background:
+        "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
+      backgroundSize: "300% 100%",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+      animation: "rainbowShift 0.8s linear infinite",
+    };
+  }
+
+  if (rank === "S") return { color: "#ef4444" };
+  if (rank === "A") return { color: "#22c55e" };
+  if (rank === "B") return { color: "#3b82f6" };
+  return { color: "#9ca3af" };
 }
 
 // `isFloor5Boss` restricts チャージ (charge) so that the final boss (floor 5,
@@ -421,6 +453,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const [bossTransforming, setBossTransforming] = useState(false);
   const [limitBreaking, setLimitBreaking] = useState(false);
   const [visibleLimitBreakStatCount, setVisibleLimitBreakStatCount] = useState(0);
+  const [floorRecords, setFloorRecords] = useState<FloorRecords>({});
+  const [showResultTotal, setShowResultTotal] = useState(false);
+  const [showResultBackButton, setShowResultBackButton] = useState(false);
 
   // ── Mutable refs (avoid stale closures) ───────────────────────────────────
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -435,6 +470,12 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const pendingActionRef = useRef<ActionType | null>(null);
   const resumeBattleWithNextCharRef = useRef(false);
   const turnRef = useRef(1);
+  const floorContinuedRef = useRef<Partial<Record<number, boolean>>>({});
+  const floorUsedCharIndexesRef = useRef<Partial<Record<number, Set<number>>>>({});
+  const floor5Phase2StartTurnRef = useRef<number | null>(null);
+  const finalWinToResultTimerRef = useRef<number | null>(null);
+  const resultTotalTimerRef = useRef<number | null>(null);
+  const resultBackButtonTimerRef = useRef<number | null>(null);
 
   // Keep refs in sync
   useEffect(() => { charactersRef.current = characters; }, [characters]);
@@ -467,6 +508,35 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     }
   }, [spStage, floor, bossPhase, limitBreaking, limitBreakUsed]);
 
+  useEffect(() => {
+    if (spStage !== "floor_win" || floor !== TOTAL_FLOORS) return;
+    if (finalWinToResultTimerRef.current) clearTimeout(finalWinToResultTimerRef.current);
+    finalWinToResultTimerRef.current = window.setTimeout(() => {
+      setSpStage("result_roll");
+    }, FINAL_FLOOR_WIN_TO_RESULT_MS);
+    return () => {
+      if (finalWinToResultTimerRef.current) clearTimeout(finalWinToResultTimerRef.current);
+    };
+  }, [floor, spStage]);
+
+  useEffect(() => {
+    if (spStage !== "result_roll") return;
+    setShowResultTotal(false);
+    setShowResultBackButton(false);
+    if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
+    if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
+    resultTotalTimerRef.current = window.setTimeout(() => {
+      setShowResultTotal(true);
+    }, RESULT_ROLL_SCROLL_MS);
+    resultBackButtonTimerRef.current = window.setTimeout(() => {
+      setShowResultBackButton(true);
+    }, RESULT_ROLL_SCROLL_MS + RESULT_TOTAL_BUTTON_DELAY_MS);
+    return () => {
+      if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
+      if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
+    };
+  }, [spStage]);
+
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
@@ -474,6 +544,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
       if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (finalWinToResultTimerRef.current) clearTimeout(finalWinToResultTimerRef.current);
+      if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
+      if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
     };
   }, []);
 
@@ -522,6 +595,31 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     update();
     countdownIntervalRef.current = window.setInterval(update, 200);
   }, []);
+
+  const ensureFloorUsedCharSet = useCallback((targetFloor: number): Set<number> => {
+    const existing = floorUsedCharIndexesRef.current[targetFloor];
+    if (existing) return existing;
+    const created = new Set<number>();
+    floorUsedCharIndexesRef.current[targetFloor] = created;
+    return created;
+  }, []);
+
+  const markContinuedForFloor = useCallback((targetFloor: number) => {
+    floorContinuedRef.current[targetFloor] = true;
+  }, []);
+
+  const recordFloorClear = useCallback(
+    (targetFloor: number, clearTurn: number) => {
+      const usedChars = ensureFloorUsedCharSet(targetFloor);
+      const record: FloorRecord = {
+        continued: floorContinuedRef.current[targetFloor] ?? false,
+        charactersUsed: Math.max(1, usedChars.size),
+        clearTurn,
+      };
+      setFloorRecords((prev) => ({ ...prev, [targetFloor]: record }));
+    },
+    [ensureFloorUsedCharSet],
+  );
 
   // ── Core battle loop (uses refs to avoid stale closures) ──────────────────
 
@@ -675,12 +773,17 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
             setTurnResult(null);
             setTurn(1);
             turnRef.current = 1;
+            floor5Phase2StartTurnRef.current = 1;
 
             startCountdown();
             doScheduleAutoActionRef.current(1, newBattle, playerIdParam, newEnemy.id);
           }, 2500);
         } else {
           // Normal floor win
+          const clearTurn = currentFloor === 5
+            ? Math.max(1, turnNumber - (floor5Phase2StartTurnRef.current ?? 1) + 1)
+            : turnNumber;
+          recordFloorClear(currentFloor, clearTurn);
           setBattleFinish({ winnerId: playerIdParam });
           setSpStage("floor_win");
         }
@@ -755,6 +858,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       const chars = charactersRef.current;
       const char = chars[charIndex];
       if (!char) return;
+      ensureFloorUsedCharSet(currentFloor).add(charIndex);
+      if (currentFloor === 5 && currentBossPhase === 2 && floor5Phase2StartTurnRef.current === null) {
+        floor5Phase2StartTurnRef.current = turnRef.current;
+      }
 
       const playerState = toPlayerState(char);
       const existingEnemy = Object.values(battleStateRef.current).find((state) =>
@@ -788,7 +895,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       startCountdown(initial[playerState.id]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS);
       doScheduleAutoActionRef.current(nextTurn, initial, playerState.id, enemyState.id);
     },
-    [startCountdown],
+    [ensureFloorUsedCharSet, startCountdown],
   );
 
   // ── Event handlers ────────────────────────────────────────────────────────
@@ -864,7 +971,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     const nextFloor = floorRef.current + 1;
 
     if (nextFloor > TOTAL_FLOORS) {
-      setSpStage("all_clear");
+      setSpStage("result_roll");
       return;
     }
 
@@ -876,6 +983,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
 
     setFloor(nextFloor);
     setBossPhase(1);
+    floor5Phase2StartTurnRef.current = null;
     setBattleFinish(null);
     setTurnResult(null);
     setSpStage("char_select");
@@ -884,6 +992,8 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const handleRetryFloor = useCallback(() => {
     soundManager.playSe("/sounds/se/button.mp3");
     resumeBattleWithNextCharRef.current = false;
+    markContinuedForFloor(floorRef.current);
+    floor5Phase2StartTurnRef.current = null;
 
     setCharacters((prev) =>
       prev.map((c) =>
@@ -895,7 +1005,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     setBattleFinish(null);
     setTurnResult(null);
     setSpStage("char_select");
-  }, []);
+  }, [markContinuedForFloor]);
 
   // ── Derived battle state ───────────────────────────────────────────────────
   const playerIds = Object.keys(battleState);
@@ -903,6 +1013,26 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const enemyIdInBattle = playerIds.find((id) => id.startsWith("boss-"));
   const myState = playerIdInBattle ? battleState[playerIdInBattle] : null;
   const enemyState = enemyIdInBattle ? battleState[enemyIdInBattle] : null;
+  const resultFloorDetails = useMemo(
+    () =>
+      Array.from({ length: TOTAL_FLOORS }, (_, index) => {
+        const floorNumber = index + 1;
+        const record = floorRecords[floorNumber] ?? {
+          continued: true,
+          charactersUsed: 3,
+          clearTurn: 99,
+        };
+        return {
+          ...getFloorScoreDetail(floorNumber, record),
+          record,
+        };
+      }),
+    [floorRecords],
+  );
+  const totalScore = useMemo(
+    () => getTotalScoreRank(resultFloorDetails.map((detail) => detail.score)),
+    [resultFloorDetails],
+  );
 
   const finishButtonStyle: React.CSSProperties = {
     padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
@@ -1120,7 +1250,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           justifyContent: "center",
         }}
       >
-        {isWin && (
+        {isWin && floor < TOTAL_FLOORS && (
           <button
             onClick={handleNextFloor}
             style={{
@@ -1130,9 +1260,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
               color: "#86efac",
             }}
           >
-            {floor >= TOTAL_FLOORS
-              ? "🏆 クリア！"
-              : `次の層へ進む（第${floor + 1}層）`}
+            {`次の層へ進む（第${floor + 1}層）`}
           </button>
         )}
         {isLose && (
@@ -1181,6 +1309,76 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         onRematchRedraw={() => { /* not used in single play */ }}
         customFinishButtons={customFinishButtons}
       />
+    );
+  }
+
+  if (spStage === "result_roll") {
+    return (
+      <div className="singleplay-result-roll-screen">
+        <div className="singleplay-result-roll-fade" />
+        <div className="singleplay-result-roll-viewport">
+          <div
+            className="singleplay-result-roll-track"
+            style={{ animationDuration: `${RESULT_ROLL_SCROLL_MS}ms` }}
+          >
+            {resultFloorDetails.map((detail) => (
+              <section key={detail.floor} className="singleplay-result-roll-block">
+                <div className="singleplay-result-roll-floor-title">第{detail.floor}層</div>
+                <div>
+                  コンテニュー：
+                  <span style={{ ...getRankTextStyle(detail.continueRank), fontWeight: 900 }}>{detail.continueRank}</span>
+                </div>
+                <div>
+                  {detail.record.charactersUsed}体使用クリア：
+                  <span style={{ ...getRankTextStyle(detail.characterRank), fontWeight: 900 }}>{detail.characterRank}</span>
+                </div>
+                <div>
+                  {detail.record.clearTurn}ターンクリア：
+                  <span style={{ ...getRankTextStyle(detail.turnRank), fontWeight: 900 }}>{detail.turnRank}</span>
+                </div>
+                <div className="singleplay-result-roll-floor-score">
+                  SCORE：
+                  <span style={{ ...getRankTextStyle(detail.score), fontWeight: 900 }}>{detail.score}</span>
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+        {showResultTotal && (
+          <div className="singleplay-result-total-wrap">
+            <div className="singleplay-result-total-label">TOTAL SCORE</div>
+            <div style={{ ...getRankTextStyle(totalScore.rank), fontWeight: 900, fontSize: "clamp(56px, 9vw, 120px)" }}>
+              {totalScore.rank}
+            </div>
+          </div>
+        )}
+        {showResultBackButton && (
+          <button
+            onClick={() => {
+              soundManager.playSe("/sounds/se/button.mp3");
+              props.onBackToTitle();
+            }}
+            style={{
+              position: "absolute",
+              bottom: "max(16px, 4vh)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 3,
+              padding: "16px 32px",
+              borderRadius: 10,
+              border: "2px solid #6366f1",
+              background: "rgba(99,102,241,0.15)",
+              color: "#c7d2fe",
+              fontWeight: "bold",
+              fontSize: 18,
+              cursor: "pointer",
+              animation: "singlePlayResultButtonFadeIn 0.8s ease-out",
+            }}
+          >
+            タイトルに戻る
+          </button>
+        )}
+      </div>
     );
   }
 
