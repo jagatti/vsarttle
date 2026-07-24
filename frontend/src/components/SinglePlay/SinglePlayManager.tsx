@@ -38,7 +38,8 @@ const TURN_SECONDS = 30;
 const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
 const FINAL_FLOOR_WIN_TO_RESULT_MS = 2200;
-const RESULT_ROLL_SCROLL_MS = 18000;
+const RESULT_ROLL_SCROLL_MS = 36000;
+const RESULT_ROLL_LOGO_MS = 2600;
 const RESULT_TOTAL_BUTTON_DELAY_MS = 3000;
 // The final (5th floor) boss should only use チャージ (charge) once its HP
 // has dropped to this fraction (or below) of its max HP.
@@ -456,6 +457,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const [floorRecords, setFloorRecords] = useState<FloorRecords>({});
   const [showResultTotal, setShowResultTotal] = useState(false);
   const [showResultBackButton, setShowResultBackButton] = useState(false);
+  const [resultPhase, setResultPhase] = useState<"logo" | "rolling">("logo");
 
   // ── Mutable refs (avoid stale closures) ───────────────────────────────────
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -474,6 +476,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const floorUsedCharIndexesRef = useRef<Partial<Record<number, Set<number>>>>({});
   const floor5Phase2StartTurnRef = useRef<number | null>(null);
   const finalWinToResultTimerRef = useRef<number | null>(null);
+  const resultRollStartTimerRef = useRef<number | null>(null);
   const resultTotalTimerRef = useRef<number | null>(null);
   const resultBackButtonTimerRef = useRef<number | null>(null);
 
@@ -521,8 +524,22 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
 
   useEffect(() => {
     if (spStage !== "result_roll") return;
+    setResultPhase("logo");
     setShowResultTotal(false);
     setShowResultBackButton(false);
+    if (resultRollStartTimerRef.current) clearTimeout(resultRollStartTimerRef.current);
+    if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
+    if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
+    resultRollStartTimerRef.current = window.setTimeout(() => {
+      setResultPhase("rolling");
+    }, RESULT_ROLL_LOGO_MS);
+    return () => {
+      if (resultRollStartTimerRef.current) clearTimeout(resultRollStartTimerRef.current);
+    };
+  }, [spStage]);
+
+  useEffect(() => {
+    if (spStage !== "result_roll" || resultPhase !== "rolling") return;
     if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
     if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
     resultTotalTimerRef.current = window.setTimeout(() => {
@@ -535,7 +552,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
       if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
     };
-  }, [spStage]);
+  }, [resultPhase, spStage]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -545,6 +562,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (finalWinToResultTimerRef.current) clearTimeout(finalWinToResultTimerRef.current);
+      if (resultRollStartTimerRef.current) clearTimeout(resultRollStartTimerRef.current);
       if (resultTotalTimerRef.current) clearTimeout(resultTotalTimerRef.current);
       if (resultBackButtonTimerRef.current) clearTimeout(resultBackButtonTimerRef.current);
     };
@@ -1316,36 +1334,53 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     return (
       <div className="singleplay-result-roll-screen">
         <div className="singleplay-result-roll-fade" />
-        <div className="singleplay-result-roll-viewport">
-          <div
-            className="singleplay-result-roll-track"
-            style={{ animationDuration: `${RESULT_ROLL_SCROLL_MS}ms` }}
-          >
-            {resultFloorDetails.map((detail) => (
-              <section key={detail.floor} className="singleplay-result-roll-block">
-                <div className="singleplay-result-roll-floor-title">第{detail.floor}層</div>
-                <div>
-                  コンテニュー：
-                  <span style={{ ...getRankTextStyle(detail.continueRank), fontWeight: 900 }}>{detail.continueRank}</span>
-                </div>
-                <div>
-                  {detail.record.charactersUsed}体使用クリア：
-                  <span style={{ ...getRankTextStyle(detail.characterRank), fontWeight: 900 }}>{detail.characterRank}</span>
-                </div>
-                <div>
-                  {detail.record.clearTurn}ターンクリア：
-                  <span style={{ ...getRankTextStyle(detail.turnRank), fontWeight: 900 }}>{detail.turnRank}</span>
-                </div>
-                <div className="singleplay-result-roll-floor-score">
-                  SCORE：
-                  <span style={{ ...getRankTextStyle(detail.score), fontWeight: 900 }}>{detail.score}</span>
-                </div>
-              </section>
-            ))}
+        {resultPhase === "logo" && (
+          <div className="singleplay-result-logo-wrap">
+            <div className="singleplay-result-logo-text">arttle</div>
           </div>
-        </div>
+        )}
+        {resultPhase === "rolling" && (
+          <div className="singleplay-result-roll-viewport">
+            <div
+              className="singleplay-result-roll-track"
+              style={{ animationDuration: `${RESULT_ROLL_SCROLL_MS}ms` }}
+            >
+              {resultFloorDetails.map((detail) => (
+                <section key={detail.floor} className="singleplay-result-roll-block">
+                  <div className="singleplay-result-roll-floor-title">第{detail.floor}層</div>
+                  <div>
+                    コンテニュー：
+                    <span style={{ ...getRankTextStyle(detail.continueRank), fontWeight: 900 }}>{detail.continueRank}</span>
+                  </div>
+                  <div>
+                    {detail.record.charactersUsed}体使用クリア：
+                    <span style={{ ...getRankTextStyle(detail.characterRank), fontWeight: 900 }}>{detail.characterRank}</span>
+                  </div>
+                  <div>
+                    {detail.record.clearTurn}ターンクリア：
+                    <span style={{ ...getRankTextStyle(detail.turnRank), fontWeight: 900 }}>{detail.turnRank}</span>
+                  </div>
+                  <div className="singleplay-result-roll-floor-score">
+                    SCORE：
+                    <span style={{ ...getRankTextStyle(detail.score), fontWeight: 900 }}>{detail.score}</span>
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        )}
         {showResultTotal && (
           <div className="singleplay-result-total-wrap">
+            <div className="singleplay-result-total-floor-ranks">
+              {resultFloorDetails.map((detail) => (
+                <div key={`total-floor-rank-${detail.floor}`} className="singleplay-result-total-floor-rank-card">
+                  <div className="singleplay-result-total-floor-rank-label">第{detail.floor}層</div>
+                  <div style={{ ...getRankTextStyle(detail.score), fontWeight: 900, fontSize: "clamp(24px, 3vw, 34px)" }}>
+                    {detail.score}
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="singleplay-result-total-label">TOTAL SCORE</div>
             <div style={{ ...getRankTextStyle(totalScore.rank), fontWeight: 900, fontSize: "clamp(56px, 9vw, 120px)" }}>
               {totalScore.rank}
