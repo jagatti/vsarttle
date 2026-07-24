@@ -39,7 +39,7 @@ const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
 const FINAL_FLOOR_WIN_TO_RESULT_MS = 2200;
 const RESULT_ROLL_SCROLL_MS = 36000;
-const RESULT_ROLL_LOGO_MS = 2600;
+const RESULT_ROLL_LOGO_MS = 5000;
 const RESULT_TOTAL_BUTTON_DELAY_MS = 3000;
 // The final (5th floor) boss should only use チャージ (charge) once its HP
 // has dropped to this fraction (or below) of its max HP.
