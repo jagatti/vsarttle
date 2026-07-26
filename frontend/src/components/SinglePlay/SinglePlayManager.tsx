@@ -8,13 +8,16 @@ import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalcul
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
   applySinglePlayLimitBreak,
+  applySinglePlayLimitBreakSurvive,
   getSinglePlayLimitBreakDisplayDurationMs,
   getSinglePlayLimitBreakStatusLines,
   LIMIT_BREAK_BGM_PATH,
   LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS,
+  LIMIT_BREAK_SURVIVE_GLOW_MS,
 } from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
 import { getBossData } from "@/data/bosses";
+import type { Difficulty } from "@/data/bosses";
 import {
   getFloorScoreDetail,
   getTotalScoreRank,
@@ -59,6 +62,7 @@ interface SpCharacter {
 }
 
 type SpStage =
+  | "difficulty_select"
   | "drawing"
   | "char_select"
   | "battle"
@@ -85,8 +89,8 @@ function toPlayerState(char: SpCharacter): PlayerBattleState {
   };
 }
 
-function buildEnemyState(floor: number, phase: 1 | 2): PlayerBattleState {
-  const boss = getBossData(floor, phase);
+function buildEnemyState(floor: number, phase: 1 | 2, difficulty: Difficulty): PlayerBattleState {
+  const boss = getBossData(floor, phase, difficulty);
   return {
     id: `boss-${floor}-${phase}`,
     nickname: boss.name,
@@ -137,6 +141,102 @@ function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean, turn: nu
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+function DifficultySelectScreen(props: { onSelect: (difficulty: Difficulty) => void }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "70vh",
+        gap: 40,
+      }}
+    >
+      <div
+        style={{
+          color: "#fde68a",
+          fontSize: "clamp(22px, 3vw, 36px)",
+          fontWeight: "bold",
+          letterSpacing: "0.05em",
+        }}
+      >
+        難易度を選択してください
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+          width: "100%",
+          maxWidth: 340,
+        }}
+      >
+        <button
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            props.onSelect("normal");
+          }}
+          style={{
+            padding: "18px 32px",
+            borderRadius: 12,
+            border: "2px solid #22c55e",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.2), rgba(16,185,129,0.2))",
+            color: "#86efac",
+            fontWeight: "bold",
+            fontSize: "clamp(16px, 2vw, 22px)",
+            cursor: "pointer",
+            letterSpacing: "0.05em",
+            boxShadow: "0 0 20px rgba(34,197,94,0.3)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(34,197,94,0.4), rgba(16,185,129,0.4))";
+            e.currentTarget.style.transform = "scale(1.04)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(34,197,94,0.2), rgba(16,185,129,0.2))";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          🌿 ノーマルモード
+        </button>
+
+        <button
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            props.onSelect("hard");
+          }}
+          style={{
+            padding: "18px 32px",
+            borderRadius: 12,
+            border: "2px solid #ef4444",
+            background: "linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.2))",
+            color: "#fca5a5",
+            fontWeight: "bold",
+            fontSize: "clamp(16px, 2vw, 22px)",
+            cursor: "pointer",
+            letterSpacing: "0.05em",
+            boxShadow: "0 0 20px rgba(239,68,68,0.3)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(239,68,68,0.4), rgba(245,158,11,0.4))";
+            e.currentTarget.style.transform = "scale(1.04)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.2))";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          🔥 ハードモード
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label: string; onClear?: () => void }) {
   const borderColor = char ? "#6366f1" : "#374151";
@@ -435,7 +535,11 @@ function CharSelectScreen(props: {
 
 export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   // ── Stage ───────────────────────────────────────────────────────────────
-  const [spStage, setSpStage] = useState<SpStage>("drawing");
+  const [spStage, setSpStage] = useState<SpStage>("difficulty_select");
+
+  // ── Difficulty ─────────────────────────────────────────────────────────────
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const difficultyRef = useRef<Difficulty>("normal");
 
   // ── Drawing phase state ────────────────────────────────────────────────────
   const [characters, setCharacters] = useState<(SpCharacter | null)[]>([null, null, null]);
@@ -481,6 +585,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const resultBackButtonTimerRef = useRef<number | null>(null);
 
   // Keep refs in sync
+  useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
   useEffect(() => { charactersRef.current = characters; }, [characters]);
   useEffect(() => { floorRef.current = floor; }, [floor]);
   useEffect(() => { bossPhaseRef.current = bossPhase; }, [bossPhase]);
@@ -708,9 +813,26 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         },
       });
 
-      battleStateRef.current = result.nextStates;
-      setBattleState(result.nextStates);
-      setTurnResult(result);
+      // If this hit would defeat the floor 5 phase 2 boss for the first time,
+      // show it visually surviving with 1 HP (glowing, as if charging)
+      // instead of dropping to 0 — the actual limit break transformation is
+      // applied a couple seconds later in doHandlePostTurn.
+      const enemyAboutToLimitBreak =
+        enemyIdParam === "boss-5-2" &&
+        !currentBattle[enemyIdParam].limitBreakUsed &&
+        !!result.nextStates[enemyIdParam] &&
+        result.nextStates[enemyIdParam].currentHp <= 0;
+
+      const displayNextStates = enemyAboutToLimitBreak
+        ? {
+            ...result.nextStates,
+            [enemyIdParam]: applySinglePlayLimitBreakSurvive(result.nextStates[enemyIdParam]),
+          }
+        : result.nextStates;
+
+      battleStateRef.current = displayNextStates;
+      setBattleState(displayNextStates);
+      setTurnResult(enemyAboutToLimitBreak ? { ...result, nextStates: displayNextStates } : result);
       pendingActionRef.current = null;
 
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
@@ -733,28 +855,35 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       const currentActiveCharIndex = activeCharIndexRef.current;
 
       if (nextStates[enemyIdParam] && nextStates[enemyIdParam].currentHp <= 0) {
-        // Check for limit break trigger: boss-5-2, first time HP reaches 0
+        // Check for limit break trigger: boss-5-2, first time HP reaches 0.
+        // It is currently shown surviving at 1 HP with a チャージ glow (see
+        // doFinalizeTurn); keep that visible for a couple seconds before
+        // actually transforming into the limit-broken state.
         if (enemyIdParam === "boss-5-2" && !nextStates[enemyIdParam].limitBreakUsed) {
-          const limitBrokenEnemy = applySinglePlayLimitBreak(nextStates[enemyIdParam]);
-          const newBattle = {
-            [playerIdParam]: nextStates[playerIdParam],
-            [enemyIdParam]: limitBrokenEnemy,
-          };
-          battleStateRef.current = newBattle;
-          setBattleState(newBattle);
-          setTurnResult(null);
-          setLimitBreaking(true);
           if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
           limitBreakTimerRef.current = window.setTimeout(() => {
-            setLimitBreaking(false);
-            const nextTurn = turnNumber + 1;
-            setTurn(nextTurn);
-            turnRef.current = nextTurn;
-            startCountdown(TURN_SECONDS);
-            doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
-          }, getSinglePlayLimitBreakDisplayDurationMs(
-            getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
-          ));
+            const survivingEnemy = { ...nextStates[enemyIdParam], chargeMultiplier: 1 };
+            const limitBrokenEnemy = applySinglePlayLimitBreak(survivingEnemy);
+            const newBattle = {
+              [playerIdParam]: nextStates[playerIdParam],
+              [enemyIdParam]: limitBrokenEnemy,
+            };
+            battleStateRef.current = newBattle;
+            setBattleState(newBattle);
+            setTurnResult(null);
+            setLimitBreaking(true);
+            if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
+            limitBreakTimerRef.current = window.setTimeout(() => {
+              setLimitBreaking(false);
+              const nextTurn = turnNumber + 1;
+              setTurn(nextTurn);
+              turnRef.current = nextTurn;
+              startCountdown(TURN_SECONDS);
+              doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
+            }, getSinglePlayLimitBreakDisplayDurationMs(
+              getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
+            ));
+          }, LIMIT_BREAK_SURVIVE_GLOW_MS);
           return;
         }
 
@@ -780,7 +909,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
               chargeMultiplier: 1,
               lastActionCategory: null,
             };
-            const newEnemy = buildEnemyState(5, 2);
+            const newEnemy = buildEnemyState(5, 2, difficultyRef.current);
             const newBattle = {
               [playerIdParam]: healedPlayer,
               [newEnemy.id]: newEnemy,
@@ -891,7 +1020,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         existingEnemy.currentHp > 0;
       const enemyState = shouldResumeBattle
         ? existingEnemy
-        : buildEnemyState(currentFloor, currentBossPhase);
+        : buildEnemyState(currentFloor, currentBossPhase, difficultyRef.current);
       const nextTurn = shouldResumeBattle ? turnRef.current + 1 : 1;
 
       const initial = {
@@ -969,6 +1098,15 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       startFloorBattle(index, floorRef.current, bossPhaseRef.current);
     },
     [startFloorBattle],
+  );
+
+  const handleDifficultySelect = useCallback(
+    (selected: Difficulty) => {
+      setDifficulty(selected);
+      difficultyRef.current = selected;
+      setSpStage("drawing");
+    },
+    [],
   );
 
   const onActionSelect = useCallback((action: ActionType) => {
@@ -1214,6 +1352,11 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         </div>
       </div>
     );
+  }
+
+  // ── Difficulty select ──────────────────────────────────────────────────────
+  if (spStage === "difficulty_select") {
+    return <DifficultySelectScreen onSelect={handleDifficultySelect} />;
   }
 
   // ── Drawing phase ────────────────────────────────────────────────────────

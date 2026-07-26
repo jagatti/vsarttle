@@ -3,8 +3,10 @@ import test from "node:test";
 import type { PlayerBattleState } from "@/types/game";
 import {
   applySinglePlayLimitBreak,
+  applySinglePlayLimitBreakSurvive,
   getSinglePlayLimitBreakDisplayDurationMs,
   getSinglePlayLimitBreakStatusLines,
+  LIMIT_BREAK_SURVIVE_HP,
 } from "@/lib/singlePlayLimitBreak";
 
 const makeEnemy = (): PlayerBattleState => ({
@@ -56,6 +58,17 @@ test("getSinglePlayLimitBreakStatusLines formats each boosted status line", () =
     "防御力 999",
     "速度 999",
   ]);
+});
+
+test("applySinglePlayLimitBreakSurvive leaves the boss at 1 HP with the charge glow active, without touching stats", () => {
+  const survived = applySinglePlayLimitBreakSurvive(makeEnemy());
+
+  assert.equal(survived.currentHp, LIMIT_BREAK_SURVIVE_HP);
+  assert.equal(survived.currentHp, 1);
+  assert.ok(survived.chargeMultiplier > 1);
+  assert.equal(survived.stats.maxHp, 999);
+  assert.equal(survived.limitBreakUsed, undefined);
+  assert.equal(survived.limitBreakActive, undefined);
 });
 
 test("getSinglePlayLimitBreakDisplayDurationMs waits 3 seconds after the final reveal", () => {

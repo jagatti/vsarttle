@@ -5,6 +5,26 @@ export const LIMIT_BREAK_MAX_STAT = 999;
 export const LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS = 2000;
 export const LIMIT_BREAK_POST_REVEAL_DELAY_MS = 3000;
 
+// When the floor 5 phase 2 boss would otherwise be defeated for the first
+// time, it instead visibly survives with 1 HP left, glowing (reusing the
+// existing チャージ aura effect) for this long before the limit break
+// stat-reveal overlay takes over.
+export const LIMIT_BREAK_SURVIVE_HP = 1;
+export const LIMIT_BREAK_SURVIVE_GLOW_MS = 2000;
+// Any value greater than 1 triggers the チャージ glow visual around the
+// portrait; this matches the multiplier used elsewhere for a real charge.
+export const LIMIT_BREAK_SURVIVE_CHARGE_MULTIPLIER = 1.5;
+
+// Returns a version of the boss that visually endures the killing blow with
+// 1 HP remaining and the チャージ glow active, instead of being defeated.
+export function applySinglePlayLimitBreakSurvive(enemy: PlayerBattleState): PlayerBattleState {
+  return {
+    ...enemy,
+    currentHp: LIMIT_BREAK_SURVIVE_HP,
+    chargeMultiplier: LIMIT_BREAK_SURVIVE_CHARGE_MULTIPLIER,
+  };
+}
+
 export function applySinglePlayLimitBreak(enemy: PlayerBattleState): PlayerBattleState {
   return {
     ...enemy,
