@@ -8,10 +8,12 @@ import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalcul
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
   applySinglePlayLimitBreak,
+  applySinglePlayLimitBreakSurvive,
   getSinglePlayLimitBreakDisplayDurationMs,
   getSinglePlayLimitBreakStatusLines,
   LIMIT_BREAK_BGM_PATH,
   LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS,
+  LIMIT_BREAK_SURVIVE_GLOW_MS,
 } from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
 import { getBossData } from "@/data/bosses";
@@ -811,9 +813,26 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         },
       });
 
-      battleStateRef.current = result.nextStates;
-      setBattleState(result.nextStates);
-      setTurnResult(result);
+      // If this hit would defeat the floor 5 phase 2 boss for the first time,
+      // show it visually surviving with 1 HP (glowing, as if charging)
+      // instead of dropping to 0 — the actual limit break transformation is
+      // applied a couple seconds later in doHandlePostTurn.
+      const enemyAboutToLimitBreak =
+        enemyIdParam === "boss-5-2" &&
+        !currentBattle[enemyIdParam].limitBreakUsed &&
+        !!result.nextStates[enemyIdParam] &&
+        result.nextStates[enemyIdParam].currentHp <= 0;
+
+      const displayNextStates = enemyAboutToLimitBreak
+        ? {
+            ...result.nextStates,
+            [enemyIdParam]: applySinglePlayLimitBreakSurvive(result.nextStates[enemyIdParam]),
+          }
+        : result.nextStates;
+
+      battleStateRef.current = displayNextStates;
+      setBattleState(displayNextStates);
+      setTurnResult(enemyAboutToLimitBreak ? { ...result, nextStates: displayNextStates } : result);
       pendingActionRef.current = null;
 
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
@@ -836,28 +855,35 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       const currentActiveCharIndex = activeCharIndexRef.current;
 
       if (nextStates[enemyIdParam] && nextStates[enemyIdParam].currentHp <= 0) {
-        // Check for limit break trigger: boss-5-2, first time HP reaches 0
+        // Check for limit break trigger: boss-5-2, first time HP reaches 0.
+        // It is currently shown surviving at 1 HP with a チャージ glow (see
+        // doFinalizeTurn); keep that visible for a couple seconds before
+        // actually transforming into the limit-broken state.
         if (enemyIdParam === "boss-5-2" && !nextStates[enemyIdParam].limitBreakUsed) {
-          const limitBrokenEnemy = applySinglePlayLimitBreak(nextStates[enemyIdParam]);
-          const newBattle = {
-            [playerIdParam]: nextStates[playerIdParam],
-            [enemyIdParam]: limitBrokenEnemy,
-          };
-          battleStateRef.current = newBattle;
-          setBattleState(newBattle);
-          setTurnResult(null);
-          setLimitBreaking(true);
           if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
           limitBreakTimerRef.current = window.setTimeout(() => {
-            setLimitBreaking(false);
-            const nextTurn = turnNumber + 1;
-            setTurn(nextTurn);
-            turnRef.current = nextTurn;
-            startCountdown(TURN_SECONDS);
-            doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
-          }, getSinglePlayLimitBreakDisplayDurationMs(
-            getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
-          ));
+            const survivingEnemy = { ...nextStates[enemyIdParam], chargeMultiplier: 1 };
+            const limitBrokenEnemy = applySinglePlayLimitBreak(survivingEnemy);
+            const newBattle = {
+              [playerIdParam]: nextStates[playerIdParam],
+              [enemyIdParam]: limitBrokenEnemy,
+            };
+            battleStateRef.current = newBattle;
+            setBattleState(newBattle);
+            setTurnResult(null);
+            setLimitBreaking(true);
+            if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
+            limitBreakTimerRef.current = window.setTimeout(() => {
+              setLimitBreaking(false);
+              const nextTurn = turnNumber + 1;
+              setTurn(nextTurn);
+              turnRef.current = nextTurn;
+              startCountdown(TURN_SECONDS);
+              doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
+            }, getSinglePlayLimitBreakDisplayDurationMs(
+              getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
+            ));
+          }, LIMIT_BREAK_SURVIVE_GLOW_MS);
           return;
         }
 
