@@ -44,21 +44,21 @@ const boss = (
 });
 
 const NORMAL_BOSSES: BossData[] = [
-  boss(1, 1, "こうげき型", "attack",   315, 55, 180, 100, 6,  1,  "boss1.png"),
-  boss(2, 1, "まほう型",   "magic",    450, 80, 110, 110, 7,  3,  "boss2.png"),
-  boss(3, 1, "バリア型",   "defense",  256, 77, 135, 165, 1,  20, "boss3.png"),
-  boss(4, 1, "まほう型",   "magic",    666, 88, 140, 140, 7,  6,  "boss4.png"),
+  boss(1, 1, "こうげき型", "attack",   315, 55, 170, 100, 6,  1,  "boss1.png"),
+  boss(2, 1, "まほう型",   "magic",    456, 80, 110, 100, 7,  3,  "boss2.png"),
+  boss(3, 1, "バリア型",   "defense",  256, 77, 128, 160, 1,  20, "boss3.png"),
+  boss(4, 1, "まほう型",   "magic",    666, 88, 128, 128, 7,  6,  "boss4.png"),
   boss(5, 1, "？？？型",   "balanced", 444, 44, 144, 144, 4,  4,  "boss5-1.png"),
-  boss(5, 2, "？？？型",   "balanced", 777, 77, 177, 177, 5,  5,  "boss5-2.png"),
+  boss(5, 2, "？？？型",   "balanced", 777, 77, 166, 166, 5,  5,  "boss5-2.png"),
 ];
 
 const HARD_BOSSES: BossData[] = [
   boss(1, 1, "こうげき型", "attack",   355, 55, 199, 100, 7,  3,  "boss1.png"),
-  boss(2, 1, "まほう型",   "magic",    499, 80, 125, 120, 9,  5,  "boss2.png"),
-  boss(3, 1, "バリア型",   "defense",  256, 77, 150, 200, 1,  25, "boss3.png"),
-  boss(4, 1, "まほう型",   "magic",    666, 88, 150, 150, 9,  6,  "boss4.png"),
+  boss(2, 1, "まほう型",   "magic",    499, 80, 125, 115, 9,  5,  "boss2.png"),
+  boss(3, 1, "バリア型",   "defense",  256, 77, 128, 200, 1,  25, "boss3.png"),
+  boss(4, 1, "まほう型",   "magic",    666, 88, 140, 130, 9,  6,  "boss4.png"),
   boss(5, 1, "？？？型",   "balanced", 444, 44, 144, 144, 4,  4,  "boss5-1.png"),
-  boss(5, 2, "？？？型",   "balanced", 999, 99, 188, 177, 6,  5,  "boss5-2.png"),
+  boss(5, 2, "？？？型",   "balanced", 999, 99, 177, 177, 6,  5,  "boss5-2.png"),
 ];
 
 const BOSS_DATA: Record<Difficulty, BossData[]> = {
