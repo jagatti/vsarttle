@@ -78,15 +78,18 @@ export default function Home() {
   const [nickname, setNickname] = useState("プレイヤー");
   const [drawSeconds, setDrawSeconds] = useState(DRAW_SECONDS);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
+  const [countdownEpoch, setCountdownEpoch] = useState(0);
   const [turn, setTurn] = useState(1);
   const [turnResult, setTurnResult] = useState<TurnResult | null>(null);
   // True from the moment the player confirms their action until both (a) the turn
-  // number has incremented and (b) the countdown has been reset to TURN_SECONDS.
+  // number has incremented and (b) a new countdown has actually been started.
   // While this is true, BattlePanel unmounts the action buttons from the DOM so
   // that no click can slip through during the animation / turn-finalization window.
   const [isResolvingTurn, setIsResolvingTurn] = useState(false);
   // Records the turn number that triggered the current resolving phase.
   const resolvingTurnNumberRef = useRef<number | null>(null);
+  // Records the countdown epoch observed when the current resolving phase started.
+  const resolvingEpochRef = useRef<number | null>(null);
   const [winnerText, setWinnerText] = useState("");
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
@@ -165,6 +168,7 @@ export default function Home() {
 
   // Shared countdown timer used by both host and guest
   const startCountdown = (deadline: number) => {
+    setCountdownEpoch((epoch) => epoch + 1);
     if (countdownIntervalRef.current !== null) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
@@ -212,6 +216,8 @@ export default function Home() {
     finalizedTurnRef.current = 0;
     setIsResolvingTurn(false);
     resolvingTurnNumberRef.current = null;
+    resolvingEpochRef.current = null;
+    setCountdownEpoch(0);
     setBattleState(initial);
     setBattleFinish(null);
     setTurn(1);
@@ -280,6 +286,7 @@ export default function Home() {
       rematchHandledRef.current = false;
       setIsResolvingTurn(false);
       resolvingTurnNumberRef.current = null;
+      resolvingEpochRef.current = null;
     }
   }, [battleFinish]);
 
@@ -294,18 +301,19 @@ export default function Home() {
   }, [battleFinish]);
 
   // Clear the resolving-turn flag once both the turn number has advanced past the
-  // turn where the action was submitted AND the countdown has been reset to a full
-  // turn window. These two conditions together confirm that the host's finalizeTurn
-  // has run *and* startHostTurn (or the guest's turn_start handler) has fired,
-  // meaning the next interactive turn is fully ready.
+  // turn where the action was submitted AND startCountdown has been called again.
+  // The countdown epoch is a deterministic signal that a new turn window actually
+  // started; unlike countdown value checks, this cannot be satisfied by stale values.
   useEffect(() => {
     if (!isResolvingTurn) return;
     if (resolvingTurnNumberRef.current === null) return;
-    if (turn > resolvingTurnNumberRef.current && turnCountdown >= TURN_SECONDS) {
+    if (resolvingEpochRef.current === null) return;
+    if (turn > resolvingTurnNumberRef.current && countdownEpoch > resolvingEpochRef.current) {
       setIsResolvingTurn(false);
       resolvingTurnNumberRef.current = null;
+      resolvingEpochRef.current = null;
     }
-  }, [turn, turnCountdown, isResolvingTurn]);
+  }, [turn, countdownEpoch, isResolvingTurn]);
 
   const applyRematch = (mode: RematchMode) => {
     if (rematchHandledRef.current) return;
@@ -318,6 +326,8 @@ export default function Home() {
     setTurnResult(null);
     setIsResolvingTurn(false);
     resolvingTurnNumberRef.current = null;
+    resolvingEpochRef.current = null;
+    setCountdownEpoch(0);
 
     if (mode === "same") {
       // 再戦: 前回のイラスト・ステータスをそのまま引き継ぎ、バトルパートから再開する。
@@ -375,6 +385,10 @@ export default function Home() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     setBattleFinish(null);
     setTurnResult(null);
+    setIsResolvingTurn(false);
+    resolvingTurnNumberRef.current = null;
+    resolvingEpochRef.current = null;
+    setCountdownEpoch(0);
     setBattleState({});
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
@@ -641,6 +655,7 @@ export default function Home() {
     // while the turn is being finalized and the animation is playing.
     setIsResolvingTurn(true);
     resolvingTurnNumberRef.current = turn;
+    resolvingEpochRef.current = countdownEpoch;
     sendWire({ type: "turn_action", payload: { turn, playerId: myIdRef.current, action } });
     if (roleRef.current === "host") {
       pendingActionsRef.current[myIdRef.current] = action;
@@ -654,6 +669,10 @@ export default function Home() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     setBattleFinish(null);
     setTurnResult(null);
+    setIsResolvingTurn(false);
+    resolvingTurnNumberRef.current = null;
+    resolvingEpochRef.current = null;
+    setCountdownEpoch(0);
     setBattleState({});
     // Clear stale character data so a future room's drawing phase never gets
     // prefilled with an illustration from a previous, unrelated match.
