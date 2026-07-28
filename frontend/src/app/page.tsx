@@ -80,6 +80,13 @@ export default function Home() {
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [turn, setTurn] = useState(1);
   const [turnResult, setTurnResult] = useState<TurnResult | null>(null);
+  // True from the moment the player confirms their action until both (a) the turn
+  // number has incremented and (b) the countdown has been reset to TURN_SECONDS.
+  // While this is true, BattlePanel unmounts the action buttons from the DOM so
+  // that no click can slip through during the animation / turn-finalization window.
+  const [isResolvingTurn, setIsResolvingTurn] = useState(false);
+  // Records the turn number that triggered the current resolving phase.
+  const resolvingTurnNumberRef = useRef<number | null>(null);
   const [winnerText, setWinnerText] = useState("");
   const [battleState, setBattleState] = useState<Record<string, PlayerBattleState>>({});
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
@@ -203,6 +210,8 @@ export default function Home() {
     battleStateRef.current = initial;
     pendingActionsRef.current = {};
     finalizedTurnRef.current = 0;
+    setIsResolvingTurn(false);
+    resolvingTurnNumberRef.current = null;
     setBattleState(initial);
     setBattleFinish(null);
     setTurn(1);
@@ -263,8 +272,15 @@ export default function Home() {
 
   // Reset the rematch guard whenever a new battle finish occurs, so the next
   // "再戦"/"描きなおしてもう１戦" choice can be applied exactly once.
+  // Also clear the resolving-turn flag: if the player's last action caused the
+  // battle to end, we never get a turn increment + countdown reset, so we must
+  // clear isResolvingTurn here to avoid leaving it permanently stuck on true.
   useEffect(() => {
-    if (battleFinish) rematchHandledRef.current = false;
+    if (battleFinish) {
+      rematchHandledRef.current = false;
+      setIsResolvingTurn(false);
+      resolvingTurnNumberRef.current = null;
+    }
   }, [battleFinish]);
 
   // Update the cumulative win/loss record whenever a battle concludes.
@@ -277,6 +293,20 @@ export default function Home() {
     }));
   }, [battleFinish]);
 
+  // Clear the resolving-turn flag once both the turn number has advanced past the
+  // turn where the action was submitted AND the countdown has been reset to a full
+  // turn window. These two conditions together confirm that the host's finalizeTurn
+  // has run *and* startHostTurn (or the guest's turn_start handler) has fired,
+  // meaning the next interactive turn is fully ready.
+  useEffect(() => {
+    if (!isResolvingTurn) return;
+    if (resolvingTurnNumberRef.current === null) return;
+    if (turn > resolvingTurnNumberRef.current && turnCountdown >= TURN_SECONDS) {
+      setIsResolvingTurn(false);
+      resolvingTurnNumberRef.current = null;
+    }
+  }, [turn, turnCountdown, isResolvingTurn]);
+
   const applyRematch = (mode: RematchMode) => {
     if (rematchHandledRef.current) return;
     rematchHandledRef.current = true;
@@ -286,6 +316,8 @@ export default function Home() {
     pendingActionsRef.current = {};
     finalizedTurnRef.current = 0;
     setTurnResult(null);
+    setIsResolvingTurn(false);
+    resolvingTurnNumberRef.current = null;
 
     if (mode === "same") {
       // 再戦: 前回のイラスト・ステータスをそのまま引き継ぎ、バトルパートから再開する。
@@ -604,6 +636,11 @@ export default function Home() {
   };
 
   const onActionSelect = (action: ActionType) => {
+    // Enter the resolving phase immediately so the action buttons are removed from
+    // the DOM before the next render. This prevents any further clicks from landing
+    // while the turn is being finalized and the animation is playing.
+    setIsResolvingTurn(true);
+    resolvingTurnNumberRef.current = turn;
     sendWire({ type: "turn_action", payload: { turn, playerId: myIdRef.current, action } });
     if (roleRef.current === "host") {
       pendingActionsRef.current[myIdRef.current] = action;
@@ -765,6 +802,7 @@ export default function Home() {
           turnResult={turnResult}
           countdown={turnCountdown}
           onActionSelect={onActionSelect}
+          isResolvingTurn={isResolvingTurn}
           finishResult={battleFinish}
           onRematchSame={onRematchSame}
           onRematchRedraw={onRematchRedraw}

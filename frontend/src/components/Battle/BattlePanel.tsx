@@ -549,6 +549,15 @@ export function BattlePanel(props: {
   turnResult: TurnResult | null;
   countdown: number;
   onActionSelect: (action: ActionType) => void;
+  /**
+   * When true, the player's action buttons are removed from the DOM entirely.
+   * Set this while the turn is being finalized (from action select until the
+   * next turn's number has incremented and its countdown has reset to the full
+   * turn window). This prevents any click from slipping through during the
+   * animation / finalization window, providing a structural fail-safe on top of
+   * the existing isAnimating / pendingAnimation render-time guards.
+   */
+  isResolvingTurn?: boolean;
   finishResult?: { winnerId: string } | null;
   onRematchSame: () => void;
   onRematchRedraw: () => void;
@@ -586,6 +595,15 @@ export function BattlePanel(props: {
   // resolution and corrupt displayResources. Comparing turnResult.turn against
   // prevTurnRef.current here closes that window immediately on render.
   const pendingAnimation = !!props.turnResult && prevTurnRef.current !== props.turnResult.turn;
+  // Combined resolving-phase flag: buttons are removed from the DOM whenever any
+  // of these three guards is active:
+  //   1. props.isResolvingTurn — page.tsx confirms the turn has not fully advanced
+  //      (structural fail-safe; independent of animation-side state).
+  //   2. isAnimating — the reveal/damage animation is still in progress.
+  //   3. pendingAnimation — a new turnResult arrived this render but the animation
+  //      useEffect has not yet run (render-time guard to close the brief window
+  //      between receiving turnResult and isAnimating flipping to true).
+  const resolvingPhase = !!(props.isResolvingTurn || isAnimating || pendingAnimation);
   const availableActions = useMemo(() => getAvailableActions(props.me, props.turn), [props.me, props.turn]);
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
@@ -599,7 +617,7 @@ export function BattlePanel(props: {
 
   useEffect(() => {
     setSelectedAction(null);
-  }, [props.me.lastActionCategory, battleEnded]);
+  }, [props.me.lastActionCategory, props.turn, battleEnded]);
 
   useEffect(() => {
     if (props.turnResult) return;
@@ -1114,17 +1132,37 @@ export function BattlePanel(props: {
         {!battleEnded && (
           <div style={{ padding: "10px clamp(12px, 1.6vw, 18px) 16px", display: "flex", justifyContent: "space-between", gap: 12 }}>
             <div style={{ flex: 1 }}>
-              <ActionButtonsRow
-                actions={availableActions}
-                player={props.me}
-                selectedAction={selectedAction}
-                readOnly={!!selectedAction || isAnimating || pendingAnimation}
-                onSelect={(action) => {
-                  if (selectedAction || isAnimating || pendingAnimation) return;
-                  setSelectedAction(action);
-                  props.onActionSelect(action);
-                }}
-              />
+              {resolvingPhase ? (
+                /* Placeholder shown while the action is being resolved (animation playing,
+                   turn being finalized, or next-turn countdown not yet reset). Structurally
+                   removing the buttons here ensures no click can slip through even if the
+                   isAnimating / pendingAnimation guards fail due to a state timing race. */
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "clamp(36px, 4vw, 52px)",
+                    color: "#9ca3af",
+                    fontWeight: "bold",
+                    fontSize: "clamp(11px, 1vw, 14px)",
+                    letterSpacing: "0.03em",
+                    animation: "fadeInScale 0.25s ease-out",
+                  }}
+                >
+                  ⏳ 行動を解決中...
+                </div>
+              ) : (
+                <ActionButtonsRow
+                  actions={availableActions}
+                  player={props.me}
+                  selectedAction={selectedAction}
+                  onSelect={(action) => {
+                    setSelectedAction(action);
+                    props.onActionSelect(action);
+                  }}
+                />
+              )}
             </div>
             <div style={{ flex: 1 }}>
               <ActionButtonsRow actions={enemyAvailableActions} player={props.enemy} readOnly />
