@@ -58,6 +58,12 @@ export default function Home() {
   const localCharacterRef = useRef<PeerCharacter | null>(null);
   const remoteCharacterRef = useRef<PeerCharacter | null>(null);
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
+  // Tracks the highest turn number that finalizeTurn has successfully started
+  // processing. Used as an idempotency guard to prevent the same turn from being
+  // finalized twice (e.g. when a stale turn_action wire message arrives after the
+  // turn timer has already fired, and combines with the host's next-turn action
+  // already stored in pendingActionsRef to spuriously trigger another finalize).
+  const finalizedTurnRef = useRef(0);
   // Guards against re-applying a "rematch" choice twice for the same battle finish
   // (once from the local button click, once from the message echoed by the peer).
   const rematchHandledRef = useRef(false);
@@ -95,6 +101,11 @@ export default function Home() {
   };
 
   const scheduleTurnFinalize = (turnNumber: number, delayMs: number) => {
+    // Do not (re-)schedule a turn that is already finalized. Without this guard a
+    // stale turn_action wire message arriving late could call scheduleTurnFinalize
+    // for the old turn, silently cancelling the live timer for the *next* turn and
+    // then re-running finalizeTurn with wrong state.
+    if (finalizedTurnRef.current >= turnNumber) return;
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     turnTimerRef.current = window.setTimeout(() => finalizeTurn(turnNumber), delayMs);
   };
@@ -190,6 +201,8 @@ export default function Home() {
     };
     const initial = { [me.id]: me, [enemy.id]: enemy };
     battleStateRef.current = initial;
+    pendingActionsRef.current = {};
+    finalizedTurnRef.current = 0;
     setBattleState(initial);
     setBattleFinish(null);
     setTurn(1);
@@ -203,11 +216,19 @@ export default function Home() {
 
   const finalizeTurn = (turnNumber: number) => {
     if (roleRef.current !== "host") return;
+    // Idempotency guard: prevent the same turn from being finalized more than once.
+    // This can happen when a stale turn_action message arrives after the turn timer
+    // already fired, combining with next-turn actions already in pendingActionsRef to
+    // spuriously trigger scheduleTurnFinalize for the old turn number.
+    if (finalizedTurnRef.current >= turnNumber) return;
     const current = pendingActionsRef.current;
     const myId = myIdRef.current;
     const enemyId = peerIdRef.current;
     const currentBattle = structuredClone(battleStateRef.current);
     if (!currentBattle[myId] || !currentBattle[enemyId]) return;
+    // Mark as finalized before any async effects or recursive scheduling so that
+    // any re-entrant call (e.g. from a queued turn_action handler) exits early.
+    finalizedTurnRef.current = turnNumber;
 
     const fillAction = (id: string): ActionType => {
       // まひ状態なら選択済みのわざがあっても無視し、そのターンは行動不能にする。
@@ -263,6 +284,7 @@ export default function Home() {
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     pendingActionsRef.current = {};
+    finalizedTurnRef.current = 0;
     setTurnResult(null);
 
     if (mode === "same") {
@@ -352,6 +374,13 @@ export default function Home() {
     }
 
     if (message.type === "turn_action" && roleRef.current === "host") {
+      // Discard actions that belong to a turn we have already finalized. Without
+      // this filter a late-arriving turn_action for turn N can land in
+      // pendingActionsRef together with the host's already-stored action for turn
+      // N+1, making maybeFinalizeTurnEarly see "both actions present" for the old
+      // turn, cancel the live N+1 timer, and re-run finalizeTurn(N) with stale /
+      // wrong-turn data — corrupting the battle state and causing a softlock.
+      if (message.payload.turn <= finalizedTurnRef.current) return;
       pendingActionsRef.current[message.payload.playerId] = message.payload.action;
       maybeFinalizeTurnEarly(message.payload.turn);
       return;
@@ -361,6 +390,12 @@ export default function Home() {
       battleStateRef.current = message.payload.nextStates;
       setBattleState(message.payload.nextStates);
       setTurnResult(message.payload);
+      // Also advance the guest's turn state so it stays in sync with the host even
+      // if the turn_start message for the next turn is delayed or arrives after the
+      // player has already interacted (belt-and-suspenders alongside turn_start).
+      if (!message.payload.winnerId) {
+        setTurn(message.payload.turn + 1);
+      }
       if (message.payload.winnerId) {
         setBattleFinish({ winnerId: message.payload.winnerId });
       }
