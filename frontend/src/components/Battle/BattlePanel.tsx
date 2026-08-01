@@ -576,6 +576,8 @@ export function BattlePanel(props: {
   matchRecord?: { wins: number; losses: number };
   /** Called when the player wants to return to the title screen (multiplayer only). */
   onReturnToTitle?: () => void;
+  /** When true, shows the arena background image on the header/portrait area (multiplayer only). */
+  showArenaBackground?: boolean;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -965,6 +967,19 @@ export function BattlePanel(props: {
           overflow: "hidden",
         }}
       >
+        {/* Arena background wrapper (multiplayer only) */}
+        <div
+          style={
+            props.showArenaBackground
+              ? {
+                  backgroundImage:
+                    "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/arenaback.png')",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
         {/* Header bar */}
         <div
           style={{
@@ -1102,6 +1117,7 @@ export function BattlePanel(props: {
             borderBottom: "2px solid #4a1a00",
           }}
         />
+        </div>{/* end arena background wrapper */}
 
         {/* Turn result damage log */}
         {props.turnResult && !revealedActions && (

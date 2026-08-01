@@ -917,6 +917,7 @@ export default function Home() {
           onRematchRedraw={onRematchRedraw}
           matchRecord={matchRecord}
           onReturnToTitle={onReturnToTitle}
+          showArenaBackground={true}
         />
       )}
 
