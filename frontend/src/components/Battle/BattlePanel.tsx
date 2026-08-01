@@ -588,6 +588,10 @@ export function BattlePanel(props: {
   const [showMatchupModal, setShowMatchupModal] = useState(false);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
+  const [voidminationActive, setVoidminationActive] = useState(
+    () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
+  );
+  const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
   // True while the turn-result reveal/damage animation is playing. Used to keep
   // the action buttons locked for the whole animation, not just until the
   // player's own selection is echoed back (see readOnly usage below).
@@ -733,10 +737,25 @@ export function BattlePanel(props: {
       runPhase(0);
       schedule(() => runPhase(1), 850);
       schedule(() => {
-        finalized = true;
         setActingPlayerId(null);
         setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
-        setIsAnimating(false);
+
+        if (turnResult.voidminationTriggered) {
+          // 空間支配（ヴォイドミネーション）cutscene: BGM swap → shihai.png for 1.8s
+          soundManager.stopBgm();
+          soundManager.playSe("/sounds/se/void.mp3");
+          soundManager.playBgm("/sounds/bgm/boss5-3_loop.mp3");
+          setVoidminationActive(true);
+          setShowVoidminationCutIn(true);
+          schedule(() => {
+            setShowVoidminationCutIn(false);
+            finalized = true;
+            setIsAnimating(false);
+          }, 1800);
+        } else {
+          finalized = true;
+          setIsAnimating(false);
+        }
       }, 1700);
     }, 2000);
 
@@ -756,6 +775,10 @@ export function BattlePanel(props: {
         setRevealedActions(null);
         setShowFlash(false);
         setShakingIds(new Set());
+        setShowVoidminationCutIn(false);
+        if (turnResult.voidminationTriggered) {
+          setVoidminationActive(true);
+        }
         setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
         setIsAnimating(false);
       }
@@ -808,6 +831,22 @@ export function BattlePanel(props: {
     <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
       {/* Matchup modal */}
       {showMatchupModal && <MatchupModal onClose={() => setShowMatchupModal(false)} />}
+
+      {/* 空間支配（ヴォイドミネーション）cutscene overlay */}
+      {showVoidminationCutIn && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            backgroundImage: "url('/arttle_back/shihai.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            animation: "fadeInScale 0.3s ease-out",
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       {/* Battle event flash */}
       {showFlash && (
@@ -972,8 +1011,9 @@ export function BattlePanel(props: {
           style={
             props.showArenaBackground
               ? {
-                  backgroundImage:
-                    "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/arenaback.png')",
+                  backgroundImage: voidminationActive
+                    ? "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/voidback.png')"
+                    : "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/arenaback.png')",
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
@@ -1005,6 +1045,24 @@ export function BattlePanel(props: {
           {upcomingDamageAnnouncement && (
             <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: "clamp(11px, 1vw, 13px)", textShadow: "0 0 8px #f59e0b99" }}>
               {upcomingDamageAnnouncement}
+            </span>
+          )}
+          {voidminationActive && (
+            <span
+              title="効果：お互いの回避率を0%にする"
+              style={{
+                color: "#c4b5fd",
+                fontWeight: "bold",
+                fontSize: "clamp(9px, 0.85vw, 12px)",
+                border: "1px solid #7c3aed",
+                borderRadius: 5,
+                padding: "2px 8px",
+                background: "rgba(124,58,237,0.18)",
+                whiteSpace: "nowrap",
+                cursor: "default",
+              }}
+            >
+              ヴォイドミネーション
             </span>
           )}
           <button

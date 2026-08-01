@@ -10,6 +10,7 @@ import type {
   WeakMagicEffectKind,
   WeakMagicEffectSelection,
 } from "@/types/game";
+import { checkVoidminationTrigger } from "@/lib/voidmination";
 
 const MIN_DAMAGE = 1;
 
@@ -106,7 +107,8 @@ const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState,
 // 相手がチャージ/まひ状態で自身がバリアを選んだ際に発生する追加ダメージ。
 // 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
 
-const maybeAvoid = (damage: number, evasion: number, rng: () => number) => (rng() < evasion ? 0 : damage);
+const maybeAvoid = (damage: number, evasion: number, rng: () => number, voidminationActive?: boolean) =>
+  voidminationActive || rng() >= evasion ? damage : 0;
 
 export function getDamageMultiplier(turn: number): number {
   if (turn > 20) return 3;
@@ -120,6 +122,8 @@ export function resolveTurn(params: {
   actions: Record<string, ActionType>;
   weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection>>;
   rng?: () => number;
+  /** When true, voidmination trigger is suppressed (e.g. single-play mode). */
+  disableVoidmination?: boolean;
 }): TurnResult {
   const rng = params.rng ?? Math.random;
   const ids = Object.keys(params.players);
@@ -159,7 +163,8 @@ export function resolveTurn(params: {
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string, phaseHint?: "counter") => {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
-    const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng);
+    const voidActive = !!(left.voidminationActive || right.voidminationActive);
+    const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
       damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, phaseHint });
@@ -293,6 +298,19 @@ export function resolveTurn(params: {
   if (leftHadChargedPrevious) left.chargeMultiplier = 1;
   if (rightHadChargedPrevious) right.chargeMultiplier = 1;
 
+  // Check and apply 空間支配（ヴォイドミネーション）trigger (multiplayer only).
+  let voidminationTriggered = false;
+  const alreadyActive = !!(left.voidminationActive || right.voidminationActive);
+  if (!params.disableVoidmination && !alreadyActive) {
+    const turnHadAvoidance = damageEvents.some((e) => e.avoided);
+    const trigger = checkVoidminationTrigger({ players: [left, right], turnHadAvoidance });
+    if (trigger) {
+      voidminationTriggered = true;
+      left.voidminationActive = true;
+      right.voidminationActive = true;
+    }
+  }
+
   const winnerId = left.currentHp <= 0 && right.currentHp <= 0 ? null : left.currentHp <= 0 ? right.id : right.currentHp <= 0 ? left.id : null;
 
   return {
@@ -304,6 +322,7 @@ export function resolveTurn(params: {
     magicEffectEvents,
     suppressedByTieBanIds,
     winnerId,
+    voidminationTriggered,
     nextStates: {
       [left.id]: left,
       [right.id]: right,

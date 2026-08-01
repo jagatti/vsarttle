@@ -117,6 +117,8 @@ export interface PlayerBattleState {
   limitBreakActive?: boolean;
   /** When true, this player used チャージ on the previous turn; the 1.5x chargeMultiplier is active for this turn only and will be reset at the end of this turn regardless of what action is taken. */
   chargedPreviousTurn?: boolean;
+  /** When true, the 空間支配（ヴォイドミネーション）is active; both players' evasion is treated as 0%. */
+  voidminationActive?: boolean;
 }
 
 export interface TurnDamageEvent {
@@ -151,4 +153,6 @@ export interface TurnResult {
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;
+  /** True if 空間支配（ヴォイドミネーション）was newly triggered this turn. */
+  voidminationTriggered?: boolean;
 }
