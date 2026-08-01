@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { TurnResult } from "@/types/game";
 import {
   getVoidminationCutInOverlayStyle,
   getVoidminationTooltipEvasionDisplay,
+  shouldResetBattlePanelTransientState,
   VOIDMINATION_CUT_IN_DURATION_MS,
 } from "@/components/Battle/BattlePanel";
 
@@ -31,4 +33,16 @@ test("normal tooltip evade display keeps the real rate and existing color", () =
     color: "#c4b5fd",
     text: "13%",
   });
+});
+
+test("battle panel transient state resets for a fresh rematch battle", () => {
+  assert.equal(shouldResetBattlePanelTransientState(1, null, false, false), true);
+});
+
+test("battle panel transient state does not reset during an active voidmination battle", () => {
+  assert.equal(shouldResetBattlePanelTransientState(1, null, true, false), false);
+});
+
+test("battle panel transient state does not reset while turn animation result is present", () => {
+  assert.equal(shouldResetBattlePanelTransientState(1, { turn: 1 } as TurnResult, false, false), false);
 });
