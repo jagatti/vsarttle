@@ -146,6 +146,7 @@ export interface TurnResult {
   damageEvents: TurnDamageEvent[];
   chargeEvents: TurnChargeEvent[];
   magicEffectEvents: TurnMagicEffectEvent[];
+  suppressedByTieBanIds: string[];
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;

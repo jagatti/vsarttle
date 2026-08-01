@@ -85,6 +85,7 @@ test("resolveTurn can apply tie-ban from a custom weak-magic selection", () => {
   });
   assert.equal(result.nextStates.b.tieBanActive, true);
   assert.equal(result.magicEffectEvents[0]?.effectName, "あいこ禁止");
+  assert.deepEqual(result.suppressedByTieBanIds, []);
 });
 
 test("getAvailableActions returns no actions while paralyzed", () => {
@@ -114,7 +115,7 @@ test("resolveTurn: paralyzed player deals no damage while opponent's action stil
   assert.equal(result.nextStates.a.paralyzedNextTurn, false);
 });
 
-test("resolveTurn: tie-ban suppresses only the opponent's same-category action", () => {
+test("resolveTurn: tie-ban suppresses the affected player's own same-category action", () => {
   const a = makePlayer("a");
   const b = makePlayer("b");
   a.tieBanActive = true;
@@ -124,9 +125,10 @@ test("resolveTurn: tie-ban suppresses only the opponent's same-category action",
     actions: { a: "attack", b: "attack" },
     rng: () => 0.99,
   });
-  assert.equal(result.nextStates.a.currentHp, 100);
-  assert.equal(result.nextStates.b.currentHp, 40);
+  assert.equal(result.nextStates.a.currentHp, 40);
+  assert.equal(result.nextStates.b.currentHp, 100);
   assert.equal(result.damageEvents.length, 1);
+  assert.deepEqual(result.suppressedByTieBanIds, ["a"]);
 });
 
 test("getDamageMultiplier changes at >15 and >20 turns", () => {

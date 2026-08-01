@@ -154,6 +154,7 @@ function PortraitBlock({
   isLoser,
   isShaking,
   revealedAction,
+  suppressedByTieBan,
   enhancementSlot,
   enhancementAlign,
 }: {
@@ -164,6 +165,7 @@ function PortraitBlock({
   isLoser?: boolean;
   isShaking?: boolean;
   revealedAction?: ActionType | null;
+  suppressedByTieBan?: boolean;
   enhancementSlot?: EnhancementSlot | null;
   enhancementAlign: "left" | "right";
 }) {
@@ -220,7 +222,7 @@ function PortraitBlock({
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 6,
-              background: ACTION_COLORS[revealedAction],
+              background: suppressedByTieBan ? "#6b7280" : ACTION_COLORS[revealedAction],
               color: "#fff",
               fontWeight: "bold",
               fontSize: "clamp(12px, 1vw, 15px)",
@@ -231,7 +233,7 @@ function PortraitBlock({
               animation: "fadeInScale 0.25s ease-out",
             }}
           >
-            {ACTION_LABELS[revealedAction]}
+            {suppressedByTieBan ? "あいこ禁止" : ACTION_LABELS[revealedAction]}
           </div>
         )}
         <img
@@ -1032,6 +1034,7 @@ export function BattlePanel(props: {
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
             revealedAction={revealedActions ? revealedActions[props.me.id] : null}
+            suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.me.id)}
             enhancementSlot={props.me.enhancementSlot}
             enhancementAlign="left"
           />
@@ -1083,6 +1086,7 @@ export function BattlePanel(props: {
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
+            suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.enemy.id)}
             enhancementSlot={props.enemy.enhancementSlot}
             enhancementAlign="right"
           />
