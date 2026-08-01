@@ -36,6 +36,7 @@ const makeTurnResult = (players: Record<string, PlayerBattleState>, actions: Rec
   damageEvents: [],
   chargeEvents: [],
   magicEffectEvents: [],
+  suppressedByTieBanIds: [],
   winnerId: null,
   nextStates: players,
 });

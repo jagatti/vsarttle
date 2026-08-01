@@ -144,6 +144,7 @@ export function resolveTurn(params: {
   const damageEvents: TurnDamageEvent[] = [];
   const chargeEvents: TurnChargeEvent[] = [];
   const magicEffectEvents: TurnMagicEffectEvent[] = [];
+  const suppressedByTieBanIds: string[] = [];
 
   // Consume this turn's ban/paralysis counters that were carried over from a
   // previous turn's 弱まほう effect, before any new effects are applied below.
@@ -202,14 +203,16 @@ export function resolveTurn(params: {
   const rightCategory = actionCategory(rightAction);
 
   const sameCategory = leftCategory === rightCategory;
-  const leftActionSuppressed = sameCategory && rightTieBanActive;
-  const rightActionSuppressed = sameCategory && leftTieBanActive;
+  const leftActionSuppressed = sameCategory && leftTieBanActive;
+  const rightActionSuppressed = sameCategory && rightTieBanActive;
 
   if (leftActionSuppressed) {
-    logs.push(`${right.nickname} の「あいこ禁止」で ${left.nickname} の行動が封じられた！`);
+    suppressedByTieBanIds.push(left.id);
+    logs.push(`${left.nickname} は「あいこ禁止」の効果で行動できなかった！`);
   }
   if (rightActionSuppressed) {
-    logs.push(`${left.nickname} の「あいこ禁止」で ${right.nickname} の行動が封じられた！`);
+    suppressedByTieBanIds.push(right.id);
+    logs.push(`${right.nickname} は「あいこ禁止」の効果で行動できなかった！`);
   }
 
   if (leftAction === "charge" && !leftActionSuppressed) {
@@ -303,6 +306,7 @@ export function resolveTurn(params: {
     damageEvents,
     chargeEvents,
     magicEffectEvents,
+    suppressedByTieBanIds,
     winnerId,
     nextStates: {
       [left.id]: left,
