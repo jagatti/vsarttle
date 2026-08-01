@@ -60,6 +60,27 @@ const TYPE_LABELS: Record<CharacterType, string> = {
   balanced: "バランス型",
 };
 
+export const VOIDMINATION_CUT_IN_DURATION_MS = 3900;
+
+export function getVoidminationCutInOverlayStyle() {
+  return {
+    position: "absolute" as const,
+    inset: 0,
+    zIndex: 1000,
+    backgroundImage: "url('/arttle_back/shihai.png')",
+    backgroundSize: "cover" as const,
+    backgroundPosition: "center" as const,
+    animation: "fadeInScale 0.3s ease-out",
+    pointerEvents: "none" as const,
+  };
+}
+
+export function getVoidminationTooltipEvasionDisplay(evasion: number, voidminationActive: boolean) {
+  return voidminationActive
+    ? { color: "#ef4444", text: "0%" }
+    : { color: "#c4b5fd", text: `${Math.round(evasion * 100)}%` };
+}
+
 function getActionLabel(action: ActionType, player: PlayerBattleState): string {
   const cost = magicCost(action, player.stats);
   if (cost > 0) return `${ACTION_LABELS[action]}（-${cost}PP）`;
@@ -150,6 +171,7 @@ function PortraitBlock({
   player,
   label,
   floaters,
+  voidminationActive,
   isActing,
   isLoser,
   isShaking,
@@ -161,6 +183,7 @@ function PortraitBlock({
   player: PlayerBattleState;
   label: string;
   floaters: DamageFloater[];
+  voidminationActive?: boolean;
   isActing?: boolean;
   isLoser?: boolean;
   isShaking?: boolean;
@@ -259,6 +282,7 @@ function PortraitBlock({
         />
         {tooltipVisible && (() => {
           const s = getEffectiveStats(player);
+          const evasionDisplay = getVoidminationTooltipEvasionDisplay(s.evasion, !!voidminationActive);
           return (
             <div
               style={{
@@ -301,7 +325,7 @@ function PortraitBlock({
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
                 <span style={{ color: "#c4b5fd" }}>回避</span>
-                <span>{Math.round(s.evasion * 100)}%</span>
+                <span style={{ color: evasionDisplay.color }}>{evasionDisplay.text}</span>
               </div>
             </div>
           );
@@ -741,7 +765,7 @@ export function BattlePanel(props: {
         setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
 
         if (turnResult.voidminationTriggered) {
-          // 空間支配（ヴォイドミネーション）cutscene: BGM swap → shihai.png for 1.8s
+          // 空間支配（ヴォイドミネーション）cutscene: BGM swap → shihai.png for 3.9s
           soundManager.stopBgm();
           soundManager.playSe("/sounds/se/void.mp3");
           soundManager.playBgm("/sounds/bgm/boss5-3_loop.mp3");
@@ -751,7 +775,7 @@ export function BattlePanel(props: {
             setShowVoidminationCutIn(false);
             finalized = true;
             setIsAnimating(false);
-          }, 1800);
+          }, VOIDMINATION_CUT_IN_DURATION_MS);
         } else {
           finalized = true;
           setIsAnimating(false);
@@ -833,20 +857,7 @@ export function BattlePanel(props: {
       {showMatchupModal && <MatchupModal onClose={() => setShowMatchupModal(false)} />}
 
       {/* 空間支配（ヴォイドミネーション）cutscene overlay */}
-      {showVoidminationCutIn && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            backgroundImage: "url('/arttle_back/shihai.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            animation: "fadeInScale 0.3s ease-out",
-            pointerEvents: "none",
-          }}
-        />
-      )}
+      {showVoidminationCutIn && <div style={getVoidminationCutInOverlayStyle()} />}
 
       {/* Battle event flash */}
       {showFlash && (
@@ -1103,6 +1114,7 @@ export function BattlePanel(props: {
             player={props.me}
             label="自身が作成した絵"
             floaters={floaters.filter((f) => f.toMe)}
+            voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.me.id}
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
@@ -1155,6 +1167,7 @@ export function BattlePanel(props: {
             player={props.enemy}
             label="あいてが作成した絵"
             floaters={floaters.filter((f) => !f.toMe)}
+            voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.enemy.id}
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
