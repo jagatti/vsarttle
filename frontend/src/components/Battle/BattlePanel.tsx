@@ -81,6 +81,15 @@ export function getVoidminationTooltipEvasionDisplay(evasion: number, voidminati
     : { color: "#c4b5fd", text: `${Math.round(evasion * 100)}%` };
 }
 
+export function shouldResetBattlePanelTransientState(
+  turn: number,
+  turnResult: TurnResult | null,
+  meVoidminationActive?: boolean,
+  enemyVoidminationActive?: boolean,
+) {
+  return turn === 1 && !turnResult && !meVoidminationActive && !enemyVoidminationActive;
+}
+
 function getActionLabel(action: ActionType, player: PlayerBattleState): string {
   const cost = magicCost(action, player.stats);
   if (cost > 0) return `${ACTION_LABELS[action]}（-${cost}PP）`;
@@ -643,6 +652,12 @@ export function BattlePanel(props: {
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
+  const shouldResetTransientState = shouldResetBattlePanelTransientState(
+    props.turn,
+    props.turnResult,
+    props.me.voidminationActive,
+    props.enemy.voidminationActive,
+  );
 
   const battleEnded = !!props.finishResult;
   const isFinished = battleEnded && (displayMe.currentHp <= 0 || displayEnemy.currentHp <= 0);
@@ -653,6 +668,23 @@ export function BattlePanel(props: {
   useEffect(() => {
     setSelectedAction(null);
   }, [props.me.lastActionCategory, props.turn, battleEnded]);
+
+  useEffect(() => {
+    if (!shouldResetTransientState) return;
+    prevTurnRef.current = null;
+    setSelectedAction(null);
+    setFloaters([]);
+    setShowFlash(false);
+    setActingPlayerId(null);
+    setShowFinishButtons(false);
+    setRevealedActions(null);
+    setShowMatchupModal(false);
+    setShakingIds(new Set());
+    setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
+    setVoidminationActive(false);
+    setShowVoidminationCutIn(false);
+    setIsAnimating(false);
+  }, [shouldResetTransientState, props.me, props.enemy]);
 
   useEffect(() => {
     if (props.turnResult) return;
