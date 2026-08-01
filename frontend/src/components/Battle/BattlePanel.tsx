@@ -171,7 +171,10 @@ function PortraitBlock({
   const isCharged = player.chargeMultiplier > 1;
   const activeEffects: string[] = [];
   if (player.paralyzedNextTurn) activeEffects.push("まひ");
+  if (player.tieBanActive) activeEffects.push("あいこ禁止");
+  if ((player.attackBanTurns ?? 0) > 0) activeEffects.push("こうげき禁止");
   if ((player.barrierBanTurns ?? 0) > 0) activeEffects.push("バリア禁止");
+  if ((player.magicBanTurns ?? 0) > 0) activeEffects.push("まほう禁止");
   if ((player.chargeBanTurns ?? 0) > 0) activeEffects.push("チャージ禁止");
   const imgAnimations = [
     isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "",

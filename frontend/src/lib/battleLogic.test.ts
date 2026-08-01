@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getAvailableActions, getDamageMultiplier, resolveTurn } from "@/lib/battleLogic";
-import type { ActionType, PlayerBattleState } from "@/types/game";
+import type { ActionType, PlayerBattleState, WeakMagicEffectSelection } from "@/types/game";
 
 const makePlayer = (id: string): PlayerBattleState => ({
   id,
@@ -32,6 +32,14 @@ test("getAvailableActions blocks previous category and PP shortage", () => {
   assert.deepEqual(actions.sort(), ["attack", "barrier", "charge"].sort());
 });
 
+test("getAvailableActions blocks attack and magic while their new ban counters are active", () => {
+  const player = makePlayer("a");
+  player.attackBanTurns = 1;
+  player.magicBanTurns = 2;
+  const actions = getAvailableActions(player, 2);
+  assert.deepEqual(actions.sort(), ["barrier", "charge"].sort());
+});
+
 test("resolveTurn applies attack vs attack formula with defense mitigation", () => {
   const a = makePlayer("a");
   const b = makePlayer("b");
@@ -40,6 +48,43 @@ test("resolveTurn applies attack vs attack formula with defense mitigation", () 
   const expectedDamage = 100 - 80 / 2;
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
   assert.equal(result.nextStates.b.currentHp, 100 - expectedDamage);
+});
+
+test("resolveTurn applies custom weak-magic selection effects instead of the legacy default pool", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  const selection = {
+    oneTurn: "paralysis",
+    twoTurn: ["attackBan", "magicBan"],
+  } satisfies WeakMagicEffectSelection;
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicWeak", b: "attack" },
+    weakMagicSelections: { a: selection },
+    rng: () => 0.4,
+  });
+  assert.equal(result.nextStates.b.attackBanTurns, 2);
+  assert.equal(result.nextStates.b.barrierBanTurns ?? 0, 0);
+  assert.equal(result.magicEffectEvents[0]?.effectName, "こうげき禁止");
+});
+
+test("resolveTurn can apply tie-ban from a custom weak-magic selection", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  const selection = {
+    oneTurn: "tieBan",
+    twoTurn: ["attackBan", "magicBan"],
+  } satisfies WeakMagicEffectSelection;
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicWeak", b: "attack" },
+    weakMagicSelections: { a: selection },
+    rng: () => 0.01,
+  });
+  assert.equal(result.nextStates.b.tieBanActive, true);
+  assert.equal(result.magicEffectEvents[0]?.effectName, "あいこ禁止");
 });
 
 test("getAvailableActions returns no actions while paralyzed", () => {
@@ -67,6 +112,21 @@ test("resolveTurn: paralyzed player deals no damage while opponent's action stil
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
   // The paralysis status is consumed after this turn.
   assert.equal(result.nextStates.a.paralyzedNextTurn, false);
+});
+
+test("resolveTurn: tie-ban suppresses only the opponent's same-category action", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  a.tieBanActive = true;
+  const result = resolveTurn({
+    turn: 2,
+    players: { a, b },
+    actions: { a: "attack", b: "attack" },
+    rng: () => 0.99,
+  });
+  assert.equal(result.nextStates.a.currentHp, 100);
+  assert.equal(result.nextStates.b.currentHp, 40);
+  assert.equal(result.damageEvents.length, 1);
 });
 
 test("getDamageMultiplier changes at >15 and >20 turns", () => {
