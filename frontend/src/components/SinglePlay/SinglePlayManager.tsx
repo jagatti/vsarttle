@@ -811,6 +811,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           [playerIdParam]: resolvedPlayerAction,
           [enemyIdParam]: cpuAction,
         },
+        disableVoidmination: true,
       });
 
       // If this hit would defeat the floor 5 phase 2 boss for the first time,

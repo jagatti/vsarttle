@@ -249,3 +249,131 @@ test("resolveTurn: chargeMultiplier applies to damage on the turn immediately af
   // chargeMultiplier should be reset after turn 2
   assert.equal(result2.nextStates.a.chargeMultiplier, 1);
 });
+
+// --- 空間支配（ヴォイドミネーション）tests ---
+
+const makeEva0Player = (id: string): PlayerBattleState => ({
+  ...makePlayer(id),
+  nickname: `${id}_EVA0`,
+  stats: {
+    ...makePlayer(id).stats,
+    evasion: 1.0, // 100% evasion - would always avoid without voidmination
+  },
+});
+
+test("voidmination: triggered when EVA0 nickname present and avoidance occurs", () => {
+  const a = makeEva0Player("a");
+  const b = makePlayer("b");
+  b.stats = { ...b.stats, evasion: 0 };
+  // a has 100% evasion, so b's attack will be avoided → triggers voidmination
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "attack" },
+    rng: () => 0.5, // 0.5 < 1.0 means a avoids
+  });
+  assert.equal(result.voidminationTriggered, true);
+  assert.equal(result.nextStates.a.voidminationActive, true);
+  assert.equal(result.nextStates.b.voidminationActive, true);
+});
+
+test("voidmination: not triggered if no avoidance occurs (all hits land)", () => {
+  const a = makeEva0Player("a");
+  const b = makePlayer("b");
+  // rng returns 0.99 which is >= evasion only if evasion < 0.99, but a.evasion=1.0, so 0.99 < 1.0 → dodge
+  // Use rng=()=>0 to ensure no dodge: 0 < 1.0 → dodge...
+  // Actually with the new maybeAvoid: rng() >= evasion ? damage : 0
+  // rng()=0.99, evasion=1.0: 0.99 >= 1.0 is false → 0 (avoided)
+  // rng()=1.0, evasion=1.0: 1.0 >= 1.0 is true → damage
+  // Let's set evasion=0 on both to ensure no avoidance
+  a.stats = { ...a.stats, evasion: 0 };
+  b.stats = { ...b.stats, evasion: 0 };
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "attack", b: "attack" },
+    rng: () => 0.5,
+  });
+  // Both evasion=0, so no avoidance
+  assert.equal(result.voidminationTriggered, false);
+  assert.equal(!!result.nextStates.a.voidminationActive, false);
+});
+
+test("voidmination: not triggered without EVA0 nickname even if avoidance occurs", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  a.stats = { ...a.stats, evasion: 1.0 }; // 100% evasion
+  b.stats = { ...b.stats, evasion: 0 };
+  // a will dodge b's attack, but no EVA0 nickname
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "attack" },
+    rng: () => 0.5, // 0.5 < 1.0 → a avoids
+  });
+  const avoided = result.damageEvents.some((e) => e.avoided);
+  assert.equal(avoided, true); // avoidance did happen
+  assert.equal(result.voidminationTriggered, false); // but no voidmination since no EVA0 nickname
+});
+
+test("voidmination: once active, voidminationTriggered is false on subsequent turns", () => {
+  const a = makeEva0Player("a");
+  const b = makePlayer("b");
+  a.voidminationActive = true; // already triggered
+  b.voidminationActive = true;
+  // Even if avoidance would theoretically happen, voidmination is already active
+  const result = resolveTurn({
+    turn: 2,
+    players: { a, b },
+    actions: { a: "attack", b: "attack" },
+    rng: () => 0.5,
+  });
+  assert.equal(result.voidminationTriggered, false);
+});
+
+test("voidmination: once active, evasion is 0% (attacks always land)", () => {
+  const a = makeEva0Player("a");
+  const b = makePlayer("b");
+  // Mark as already active
+  a.voidminationActive = true;
+  b.voidminationActive = true;
+  // Even with 100% evasion, attacks should land when voidmination is active
+  const result = resolveTurn({
+    turn: 2,
+    players: { a, b },
+    actions: { a: "attack", b: "attack" },
+    rng: () => 0, // would normally trigger evasion (0 < 1.0)
+  });
+  // No avoidance should occur
+  assert.ok(result.damageEvents.every((e) => !e.avoided), "No avoidance should happen with voidmination active");
+});
+
+test("voidmination: disableVoidmination prevents triggering (single-play)", () => {
+  const a = makeEva0Player("a");
+  const b = makePlayer("b");
+  a.stats = { ...a.stats, evasion: 1.0 };
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "attack" },
+    rng: () => 0.5,
+    disableVoidmination: true,
+  });
+  assert.equal(result.voidminationTriggered, false);
+  assert.equal(!!result.nextStates.a.voidminationActive, false);
+});
+
+test("voidmination: case-insensitive EVA0 match (eva0 triggers)", () => {
+  const a = makePlayer("a");
+  a.nickname = "my_eva0_player";
+  a.stats = { ...a.stats, evasion: 1.0 };
+  const b = makePlayer("b");
+  b.stats = { ...b.stats, evasion: 0 };
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "attack" },
+    rng: () => 0.5,
+  });
+  assert.equal(result.voidminationTriggered, true);
+});
