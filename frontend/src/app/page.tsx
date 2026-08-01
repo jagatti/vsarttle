@@ -5,6 +5,7 @@ import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { TitleScreen } from "@/components/Title/TitleScreen";
@@ -13,7 +14,17 @@ import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
-import type { ActionType, PlayerBattleState, Stage, TurnResult, WireDrawingData, CharacterType, EnhancementSlot } from "@/types/game";
+import type {
+  ActionType,
+  BattleMode,
+  CharacterType,
+  EnhancementSlot,
+  PlayerBattleState,
+  Stage,
+  TurnResult,
+  WeakMagicEffectSelection,
+  WireDrawingData,
+} from "@/types/game";
 
 const DRAW_SECONDS = 300;
 const TURN_SECONDS = 30;
@@ -32,11 +43,14 @@ interface PeerCharacter {
   stats: PlayerBattleState["stats"];
   characterType: CharacterType;
   enhancementSlot: EnhancementSlot | null;
+  battleMode: BattleMode;
+  weakMagicSelection?: WeakMagicEffectSelection;
 }
 
 type RematchMode = "same" | "redraw";
 
 type WireMessage =
+  | { type: "room_config"; payload: { battleMode: BattleMode } }
   | { type: "ready"; payload: PeerCharacter }
   | { type: "turn_start"; payload: { turn: number; deadline: number } }
   | { type: "turn_action"; payload: { turn: number; playerId: string; action: ActionType } }
@@ -57,6 +71,7 @@ export default function Home() {
   const countdownIntervalRef = useRef<number | null>(null);
   const localCharacterRef = useRef<PeerCharacter | null>(null);
   const remoteCharacterRef = useRef<PeerCharacter | null>(null);
+  const battleModeRef = useRef<BattleMode>("simple");
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
   // Tracks the highest turn number that finalizeTurn has successfully started
   // processing. Used as an idempotency guard to prevent the same turn from being
@@ -76,6 +91,7 @@ export default function Home() {
   const [status, setStatus] = useState("ルームを作成するか入室してください");
   const [roomCode, setRoomCode] = useState("");
   const [nickname, setNickname] = useState("プレイヤー");
+  const [battleMode, setBattleMode] = useState<BattleMode>("simple");
   const [drawSeconds, setDrawSeconds] = useState(DRAW_SECONDS);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [countdownEpoch, setCountdownEpoch] = useState(0);
@@ -98,6 +114,7 @@ export default function Home() {
     stats: PlayerBattleState["stats"];
     characterType: CharacterType;
   } | null>(null);
+  const [pendingReadyCharacter, setPendingReadyCharacter] = useState<PeerCharacter | null>(null);
   /** Cumulative win/loss record against the current opponent (resets on room change). */
   const [matchRecord, setMatchRecord] = useState({ wins: 0, losses: 0 });
   /** When non-empty, shows an overlay informing this player that the peer returned to title. */
@@ -185,6 +202,16 @@ export default function Home() {
     countdownIntervalRef.current = window.setInterval(update, 200);
   };
 
+  const finalizeReadyCharacter = (character: PeerCharacter) => {
+    setPendingCharacterBase(null);
+    setPendingReadyCharacter(null);
+    localCharacterRef.current = character;
+    sendWire({ type: "ready", payload: character });
+    setStatus("準備完了。相手の完成を待っています。");
+    const remote = remoteCharacterRef.current;
+    if (remote && stage === "drawing") beginBattle(character, remote);
+  };
+
   const beginBattle = (local: PeerCharacter, remote: PeerCharacter) => {
     const me: PlayerBattleState = {
       id: myIdRef.current,
@@ -259,7 +286,15 @@ export default function Home() {
       [enemyId]: fillAction(enemyId),
     };
 
-    const result = resolveTurn({ turn: turnNumber, players: currentBattle, actions });
+    const result = resolveTurn({
+      turn: turnNumber,
+      players: currentBattle,
+      actions,
+      weakMagicSelections: {
+        [myId]: localCharacterRef.current?.weakMagicSelection,
+        [enemyId]: remoteCharacterRef.current?.weakMagicSelection,
+      },
+    });
     battleStateRef.current = result.nextStates;
     setBattleState(result.nextStates);
     setTurnResult(result);
@@ -351,6 +386,7 @@ export default function Home() {
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
     setPendingCharacterBase(null);
+    setPendingReadyCharacter(null);
     setBattleFinish(null);
     setBattleState({});
     setTurn(1);
@@ -394,6 +430,9 @@ export default function Home() {
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
     setPendingCharacterBase(null);
+    setPendingReadyCharacter(null);
+    battleModeRef.current = "simple";
+    setBattleMode("simple");
     setMatchRecord({ wins: 0, losses: 0 });
     setStage("title");
     setStatus("ルームを作成するか入室してください");
@@ -406,7 +445,15 @@ export default function Home() {
   };
 
   const handleWire = (message: WireMessage) => {
+    if (message.type === "room_config") {
+      battleModeRef.current = message.payload.battleMode;
+      setBattleMode(message.payload.battleMode);
+      return;
+    }
+
     if (message.type === "ready") {
+      battleModeRef.current = message.payload.battleMode;
+      setBattleMode(message.payload.battleMode);
       remoteCharacterRef.current = message.payload;
       const local = localCharacterRef.current;
       if (local && stage === "drawing") beginBattle(local, message.payload);
@@ -492,9 +539,11 @@ export default function Home() {
     });
   };
 
-  const startHostSession = async (name: string) => {
+  const startHostSession = async (name: string, selectedBattleMode: BattleMode) => {
     destroyPeer();
     setNickname(name);
+    battleModeRef.current = selectedBattleMode;
+    setBattleMode(selectedBattleMode);
     setStatus("ルームを作成中...");
 
     let retries = 0;
@@ -516,6 +565,7 @@ export default function Home() {
         setStatus("相手が入室しました。P2P接続を確立中...");
         conn.on("open", () => {
           attachConnectionHandlers(conn);
+          sendWire({ type: "room_config", payload: { battleMode: battleModeRef.current } });
           setStatus("P2P接続完了。おえかきを開始します。");
           setStage("drawing");
           setDrawSeconds(DRAW_SECONDS);
@@ -540,6 +590,8 @@ export default function Home() {
   const startGuestSession = async (code: string, name: string) => {
     destroyPeer();
     setNickname(name);
+    battleModeRef.current = "simple";
+    setBattleMode("simple");
     setStatus("入室中...");
 
     const { default: Peer } = await import("peerjs");
@@ -576,8 +628,8 @@ export default function Home() {
     });
   };
 
-  const onCreate = (name: string) => {
-    void startHostSession(name);
+  const onCreate = (name: string, selectedBattleMode: BattleMode) => {
+    void startHostSession(name, selectedBattleMode);
   };
 
   const onJoin = (code: string, name: string) => {
@@ -640,13 +692,20 @@ export default function Home() {
       stats: applyEnhancementSlot(pendingCharacterBase.stats, slot),
       characterType: pendingCharacterBase.characterType,
       enhancementSlot: slot,
+      battleMode: battleModeRef.current,
     };
-    setPendingCharacterBase(null);
-    localCharacterRef.current = character;
-    sendWire({ type: "ready", payload: character });
-    setStatus("準備完了。相手の完成を待っています。");
-    const remote = remoteCharacterRef.current;
-    if (remote && stage === "drawing") beginBattle(character, remote);
+    if (battleModeRef.current === "custom") {
+      setPendingCharacterBase(null);
+      setPendingReadyCharacter(character);
+      setStatus("弱まほう効果を選択してください。");
+      return;
+    }
+    finalizeReadyCharacter(character);
+  };
+
+  const onWeakMagicSelectionConfirm = (selection: WeakMagicEffectSelection) => {
+    if (!pendingReadyCharacter) return;
+    finalizeReadyCharacter({ ...pendingReadyCharacter, weakMagicSelection: selection });
   };
 
   const onActionSelect = (action: ActionType) => {
@@ -680,6 +739,9 @@ export default function Home() {
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
     setPendingCharacterBase(null);
+    setPendingReadyCharacter(null);
+    battleModeRef.current = "simple";
+    setBattleMode("simple");
     setMatchRecord({ wins: 0, losses: 0 });
     setStage("room");
     setStatus("ルームを作成するか入室してください");
@@ -806,6 +868,34 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+          {pendingReadyCharacter && battleMode === "custom" && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 1001,
+                background: "rgba(0,0,0,0.75)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(20,8,0,0.97)",
+                  border: "2px solid #d97706",
+                  borderRadius: 16,
+                  padding: "32px 36px",
+                  maxWidth: 560,
+                  width: "90vw",
+                  color: "#fef3c7",
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.8)",
+                }}
+              >
+                <WeakMagicSelectPanel onConfirm={onWeakMagicSelectionConfirm} />
               </div>
             </div>
           )}

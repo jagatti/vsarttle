@@ -7,6 +7,8 @@ import type {
   TurnDamageEvent,
   TurnMagicEffectEvent,
   TurnResult,
+  WeakMagicEffectKind,
+  WeakMagicEffectSelection,
 } from "@/types/game";
 
 const MIN_DAMAGE = 1;
@@ -24,12 +26,43 @@ export function magicCost(action: ActionType, stats: CharacterStats): number {
   return 0;
 }
 
-/** 弱まほうがヒットした際にランダムで付与される特殊効果の一覧。 */
-export const WEAK_MAGIC_EFFECTS: { kind: "barrierBan" | "chargeBan" | "paralysis"; name: string; turns: number }[] = [
-  { kind: "barrierBan", name: "バリア禁止", turns: 2 },
-  { kind: "chargeBan", name: "チャージ禁止", turns: 2 },
+export interface WeakMagicEffectDefinition {
+  kind: WeakMagicEffectKind;
+  name: string;
+  turns: number;
+}
+
+export const ONE_TURN_WEAK_MAGIC_EFFECTS: WeakMagicEffectDefinition[] = [
   { kind: "paralysis", name: "まひ", turns: 1 },
+  { kind: "tieBan", name: "あいこ禁止", turns: 1 },
 ];
+
+export const TWO_TURN_WEAK_MAGIC_EFFECTS: WeakMagicEffectDefinition[] = [
+  { kind: "attackBan", name: "こうげき禁止", turns: 2 },
+  { kind: "barrierBan", name: "バリア禁止", turns: 2 },
+  { kind: "magicBan", name: "まほう禁止", turns: 2 },
+  { kind: "chargeBan", name: "チャージ禁止", turns: 2 },
+];
+
+export const ALL_WEAK_MAGIC_EFFECTS: WeakMagicEffectDefinition[] = [...ONE_TURN_WEAK_MAGIC_EFFECTS, ...TWO_TURN_WEAK_MAGIC_EFFECTS];
+
+/** 弱まほうがヒットした際にランダムで付与される既定の特殊効果一覧（後方互換用）。 */
+export const WEAK_MAGIC_EFFECTS: WeakMagicEffectDefinition[] = [
+  TWO_TURN_WEAK_MAGIC_EFFECTS.find((effect) => effect.kind === "barrierBan")!,
+  TWO_TURN_WEAK_MAGIC_EFFECTS.find((effect) => effect.kind === "chargeBan")!,
+  ONE_TURN_WEAK_MAGIC_EFFECTS.find((effect) => effect.kind === "paralysis")!,
+];
+
+const DEFAULT_WEAK_MAGIC_EFFECT_KINDS: WeakMagicEffectKind[] = ["barrierBan", "chargeBan", "paralysis"];
+
+const WEAK_MAGIC_EFFECT_MAP = new Map(ALL_WEAK_MAGIC_EFFECTS.map((effect) => [effect.kind, effect] as const));
+
+const getWeakMagicEffects = (selection?: WeakMagicEffectSelection): WeakMagicEffectDefinition[] => {
+  const kinds = selection ? [selection.oneTurn, ...selection.twoTurn] : DEFAULT_WEAK_MAGIC_EFFECT_KINDS;
+  return kinds
+    .map((kind) => WEAK_MAGIC_EFFECT_MAP.get(kind))
+    .filter((effect): effect is WeakMagicEffectDefinition => !!effect);
+};
 
 export function getAvailableActions(player: PlayerBattleState, turn: number): ActionType[] {
   if (player.limitBreakActive) return ["magicStrong"];
@@ -37,8 +70,10 @@ export function getAvailableActions(player: PlayerBattleState, turn: number): Ac
   const disallowed = player.lastActionCategory;
   return (["attack", "magicWeak", "magicStrong", "barrier", "charge"] as ActionType[]).filter((action) => {
     if (disallowed && actionCategory(action) === disallowed) return false;
+    if (action === "attack" && (player.attackBanTurns ?? 0) > 0) return false;
     if (action === "barrier" && (player.barrierBanTurns ?? 0) > 0) return false;
     if (action === "charge" && (player.chargeBanTurns ?? 0) > 0) return false;
+    if ((action === "magicWeak" || action === "magicStrong") && (player.magicBanTurns ?? 0) > 0) return false;
     if (action === "charge" && turn === 1) return false;
     const cost = magicCost(action, player.stats);
     return player.currentPp >= cost;
@@ -83,6 +118,7 @@ export function resolveTurn(params: {
   turn: number;
   players: Record<string, PlayerBattleState>;
   actions: Record<string, ActionType>;
+  weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection>>;
   rng?: () => number;
 }): TurnResult {
   const rng = params.rng ?? Math.random;
@@ -99,6 +135,8 @@ export function resolveTurn(params: {
   // the end of this turn regardless of what action is taken.
   const leftHadChargedPrevious = !!left.chargedPreviousTurn;
   const rightHadChargedPrevious = !!right.chargedPreviousTurn;
+  const leftTieBanActive = !!left.tieBanActive;
+  const rightTieBanActive = !!right.tieBanActive;
   left.chargedPreviousTurn = false;
   right.chargedPreviousTurn = false;
 
@@ -110,9 +148,12 @@ export function resolveTurn(params: {
   // Consume this turn's ban/paralysis counters that were carried over from a
   // previous turn's 弱まほう effect, before any new effects are applied below.
   for (const player of [left, right]) {
+    if ((player.attackBanTurns ?? 0) > 0) player.attackBanTurns = (player.attackBanTurns ?? 0) - 1;
     if ((player.barrierBanTurns ?? 0) > 0) player.barrierBanTurns = (player.barrierBanTurns ?? 0) - 1;
+    if ((player.magicBanTurns ?? 0) > 0) player.magicBanTurns = (player.magicBanTurns ?? 0) - 1;
     if ((player.chargeBanTurns ?? 0) > 0) player.chargeBanTurns = (player.chargeBanTurns ?? 0) - 1;
     player.paralyzedNextTurn = false;
+    player.tieBanActive = false;
   }
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string) => {
@@ -129,10 +170,14 @@ export function resolveTurn(params: {
 
   // Applies a random 弱まほう special effect to `affected`, caused by `caster`'s weak magic hit.
   const applyWeakMagicEffect = (caster: PlayerBattleState, affected: PlayerBattleState, reflected: boolean) => {
-    const pick = WEAK_MAGIC_EFFECTS[Math.floor(rng() * WEAK_MAGIC_EFFECTS.length)];
+    const effects = getWeakMagicEffects(params.weakMagicSelections?.[caster.id]);
+    const pick = effects[Math.floor(rng() * effects.length)] ?? WEAK_MAGIC_EFFECT_MAP.get("paralysis")!;
+    if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;
     if (pick.kind === "barrierBan") affected.barrierBanTurns = pick.turns;
+    if (pick.kind === "magicBan") affected.magicBanTurns = pick.turns;
     if (pick.kind === "chargeBan") affected.chargeBanTurns = pick.turns;
     if (pick.kind === "paralysis") affected.paralyzedNextTurn = true;
+    if (pick.kind === "tieBan") affected.tieBanActive = true;
     magicEffectEvents.push({ casterId: caster.id, affectedId: affected.id, effectName: pick.name, reflected });
     logs.push(`${affected.nickname} に「${pick.name}」が発動！`);
   };
@@ -156,12 +201,23 @@ export function resolveTurn(params: {
   const leftCategory = actionCategory(leftAction);
   const rightCategory = actionCategory(rightAction);
 
-  if (leftAction === "charge") {
+  const sameCategory = leftCategory === rightCategory;
+  const leftActionSuppressed = sameCategory && rightTieBanActive;
+  const rightActionSuppressed = sameCategory && leftTieBanActive;
+
+  if (leftActionSuppressed) {
+    logs.push(`${right.nickname} の「あいこ禁止」で ${left.nickname} の行動が封じられた！`);
+  }
+  if (rightActionSuppressed) {
+    logs.push(`${left.nickname} の「あいこ禁止」で ${right.nickname} の行動が封じられた！`);
+  }
+
+  if (leftAction === "charge" && !leftActionSuppressed) {
     recoverFromCharge(left);
     chargeEvents.push({ playerId: left.id, hpRecover: left.lastChargeHpRecover ?? 0, ppRecover: left.lastChargePpRecover ?? 0 });
     logs.push(`${left.nickname} がチャージ！`);
   }
-  if (rightAction === "charge") {
+  if (rightAction === "charge" && !rightActionSuppressed) {
     recoverFromCharge(right);
     chargeEvents.push({ playerId: right.id, hpRecover: right.lastChargeHpRecover ?? 0, ppRecover: right.lastChargePpRecover ?? 0 });
     logs.push(`${right.nickname} がチャージ！`);
@@ -171,16 +227,17 @@ export function resolveTurn(params: {
   const speedSecond = speedFirst.id === left.id ? right : left;
   const winner = matchupWinner(leftCategory, rightCategory);
 
-  const canHit = (player: PlayerBattleState, action: ActionType, opponentAction: ActionType): boolean => {
+  const canHit = (action: ActionType, opponentAction?: ActionType): boolean => {
+    if (!opponentAction) return true;
     const playerCategory = actionCategory(action);
     const oppCategory = actionCategory(opponentAction);
     const outcome = matchupWinner(playerCategory, oppCategory);
     return outcome === null || outcome === playerCategory;
   };
 
-  const processStrike = (actor: PlayerBattleState, action: ActionType, target: PlayerBattleState, targetAction: ActionType) => {
+  const processStrike = (actor: PlayerBattleState, action: ActionType, target: PlayerBattleState, targetAction?: ActionType) => {
     if (actor.currentHp <= 0) return;
-    if (!canHit(actor, action, targetAction)) return;
+    if (!canHit(action, targetAction)) return;
     if (action === "attack") applyDamage(actor, target, attackDamage(actor, target), "こうげき");
     if (action === "magicWeak" || action === "magicStrong") {
       consumePp(actor, action);
@@ -192,7 +249,13 @@ export function resolveTurn(params: {
     }
   };
 
-  if (leftCategory === "magic" && rightCategory === "barrier") {
+  if (leftActionSuppressed && rightActionSuppressed) {
+    // no-op
+  } else if (leftActionSuppressed) {
+    processStrike(right, rightAction, left, undefined);
+  } else if (rightActionSuppressed) {
+    processStrike(left, leftAction, right, undefined);
+  } else if (leftCategory === "magic" && rightCategory === "barrier") {
     consumePp(left, leftAction);
     const dealt = applyDamage(right, left, reflectionDamage(leftAction, left, left.stats.defense), "バリア反射");
     // The magic caster (left) takes the reflected damage, so a 弱まほう effect

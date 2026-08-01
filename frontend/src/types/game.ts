@@ -1,4 +1,5 @@
 export type Stage = "room" | "drawing" | "battle" | "result" | "title" | "singleplay";
+export type BattleMode = "simple" | "custom";
 
 export interface Point {
   x: number;
@@ -74,8 +75,16 @@ export type EnhancementSlot = "pp" | "speed" | "evasion";
 
 export type ActionType = "attack" | "magicWeak" | "magicStrong" | "barrier" | "charge" | "paralysis";
 export type ActionCategory = "attack" | "magic" | "barrier" | "charge" | "paralysis";
+export type OneTurnWeakMagicEffectKind = "paralysis" | "tieBan";
+export type TwoTurnWeakMagicEffectKind = "attackBan" | "barrierBan" | "magicBan" | "chargeBan";
+export type WeakMagicEffectKind = OneTurnWeakMagicEffectKind | TwoTurnWeakMagicEffectKind;
 
 export type CharacterType = "attack" | "magic" | "defense" | "balanced";
+
+export interface WeakMagicEffectSelection {
+  oneTurn: OneTurnWeakMagicEffectKind;
+  twoTurn: [TwoTurnWeakMagicEffectKind, TwoTurnWeakMagicEffectKind];
+}
 
 export interface PlayerBattleState {
   id: string;
@@ -94,8 +103,14 @@ export interface PlayerBattleState {
   barrierBanTurns?: number;
   /** Remaining turns during which this player cannot use チャージ (charge), inflicted by 弱まほう「チャージ禁止」. */
   chargeBanTurns?: number;
+  /** Remaining turns during which this player cannot use こうげき (attack), inflicted by 弱まほう「こうげき禁止」. */
+  attackBanTurns?: number;
+  /** Remaining turns during which this player cannot use まほう (magicWeak / magicStrong), inflicted by 弱まほう「まほう禁止」. */
+  magicBanTurns?: number;
   /** When true, this player is まひ (paralyzed) for the upcoming turn and cannot select any action. */
   paralyzedNextTurn?: boolean;
+  /** When true, this player will nullify the opponent's action on the upcoming turn if both choose the same action category. */
+  tieBanActive?: boolean;
   /** When true, this player has already triggered its limit break and cannot trigger it again. */
   limitBreakUsed?: boolean;
   /** When true, this player is in limit break mode and must always use magicStrong, ignoring all restrictions. */
