@@ -31,7 +31,7 @@ function getDamagePhaseActorId(event: TurnDamageEvent, actions: Record<string, A
   if (event.reason === "バリア反射") {
     return Object.keys(actions).find((playerId) => actions[playerId] === "magicWeak" || actions[playerId] === "magicStrong") ?? event.to;
   }
-  if (event.reason === "バリアカウンター") {
+  if (event.phaseHint === "counter") {
     return Object.keys(actions).find((playerId) => actions[playerId] === "charge") ?? event.to;
   }
   return event.from;

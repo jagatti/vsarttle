@@ -125,6 +125,7 @@ export interface TurnDamageEvent {
   amount: number;
   avoided: boolean;
   reason: string;
+  phaseHint?: "counter";
 }
 
 export interface TurnChargeEvent {

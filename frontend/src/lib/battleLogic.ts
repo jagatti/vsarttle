@@ -103,8 +103,8 @@ const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattl
 const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState, targetDefense: number) =>
   Math.max(MIN_DAMAGE, Math.round(magicCost(magicAction, magicUser.stats) * 5 * magicUser.chargeMultiplier - targetDefense / 2));
 
-// 相手がチャージ、自身がバリアを選んだ際に発生するカウンターダメージ。
-// バリア衝突と同じ計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
+// 相手がチャージ/まひ状態で自身がバリアを選んだ際に発生する追加ダメージ。
+// 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
 
 const maybeAvoid = (damage: number, evasion: number, rng: () => number) => (rng() < evasion ? 0 : damage);
 
@@ -157,14 +157,14 @@ export function resolveTurn(params: {
     player.tieBanActive = false;
   }
 
-  const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string) => {
+  const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string, phaseHint?: "counter") => {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
     const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
-      damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason });
+      damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, phaseHint });
     } else {
-      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: true, reason });
+      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: true, reason, phaseHint });
     }
     return actual;
   };
@@ -248,7 +248,7 @@ export function resolveTurn(params: {
       if (action === "magicWeak" && dealt > 0) applyWeakMagicEffect(actor, target, false);
     }
     if (action === "barrier" && targetAction === "barrier") {
-      applyDamage(actor, target, barrierCollisionDamage(actor, target), "バリア衝突");
+      applyDamage(actor, target, barrierCollisionDamage(actor, target), "こうげき");
     }
   };
 
@@ -269,17 +269,13 @@ export function resolveTurn(params: {
     const dealt = applyDamage(left, right, reflectionDamage(rightAction, right, right.stats.defense), "バリア反射");
     if (rightAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(right, right, true);
   } else if (leftCategory === "barrier" && rightCategory === "charge") {
-    // 相手がチャージ、自身がバリアの場合はバリアでカウンターダメージを与える。
-    // 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]（バリア衝突と同じ）
-    applyDamage(left, right, barrierCollisionDamage(left, right), "バリアカウンター");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "charge") {
-    applyDamage(right, left, barrierCollisionDamage(right, left), "バリアカウンター");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "counter");
   } else if (leftCategory === "barrier" && rightCategory === "paralysis") {
-    // 相手がまひで行動不能、自身がバリアの場合もカウンターダメージを与える。
-    // 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
-    applyDamage(left, right, barrierCollisionDamage(left, right), "バリアカウンター");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "paralysis") {
-    applyDamage(right, left, barrierCollisionDamage(right, left), "バリアカウンター");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "counter");
   } else if (winner === null) {
     processStrike(speedFirst, speedFirst.id === left.id ? leftAction : rightAction, speedSecond, speedSecond.id === left.id ? leftAction : rightAction);
     processStrike(speedSecond, speedSecond.id === left.id ? leftAction : rightAction, speedFirst, speedFirst.id === left.id ? leftAction : rightAction);

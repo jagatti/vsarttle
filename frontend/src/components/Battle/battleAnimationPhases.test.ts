@@ -71,7 +71,7 @@ test("getTurnAnimationPhases keeps barrier counter damage on the charging player
       enemy: "charge",
     },
   );
-  turnResult.damageEvents = [{ from: "me", to: "enemy", amount: 12, avoided: false, reason: "バリアカウンター" }];
+  turnResult.damageEvents = [{ from: "me", to: "enemy", amount: 12, avoided: false, reason: "こうげき", phaseHint: "counter" }];
   turnResult.chargeEvents = [{ playerId: "enemy", hpRecover: 25, ppRecover: 10 }];
 
   const phases = getTurnAnimationPhases(turnResult, me, enemy);

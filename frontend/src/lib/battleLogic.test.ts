@@ -158,6 +158,8 @@ test("resolveTurn: barrier vs paralyzed gives counter damage [defense - opponent
   // a.defense=80, b.defense=80 → expected = max(1, round(80 - 80/2)) = 40
   const actions: Record<string, ActionType> = { a: "barrier", b: "paralysis" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
+  assert.equal(result.damageEvents[0]?.reason, "こうげき");
+  assert.equal(result.damageEvents[0]?.phaseHint, "counter");
   assert.equal(result.nextStates.b.currentHp, 100 - 40);
   assert.equal(result.nextStates.a.currentHp, 100); // barrier user takes no damage
 });
@@ -169,9 +171,25 @@ test("resolveTurn: barrier vs charge uses [attacker.defense*chargeMultiplier - t
   // b was already at maxHp so charge HP recovery has no effect; b takes 40 counter damage
   const actions: Record<string, ActionType> = { a: "barrier", b: "charge" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
+  assert.equal(result.damageEvents[0]?.reason, "こうげき");
+  assert.equal(result.damageEvents[0]?.phaseHint, "counter");
   assert.equal(result.nextStates.b.currentHp, 60); // 100 - 40 (counter)
   // barrier user (a) takes no counter damage
   assert.equal(result.nextStates.a.currentHp, 100);
+});
+
+test("resolveTurn: barrier vs barrier logs simple attack reason", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "barrier" },
+    rng: () => 0.99,
+  });
+  assert.equal(result.damageEvents.length, 2);
+  assert.ok(result.damageEvents.every((event) => event.reason === "こうげき"));
+  assert.ok(result.damageEvents.every((event) => !event.phaseHint));
 });
 
 test("resolveTurn: chargeMultiplier resets after the turn following charge (turn-based reset)", () => {
