@@ -159,7 +159,33 @@ test("getTurnAnimationPhases assigns magicBlast to magic caster vs attack", () =
   const turnResult = makeTurnResult({ me, enemy }, { me: "magicWeak", enemy: "attack" });
   const phases = getTurnAnimationPhases(turnResult, me, enemy);
   const mePhase = phases.find((p) => p.actorId === "me");
+  const enemyPhase = phases.find((p) => p.actorId === "enemy");
   assert.equal(mePhase?.motionType, "magicBlast");
+  assert.equal(mePhase?.sourceActionType, "magicWeak");
+  assert.equal(enemyPhase?.motionType, "none");
+});
+
+test("getTurnAnimationPhases assigns no dedicated attack motion when attack faces strong magic", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "attack", enemy: "magicStrong" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  const enemyPhase = phases.find((p) => p.actorId === "enemy");
+  assert.equal(mePhase?.motionType, "none");
+  assert.equal(mePhase?.sourceActionType, "attack");
+  assert.equal(enemyPhase?.motionType, "magicBlast");
+  assert.equal(enemyPhase?.sourceActionType, "magicStrong");
+});
+
+test("getTurnAnimationPhases preserves strong magic sourceActionType for reflected magic", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "magicStrong", enemy: "barrier" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  assert.equal(mePhase?.motionType, "magicReflect");
+  assert.equal(mePhase?.sourceActionType, "magicStrong");
 });
 
 test("getTurnAnimationPhases assigns chargeConcentration for charge action", () => {

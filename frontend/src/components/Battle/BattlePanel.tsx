@@ -305,7 +305,7 @@ function PortraitBlock({
           }}
         />
         {/* まほう弾エフェクト */}
-        <MagicBullet side={side} motionType={motionType ?? "none"} active={!!isActing} />
+        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={revealedAction ?? undefined} active={!!isActing} />
         {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
         <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
         {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
