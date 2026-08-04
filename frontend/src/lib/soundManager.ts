@@ -1,7 +1,7 @@
 const BGM_VOLUME_KEY = "arttle_bgm_volume";
 const SE_VOLUME_KEY = "arttle_se_volume";
-const DEFAULT_BGM_VOLUME = 0.25;
-const DEFAULT_SE_VOLUME = 0.35;
+export const DEFAULT_BGM_VOLUME = 0.08;
+export const DEFAULT_SE_VOLUME = 0.12;
 
 class SoundManager {
   private bgmAudio: HTMLAudioElement | null = null;

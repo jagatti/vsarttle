@@ -1377,12 +1377,39 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         <div
           style={{
             marginBottom: 12,
-            color: "#fde68a",
-            fontWeight: "bold",
-            fontSize: 18,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
           }}
         >
-          🎨 シングルプレイ — おえかきパート
+          <div
+            style={{
+              color: "#fde68a",
+              fontWeight: "bold",
+              fontSize: 18,
+            }}
+          >
+            🎨 シングルプレイ — おえかきパート
+          </div>
+          <button
+            onClick={() => {
+              soundManager.playSe("/sounds/se/button.mp3");
+              props.onBackToTitle();
+            }}
+            style={{
+              border: "2px solid #6b7280",
+              background: "rgba(30,30,30,0.9)",
+              color: "#9ca3af",
+              borderRadius: 10,
+              padding: "8px 14px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            タイトルへ戻る
+          </button>
         </div>
         <div style={{ marginBottom: 8, color: "#9ca3af", fontSize: 13 }}>
           キャラクターを描いて「セット」ボタンで枠にセットしよう。1〜3体セットしたら「バトル開始！」へ進めます。

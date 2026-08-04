@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { OptionsPanel } from "@/components/Options/OptionsPanel";
 
 export const metadata: Metadata = {
   title: "arttle",
-  description: "ラクガキ王国風オンライン対戦ゲーム",
+  description: "ラクガキ対戦 arttle",
 };
 
 export default function RootLayout({
@@ -14,10 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body>
-        {children}
-        <OptionsPanel />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

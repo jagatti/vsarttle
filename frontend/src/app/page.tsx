@@ -791,11 +791,9 @@ export default function Home() {
       {stage === "title" && (
         <TitleScreen
           onSinglePlay={() => {
-            soundManager.playSe("/sounds/se/button.mp3");
             setStage("singleplay");
           }}
           onMultiPlay={() => {
-            soundManager.playSe("/sounds/se/button.mp3");
             setStage("room");
           }}
         />
@@ -806,7 +804,14 @@ export default function Home() {
       )}
 
       {stage === "room" && (
-        <RoomPanel status={status} roomCode={roomCode} canUseSignaling={true} onCreate={onCreate} onJoin={onJoin} />
+        <RoomPanel
+          status={status}
+          roomCode={roomCode}
+          canUseSignaling={true}
+          onCreate={onCreate}
+          onJoin={onJoin}
+          onBackToTitle={() => setStage("title")}
+        />
       )}
 
       {stage === "drawing" && (
