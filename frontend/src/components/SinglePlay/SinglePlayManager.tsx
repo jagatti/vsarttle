@@ -89,6 +89,16 @@ function toPlayerState(char: SpCharacter): PlayerBattleState {
   };
 }
 
+export function getBossBattleBackgroundUrl(
+  floor: number,
+  bossPhase: 1 | 2,
+  limitBreakActiveOrUsed: boolean,
+): string {
+  if (floor === 5 && (bossPhase === 2 || limitBreakActiveOrUsed)) return "/arttle_back/boss5-2.png";
+  if (floor === 5) return "/arttle_back/boss5-1.png";
+  return `/arttle_back/boss${floor}.png`;
+}
+
 function buildEnemyState(floor: number, phase: 1 | 2, difficulty: Difficulty): PlayerBattleState {
   const boss = getBossData(floor, phase, difficulty);
   return {
@@ -1470,6 +1480,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         onRematchSame={() => { /* not used in single play */ }}
         onRematchRedraw={() => { /* not used in single play */ }}
         customFinishButtons={customFinishButtons}
+        backgroundImageUrl={getBossBattleBackgroundUrl(floor, bossPhase, !!(enemyState.limitBreakActive || limitBreakUsed))}
       />
     );
   }

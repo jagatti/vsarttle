@@ -636,6 +636,8 @@ export function BattlePanel(props: {
   onReturnToTitle?: () => void;
   /** When true, shows the arena background image on the header/portrait area (multiplayer only). */
   showArenaBackground?: boolean;
+  /** Optional background image URL to display on the header/portrait area (single-play use). Takes priority over showArenaBackground. */
+  backgroundImageUrl?: string;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -1098,19 +1100,22 @@ export function BattlePanel(props: {
           overflow: "hidden",
         }}
       >
-        {/* Arena background wrapper (multiplayer only) */}
+        {/* Arena background wrapper */}
         <div
-          style={
-            props.showArenaBackground
+          style={(() => {
+            const resolvedUrl =
+              props.backgroundImageUrl ??
+              (props.showArenaBackground
+                ? (voidminationActive ? "/arttle_back/voidback.png" : "/arttle_back/arenaback.png")
+                : null);
+            return resolvedUrl
               ? {
-                  backgroundImage: voidminationActive
-                    ? "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/voidback.png')"
-                    : "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/arttle_back/arenaback.png')",
+                  backgroundImage: `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('${resolvedUrl}')`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
-              : undefined
-          }
+              : undefined;
+          })()}
         >
         {/* Header bar */}
         <div
