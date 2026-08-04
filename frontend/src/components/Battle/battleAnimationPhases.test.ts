@@ -117,3 +117,56 @@ test("applyAnimationPhaseToDisplayResources updates only the active phase and pr
     enemy: { currentHp: 90, currentPp: 30 },
   });
 });
+
+// ---- わざモーションテスト ----
+
+test("getTurnAnimationPhases assigns magicReflect to magic caster when facing barrier", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "magicStrong", enemy: "barrier" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  const enemyPhase = phases.find((p) => p.actorId === "enemy");
+  assert.equal(mePhase?.motionType, "magicReflect");
+  assert.equal(enemyPhase?.motionType, "barrierWall");
+});
+
+test("getTurnAnimationPhases assigns attackLunge to attacker and barrierWall+barrierBreak to barrier user", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "attack", enemy: "barrier" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  const enemyPhase = phases.find((p) => p.actorId === "enemy");
+  assert.equal(mePhase?.motionType, "attackLunge");
+  assert.equal(enemyPhase?.motionType, "barrierWall");
+  assert.equal(enemyPhase?.targetMotionType, "barrierBreak");
+});
+
+test("getTurnAnimationPhases assigns barrierClash to both when barrier vs barrier", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "barrier", enemy: "barrier" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  for (const phase of phases) {
+    assert.equal(phase.motionType, "barrierClash");
+  }
+});
+
+test("getTurnAnimationPhases assigns magicBlast to magic caster vs attack", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "magicWeak", enemy: "attack" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  assert.equal(mePhase?.motionType, "magicBlast");
+});
+
+test("getTurnAnimationPhases assigns chargeConcentration for charge action", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const turnResult = makeTurnResult({ me, enemy }, { me: "charge", enemy: "attack" });
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+  const mePhase = phases.find((p) => p.actorId === "me");
+  assert.equal(mePhase?.motionType, "chargeConcentration");
+});
