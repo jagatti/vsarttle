@@ -13,36 +13,37 @@ export function OptionsPanel(props: {
   open: boolean;
   onClose: () => void;
 }) {
+  const { open, onClose } = props;
   const [bgmVol, setBgmVol] = useState(DEFAULT_BGM_VOLUME);
   const [seVol, setSeVol] = useState(DEFAULT_SE_VOLUME);
   const panelRef = useRef<HTMLDivElement>(null);
   const sePreviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!props.open) return;
+    if (!open) return;
     setBgmVol(soundManager.getBgmVolume());
     setSeVol(soundManager.getSeVolume());
-  }, [props.open]);
+  }, [open]);
 
   useEffect(() => {
-    if (!props.open) return;
+    if (!open) return;
     const handler = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        props.onClose();
+        onClose();
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [props]);
+  }, [open, onClose]);
 
   useEffect(() => {
-    if (props.open) return;
+    if (open) return;
     if (sePreviewTimeoutRef.current) {
       clearTimeout(sePreviewTimeoutRef.current);
       sePreviewTimeoutRef.current = null;
     }
     soundManager.stopBgm();
-  }, [props.open]);
+  }, [open]);
 
   useEffect(() => {
     return () => {
@@ -71,7 +72,7 @@ export function OptionsPanel(props: {
     }, SE_PREVIEW_DEBOUNCE_MS);
   };
 
-  if (!props.open) return null;
+  if (!open) return null;
 
   return (
     <div
@@ -109,7 +110,7 @@ export function OptionsPanel(props: {
             🔊 サウンド設定
           </span>
           <button
-            onClick={props.onClose}
+            onClick={onClose}
             style={{
               background: "none",
               border: "none",
