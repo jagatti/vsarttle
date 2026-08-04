@@ -891,6 +891,8 @@ export default function Home() {
                   padding: "32px 36px",
                   maxWidth: 560,
                   width: "90vw",
+                  maxHeight: "90vh",
+                  overflowY: "auto",
                   color: "#fef3c7",
                   boxShadow: "0 8px 40px rgba(0,0,0,0.8)",
                 }}
