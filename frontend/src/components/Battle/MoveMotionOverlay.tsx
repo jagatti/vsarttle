@@ -70,10 +70,8 @@ export function MagicBullet({
         width: isStrongMagic ? 36 : 24,
         height: isStrongMagic ? 36 : 24,
         borderRadius: "50%",
-        background: isStrongMagic
-          ? "conic-gradient(from 0deg, red, orange, yellow, green, blue, indigo, violet, red)"
-          : "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
-        boxShadow: isStrongMagic ? "0 0 18px 6px rgba(255,255,255,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
+        background: "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
+        boxShadow: isStrongMagic ? "0 0 18px 6px rgba(167,139,250,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
         animation: isReflect
           ? `barrierReflect 0.8s ease-in-out`
           : `${isStrongMagic ? "magicBlast 0.65s ease-in-out forwards, chargeGlow 0.9s ease-in-out infinite" : "magicBlast 0.65s ease-in-out forwards"}`,
