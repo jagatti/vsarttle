@@ -10,6 +10,7 @@ export function RoomPanel(props: {
   canUseSignaling: boolean;
   onCreate: (nickname: string, battleMode: BattleMode) => void;
   onJoin: (roomCode: string, nickname: string) => void;
+  onBackToTitle: () => void;
 }) {
   const [nickname, setNickname] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -23,6 +24,11 @@ export function RoomPanel(props: {
   const handleJoin = () => {
     soundManager.playSe("/sounds/se/button.mp3");
     props.onJoin(joinCode, nickname.trim());
+  };
+
+  const handleBackToTitle = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    props.onBackToTitle();
   };
 
   return (
@@ -70,6 +76,17 @@ export function RoomPanel(props: {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
+        <button
+          className="rounded border-2 px-3 py-2 font-semibold transition"
+          style={{
+            borderColor: "#6b7280",
+            background: "rgba(30,30,30,0.9)",
+            color: "#9ca3af",
+          }}
+          onClick={handleBackToTitle}
+        >
+          タイトルへ戻る
+        </button>
         <button
           className="rounded bg-indigo-500 px-3 py-2 font-semibold text-white shadow-[0_0_12px_rgba(99,102,241,0.5)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
           disabled={!props.canUseSignaling || !nickname.trim()}
