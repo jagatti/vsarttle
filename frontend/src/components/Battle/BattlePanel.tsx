@@ -8,11 +8,13 @@ import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { safeImageUrl } from "@/lib/imageUrl";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, EnhancementSlot, PlayerBattleState, TurnResult } from "@/types/game";
+import type { MoveMotionType } from "./battleAnimationPhases";
 import {
   applyAnimationPhaseToDisplayResources,
   buildDisplayBattleResources,
   getTurnAnimationPhases,
 } from "./battleAnimationPhases";
+import { BarrierWallEffect, MagicBullet, getPortraitAnimation } from "./MoveMotionOverlay";
 
 const ACTION_SE: Record<ActionType, string> = {
   attack: "/sounds/se/attack.mp3",
@@ -188,6 +190,9 @@ function PortraitBlock({
   suppressedByTieBan,
   enhancementSlot,
   enhancementAlign,
+  motionType,
+  targetMotionType,
+  side,
 }: {
   player: PlayerBattleState;
   label: string;
@@ -200,6 +205,9 @@ function PortraitBlock({
   suppressedByTieBan?: boolean;
   enhancementSlot?: EnhancementSlot | null;
   enhancementAlign: "left" | "right";
+  motionType?: MoveMotionType;
+  targetMotionType?: MoveMotionType;
+  side: "left" | "right";
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const isCharged = player.chargeMultiplier > 1;
@@ -210,9 +218,13 @@ function PortraitBlock({
   if ((player.barrierBanTurns ?? 0) > 0) activeEffects.push("バリア禁止");
   if ((player.magicBanTurns ?? 0) > 0) activeEffects.push("まほう禁止");
   if ((player.chargeBanTurns ?? 0) > 0) activeEffects.push("チャージ禁止");
+
+  // わざモーションアニメーション（isActing中に適用）
+  const portraitMotionAnim = getPortraitAnimation(motionType ?? "none", side, !!isActing);
   const imgAnimations = [
     isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "",
     isCharged ? "chargeGlow 1.2s ease-in-out infinite" : "",
+    portraitMotionAnim,
   ]
     .filter(Boolean)
     .join(", ");
@@ -221,6 +233,9 @@ function PortraitBlock({
   // width and forcing the page to scroll to reach the action buttons.
   const baseSize = "clamp(90px, min(13vw, 20vh), 190px)";
   const chargedSize = "clamp(100px, min(14.5vw, 22vh), 210px)";
+
+  // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
+  const activeBarrierMotion = isActing ? motionType : (isShaking ? targetMotionType : undefined);
 
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -289,6 +304,14 @@ function PortraitBlock({
             cursor: "pointer",
           }}
         />
+        {/* まほう弾エフェクト */}
+        <MagicBullet side={side} motionType={motionType ?? "none"} active={!!isActing} />
+        {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
+        <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
+        {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
+        {activeBarrierMotion === "barrierBreak" && (
+          <BarrierWallEffect side={side} motionType="barrierBreak" active={true} />
+        )}
         {tooltipVisible && (() => {
           const s = getEffectiveStats(player);
           const evasionDisplay = getVoidminationTooltipEvasionDisplay(s.evasion, !!voidminationActive);
@@ -625,6 +648,11 @@ export function BattlePanel(props: {
     () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
   );
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
+  // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
+  const [activePhaseMotions, setActivePhaseMotions] = useState<{
+    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType };
+    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType };
+  }>({ me: {}, enemy: {} });
   // True while the turn-result reveal/damage animation is playing. Used to keep
   // the action buttons locked for the whole animation, not just until the
   // player's own selection is echoed back (see readOnly usage below).
@@ -684,6 +712,7 @@ export function BattlePanel(props: {
     setVoidminationActive(false);
     setShowVoidminationCutIn(false);
     setIsAnimating(false);
+    setActivePhaseMotions({ me: {}, enemy: {} });
   }, [shouldResetTransientState, props.me, props.enemy]);
 
   useEffect(() => {
@@ -745,6 +774,22 @@ export function BattlePanel(props: {
         playActionSe(phase.actorId);
         setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
 
+        // わざモーションの状態を更新
+        const isActorMe = phase.actorId === props.me.id;
+        if (isActorMe) {
+          // meがactor: meにmotionType、enemyにtargetMotionType（例：バリア割れ）
+          setActivePhaseMotions({
+            me: { motionType: phase.motionType },
+            enemy: { motionType: phase.targetMotionType },
+          });
+        } else {
+          // enemyがactor: enemyにmotionType、meにtargetMotionType
+          setActivePhaseMotions({
+            me: { motionType: phase.targetMotionType },
+            enemy: { motionType: phase.motionType },
+          });
+        }
+
         const phaseFloaters: DamageFloater[] = phase.damageEvents.map((event) => ({
           id: floaterIdRef.current++,
           amount: event.amount,
@@ -794,6 +839,7 @@ export function BattlePanel(props: {
       schedule(() => runPhase(1), 850);
       schedule(() => {
         setActingPlayerId(null);
+        setActivePhaseMotions({ me: {}, enemy: {} });
         setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
 
         if (turnResult.voidminationTriggered) {
@@ -828,6 +874,7 @@ export function BattlePanel(props: {
       // making the HP/PP bars appear frozen for the rest of the match.
       if (!finalized) {
         setActingPlayerId(null);
+        setActivePhaseMotions({ me: {}, enemy: {} });
         setRevealedActions(null);
         setShowFlash(false);
         setShakingIds(new Set());
@@ -1154,6 +1201,9 @@ export function BattlePanel(props: {
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.me.id)}
             enhancementSlot={props.me.enhancementSlot}
             enhancementAlign="left"
+            motionType={activePhaseMotions.me.motionType}
+            targetMotionType={activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
+            side="left"
           />
           <div
             style={{
@@ -1207,6 +1257,9 @@ export function BattlePanel(props: {
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.enemy.id)}
             enhancementSlot={props.enemy.enhancementSlot}
             enhancementAlign="right"
+            motionType={activePhaseMotions.enemy.motionType}
+            targetMotionType={activePhaseMotions.enemy.motionType === undefined ? activePhaseMotions.enemy.targetMotionType : undefined}
+            side="right"
           />
         </div>
 

@@ -127,6 +127,76 @@ input {
   50% { box-shadow: 0 0 26px 10px #facc15ee; }
 }
 
+/* ---- Move motion keyframes ---- */
+
+/* チャージ: 集中線エフェクト – 自身の周りにリング状のグローが広がる */
+@keyframes chargeConcentration {
+  0%   { box-shadow: 0 0 0 0 #facc1500, 0 0 0 0 #fde68a00; opacity: 1; }
+  40%  { box-shadow: 0 0 0 18px #facc1566, 0 0 0 32px #fde68a33; }
+  70%  { box-shadow: 0 0 0 28px #facc1522, 0 0 0 48px #fde68a11; }
+  100% { box-shadow: 0 0 0 0 #facc1500, 0 0 0 0 #fde68a00; opacity: 1; }
+}
+
+/* こうげき: 踏み込み → 突撃 – 相手側に飛び込むスライド */
+@keyframes attackLunge {
+  0%   { transform: translateX(0) scale(1); }
+  20%  { transform: translateX(-18%) scale(0.93); }
+  60%  { transform: translateX(32%) scale(1.08); }
+  80%  { transform: translateX(28%) scale(1.05); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+/* こうげき(enemy側・右向き): 反転版 */
+@keyframes attackLungeReverse {
+  0%   { transform: translateX(0) scale(1); }
+  20%  { transform: translateX(18%) scale(0.93); }
+  60%  { transform: translateX(-32%) scale(1.08); }
+  80%  { transform: translateX(-28%) scale(1.05); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+/* まほう弾の飛翔 */
+@keyframes magicBlast {
+  0%   { transform: translateX(0) scale(0.3); opacity: 1; }
+  60%  { transform: translateX(var(--blast-dx, 160px)) scale(1); opacity: 1; }
+  80%  { transform: translateX(var(--blast-dx, 160px)) scale(1.2); opacity: 0.7; }
+  100% { transform: translateX(var(--blast-dx, 160px)) scale(0); opacity: 0; }
+}
+
+/* バリア反射: まほう弾が跳ね返る */
+@keyframes barrierReflect {
+  0%   { transform: translateX(0) scale(0.3); opacity: 1; }
+  45%  { transform: translateX(var(--blast-dx, 160px)) scale(1); opacity: 1; }
+  55%  { transform: translateX(var(--blast-dx, 160px)) scale(1.2); opacity: 0.8; }
+  100% { transform: translateX(0) scale(0.3); opacity: 0; }
+}
+
+/* バリアの壁が出現する */
+@keyframes barrierWall {
+  0%   { transform: scaleY(0); opacity: 0; }
+  25%  { transform: scaleY(1.08); opacity: 0.9; }
+  80%  { transform: scaleY(1); opacity: 0.85; }
+  100% { transform: scaleY(0); opacity: 0; }
+}
+
+/* バリアが割れる */
+@keyframes barrierBreak {
+  0%   { transform: scaleY(1) scaleX(1); opacity: 0.9; filter: brightness(1); }
+  40%  { transform: scaleY(1.15) scaleX(1.1); opacity: 1; filter: brightness(2.5); }
+  70%  { transform: scaleY(0.6) scaleX(1.3); opacity: 0.6; filter: brightness(1.5); }
+  100% { transform: scaleY(0) scaleX(1.4); opacity: 0; filter: brightness(1); }
+}
+
+/* バリア同士の衝突: 壁が相手方向に突進 */
+@keyframes barrierClash {
+  0%   { transform: translateX(0) scaleY(1); opacity: 0.9; }
+  50%  { transform: translateX(var(--clash-dx, 60px)) scaleY(1.15); opacity: 1; }
+  75%  { transform: translateX(var(--clash-dx, 60px)) scaleY(0.7); opacity: 0.6; }
+  100% { transform: translateX(0) scaleY(0); opacity: 0; }
+}
+
+/* ---- End move motion keyframes ---- */
+
 @keyframes limitBreakAuraPulse {
   0%, 100% { transform: scale(0.96); opacity: 0.85; }
   50% { transform: scale(1.05); opacity: 1; }
