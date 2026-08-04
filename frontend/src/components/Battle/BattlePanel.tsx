@@ -192,6 +192,7 @@ function PortraitBlock({
   enhancementAlign,
   motionType,
   targetMotionType,
+  sourceActionType,
   side,
 }: {
   player: PlayerBattleState;
@@ -207,6 +208,7 @@ function PortraitBlock({
   enhancementAlign: "left" | "right";
   motionType?: MoveMotionType;
   targetMotionType?: MoveMotionType;
+  sourceActionType?: ActionType;
   side: "left" | "right";
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
@@ -305,7 +307,7 @@ function PortraitBlock({
           }}
         />
         {/* まほう弾エフェクト */}
-        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={revealedAction ?? undefined} active={!!isActing} />
+        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
         {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
         <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
         {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
@@ -650,8 +652,8 @@ export function BattlePanel(props: {
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
-    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType };
-    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType };
+    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
+    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
   }>({ me: {}, enemy: {} });
   // True while the turn-result reveal/damage animation is playing. Used to keep
   // the action buttons locked for the whole animation, not just until the
@@ -779,14 +781,14 @@ export function BattlePanel(props: {
         if (isActorMe) {
           // meがactor: meにmotionType、enemyにtargetMotionType（例：バリア割れ）
           setActivePhaseMotions({
-            me: { motionType: phase.motionType },
+            me: { motionType: phase.motionType, sourceActionType: phase.sourceActionType },
             enemy: { motionType: phase.targetMotionType },
           });
         } else {
           // enemyがactor: enemyにmotionType、meにtargetMotionType
           setActivePhaseMotions({
             me: { motionType: phase.targetMotionType },
-            enemy: { motionType: phase.motionType },
+            enemy: { motionType: phase.motionType, sourceActionType: phase.sourceActionType },
           });
         }
 
@@ -1203,6 +1205,7 @@ export function BattlePanel(props: {
             enhancementAlign="left"
             motionType={activePhaseMotions.me.motionType}
             targetMotionType={activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
+            sourceActionType={activePhaseMotions.me.sourceActionType}
             side="left"
           />
           <div
@@ -1259,6 +1262,7 @@ export function BattlePanel(props: {
             enhancementAlign="right"
             motionType={activePhaseMotions.enemy.motionType}
             targetMotionType={activePhaseMotions.enemy.motionType === undefined ? activePhaseMotions.enemy.targetMotionType : undefined}
+            sourceActionType={activePhaseMotions.enemy.sourceActionType}
             side="right"
           />
         </div>
