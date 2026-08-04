@@ -33,6 +33,8 @@ export interface TurnAnimationPhase {
   chargeEvents: TurnChargeEvent[];
   /** actor が実行するわざモーション種別 */
   motionType?: MoveMotionType;
+  /** actor がこのフェーズで実行した元のアクション */
+  sourceActionType?: ActionType;
   /** actor 以外のプレイヤーに適用する追加モーション（例：バリア割れ） */
   targetMotionType?: MoveMotionType;
 }
@@ -98,6 +100,8 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
   if (myAction && enemyAction) {
     const myCategory = actionCategory(myAction);
     const enemyCategory = actionCategory(enemyAction);
+    phaseByActor[me.id].sourceActionType = myAction;
+    phaseByActor[enemy.id].sourceActionType = enemyAction;
 
     // バリア対まほう: まほう側は反射モーション、バリア側は通常バリア
     if (myCategory === "magic" && enemyCategory === "barrier") {
@@ -116,6 +120,14 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
       phaseByActor[enemy.id].motionType = "attackLunge";
       phaseByActor[me.id].motionType = "barrierWall";
       phaseByActor[me.id].targetMotionType = "barrierBreak";
+    }
+    // まほう対こうげき: まほう側のみ弾を放ち、こうげき側は専用モーションなし
+    else if (myCategory === "magic" && enemyCategory === "attack") {
+      phaseByActor[me.id].motionType = "magicBlast";
+      phaseByActor[enemy.id].motionType = "none";
+    } else if (enemyCategory === "magic" && myCategory === "attack") {
+      phaseByActor[enemy.id].motionType = "magicBlast";
+      phaseByActor[me.id].motionType = "none";
     }
     // バリア対バリア: 両者バリアを張り衝突
     else if (myCategory === "barrier" && enemyCategory === "barrier") {

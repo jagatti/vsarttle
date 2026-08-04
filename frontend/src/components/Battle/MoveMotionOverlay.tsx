@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActionType } from "@/types/game";
 import type { MoveMotionType } from "./battleAnimationPhases";
 
 /**
@@ -42,10 +43,12 @@ export function getPortraitAnimation(motionType: MoveMotionType, side: "left" | 
 export function MagicBullet({
   side,
   motionType,
+  sourceActionType,
   active,
 }: {
   side: "left" | "right";
   motionType: MoveMotionType;
+  sourceActionType?: ActionType;
   active: boolean;
 }) {
   if (!active) return null;
@@ -54,6 +57,7 @@ export function MagicBullet({
   // 弾の移動方向: left側(自身)は右へ、right側(相手)は左へ
   const dx = side === "left" ? 140 : -140;
   const isReflect = motionType === "magicReflect";
+  const isStrongMagic = sourceActionType === "magicStrong";
 
   return (
     <div
@@ -63,14 +67,16 @@ export function MagicBullet({
         top: "40%",
         left: side === "left" ? "80%" : "20%",
         zIndex: 15,
-        width: 24,
-        height: 24,
+        width: isStrongMagic ? 36 : 24,
+        height: isStrongMagic ? 36 : 24,
         borderRadius: "50%",
-        background: "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
-        boxShadow: "0 0 12px 4px #a78bfa88",
+        background: isStrongMagic
+          ? "conic-gradient(from 0deg, red, orange, yellow, green, blue, indigo, violet, red)"
+          : "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
+        boxShadow: isStrongMagic ? "0 0 18px 6px rgba(255,255,255,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
         animation: isReflect
           ? `barrierReflect 0.8s ease-in-out`
-          : `magicBlast 0.65s ease-in-out forwards`,
+          : `${isStrongMagic ? "magicBlast 0.65s ease-in-out forwards, chargeGlow 0.9s ease-in-out infinite" : "magicBlast 0.65s ease-in-out forwards"}`,
         // CSS カスタムプロパティで弾の移動距離を渡す
         ["--blast-dx" as string]: `${dx}px`,
         pointerEvents: "none",
