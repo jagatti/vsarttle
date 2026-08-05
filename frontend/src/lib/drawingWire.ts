@@ -58,24 +58,41 @@ export function prepareDrawingForWire(drawing: DrawingData): WireDrawingData {
 }
 
 export function drawingToDataUrl(drawing: WireDrawingData): string {
-  const strokeMarkup = drawing.layers
-    .flatMap((layer) =>
-      layer.strokes.map((stroke) => {
-        if (stroke.tool === "fill" && stroke.fillSpans && stroke.fillSpans.length > 0) {
-          const rects = stroke.fillSpans
-            .map((span) => `<rect x="${span.x1}" y="${span.y}" width="${span.x2 - span.x1 + 1}" height="1" fill="${escapeXml(stroke.color)}" />`)
-            .join("");
-          return rects;
-        }
-        if (stroke.points.length <= 1) return "";
-        const points = stroke.points.map((point) => `${point.x},${point.y}`).join(" ");
-        const color = stroke.tool === "eraser" ? "#ffffff" : stroke.color;
-        return `<polyline fill="none" stroke="${escapeXml(color)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" points="${points}" />`;
-      }),
-    )
-    .join("");
+  const drawStrokes: string[] = [];
+  const eraserStrokes: string[] = [];
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${drawing.canvas.width} ${drawing.canvas.height}" width="${drawing.canvas.width}" height="${drawing.canvas.height}"><rect width="100%" height="100%" fill="#ffffff" />${strokeMarkup}</svg>`;
+  for (const layer of drawing.layers) {
+    for (const stroke of layer.strokes) {
+      if (stroke.tool === "fill" && stroke.fillSpans && stroke.fillSpans.length > 0) {
+        const rects = stroke.fillSpans
+          .map((span) => `<rect x="${span.x1}" y="${span.y}" width="${span.x2 - span.x1 + 1}" height="1" fill="${escapeXml(stroke.color)}" />`)
+          .join("");
+        drawStrokes.push(rects);
+      } else if (stroke.tool === "eraser") {
+        if (stroke.points.length <= 1) continue;
+        const points = stroke.points.map((point) => `${point.x},${point.y}`).join(" ");
+        eraserStrokes.push(`<polyline fill="none" stroke="#000000" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" points="${points}" />`);
+      } else {
+        if (stroke.points.length <= 1) continue;
+        const points = stroke.points.map((point) => `${point.x},${point.y}`).join(" ");
+        drawStrokes.push(`<polyline fill="none" stroke="${escapeXml(stroke.color)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" points="${points}" />`);
+      }
+    }
+  }
+
+  const w = drawing.canvas.width;
+  const h = drawing.canvas.height;
+
+  let inner: string;
+  if (eraserStrokes.length > 0) {
+    const maskId = "eraser-mask";
+    const mask = `<mask id="${maskId}"><rect width="100%" height="100%" fill="#ffffff" />${eraserStrokes.join("")}</mask>`;
+    inner = `${mask}<g mask="url(#${maskId})">${drawStrokes.join("")}</g>`;
+  } else {
+    inner = drawStrokes.join("");
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
