@@ -180,7 +180,6 @@ function NameHpBox({ player, align }: { player: PlayerBattleState; align: "left"
 
 function PortraitBlock({
   player,
-  label,
   floaters,
   voidminationActive,
   isActing,
@@ -196,7 +195,6 @@ function PortraitBlock({
   side,
 }: {
   player: PlayerBattleState;
-  label: string;
   floaters: DamageFloater[];
   voidminationActive?: boolean;
   isActing?: boolean;
@@ -241,7 +239,6 @@ function PortraitBlock({
 
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ color: "#fde68a", fontSize: "clamp(11px, 0.9vw, 13px)", marginBottom: 4 }}>{label}</div>
       <div style={{ position: "relative" }}>
         {floaters.map((f) => (
           <div
@@ -295,8 +292,6 @@ function PortraitBlock({
             width: isCharged ? chargedSize : baseSize,
             height: isCharged ? chargedSize : baseSize,
             borderRadius: 12,
-            border: `3px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
-            background: "#fff",
             objectFit: "contain",
             filter: isLoser ? "grayscale(100%)" : "none",
             boxShadow: isCharged ? "0 0 22px 8px #facc15cc" : "none",
@@ -1198,7 +1193,6 @@ export function BattlePanel(props: {
         >
           <PortraitBlock
             player={props.me}
-            label="自身が作成した絵"
             floaters={floaters.filter((f) => f.toMe)}
             voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.me.id}
@@ -1255,7 +1249,6 @@ export function BattlePanel(props: {
           </div>
           <PortraitBlock
             player={props.enemy}
-            label="あいてが作成した絵"
             floaters={floaters.filter((f) => !f.toMe)}
             voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.enemy.id}

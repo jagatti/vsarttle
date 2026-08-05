@@ -110,6 +110,15 @@ function maskToSpans(mask: Uint8Array, width: number, height: number) {
 // "defense" (barrier) type. The practical effect was that a blank or
 // barely-touched canvas would still register ~100% coverage and get pushed
 // toward a high-HP defense character, regardless of what (if anything) was
+function drawCheckerboard(ctx: CanvasRenderingContext2D, cellSize: number) {
+  for (let row = 0; row < CANVAS_SIZE / cellSize; row++) {
+    for (let col = 0; col < CANVAS_SIZE / cellSize; col++) {
+      ctx.fillStyle = (row + col) % 2 === 0 ? "#ffffff" : "#e5e5e5";
+      ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
 // actually drawn. By computing stats from a transparent-background render
 // instead, only pixels the player actually painted count as "filled", so an
 // empty canvas correctly yields near-zero coverage/effort (and a neutral
@@ -270,8 +279,7 @@ export function DrawPanel(props: {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    drawCheckerboard(ctx, 20);
 
     const allStrokes = drawingStroke ? [...strokes, drawingStroke] : strokes;
     for (const stroke of allStrokes) {
@@ -289,7 +297,12 @@ export function DrawPanel(props: {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.lineWidth = stroke.size;
-      ctx.strokeStyle = stroke.tool === "eraser" ? "#ffffff" : stroke.color;
+      if (stroke.tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else {
+        ctx.strokeStyle = stroke.color;
+      }
       ctx.beginPath();
       ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
       for (let i = 1; i < stroke.points.length; i += 1) {
