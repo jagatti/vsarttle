@@ -223,7 +223,7 @@ function PortraitBlock({
   const portraitMotionAnim = getPortraitAnimation(motionType ?? "none", side, !!isActing);
   const imgAnimations = [
     isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "",
-    isCharged ? "chargeGlow 1.2s ease-in-out infinite" : "",
+    isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "",
     portraitMotionAnim,
   ]
     .filter(Boolean)
@@ -293,9 +293,11 @@ function PortraitBlock({
             height: isCharged ? chargedSize : baseSize,
             borderRadius: 12,
             objectFit: "contain",
-            filter: isLoser ? "grayscale(100%)" : "none",
-            boxShadow: isCharged ? "0 0 22px 8px #facc15cc" : "none",
-            transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease",
+            filter: [
+              isLoser ? "grayscale(100%)" : "",
+              isCharged ? "drop-shadow(0 0 5px #facc1599) drop-shadow(0 0 9px #facc1566)" : "",
+            ].filter(Boolean).join(" ") || "none",
+            transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
             transform: isActing ? "scale(1.06)" : "scale(1)",
             animation: imgAnimations || "none",
             cursor: "pointer",

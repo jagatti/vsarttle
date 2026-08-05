@@ -127,6 +127,11 @@ input {
   50% { box-shadow: 0 0 26px 10px #facc15ee; }
 }
 
+@keyframes chargeGlowPortrait {
+  0%, 100% { filter: drop-shadow(0 0 4px #facc1588) drop-shadow(0 0 8px #facc1544); }
+  50% { filter: drop-shadow(0 0 6px #facc15aa) drop-shadow(0 0 12px #facc1566); }
+}
+
 /* ---- Move motion keyframes ---- */
 
 /* チャージ: 集中線エフェクト – 自身の周りにリング状のグローが広がる */
