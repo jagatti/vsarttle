@@ -82,6 +82,54 @@ test("drawingToDataUrl renders fill strokes as rects", () => {
   assert.match(decoded, /<rect x="0" y="1" width="4" height="1" fill="#00ff00" \/>/);
 });
 
+test("drawingToDataUrl has no white background rect and eraser uses svg mask", () => {
+  const eraserDrawing: DrawingData = {
+    version: 1,
+    canvas: { width: 8, height: 8 },
+    layers: [
+      {
+        id: "base",
+        name: "base",
+        strokes: [
+          {
+            id: "pen-1",
+            tool: "pen",
+            color: "#ff0000",
+            size: 4,
+            points: [
+              { x: 0, y: 0, t: 0 },
+              { x: 8, y: 8, t: 1 },
+            ],
+          },
+          {
+            id: "eraser-1",
+            tool: "eraser",
+            color: "#ffffff",
+            size: 4,
+            points: [
+              { x: 0, y: 0, t: 2 },
+              { x: 4, y: 4, t: 3 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const wireDrawing = prepareDrawingForWire(eraserDrawing);
+  const dataUrl = drawingToDataUrl(wireDrawing);
+  const decoded = decodeURIComponent(dataUrl.split(",")[1] ?? "");
+
+  // No white background rect at the top level (only inside <mask> is OK)
+  assert.doesNotMatch(decoded, /^<svg[^>]*><rect width="100%" height="100%" fill="#ffffff"/);
+  assert.doesNotMatch(decoded, /fill="#ffffff"\/><polyline/);
+  // Eraser rendered as mask with black stroke
+  assert.match(decoded, /<mask/);
+  assert.match(decoded, /stroke="#000000"/);
+  // Normal stroke still present
+  assert.match(decoded, /stroke="#ff0000"/);
+});
+
 test("wireDrawingToStrokes reconstructs editable strokes with placeholder timestamps", () => {
   const wireDrawing = prepareDrawingForWire(drawing);
   const strokes = wireDrawingToStrokes(wireDrawing);
