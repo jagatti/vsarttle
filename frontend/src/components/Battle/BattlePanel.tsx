@@ -266,8 +266,8 @@ function PortraitBlock({
           // Spread multiple simultaneous floaters horizontally to avoid overlap.
           // Center index so even counts straddle the midpoint.
           const total = floaters.length;
-          const offset = total > 1 ? (idx - (total - 1) / 2) * 40 : 0;
-          const transform = `translateX(calc(-50% + ${offset}px))`;
+          const offset = total > 1 ? (idx - (total - 1) / 2) * 60 : 0;
+          const transform = offset === 0 ? "translateX(-50%)" : `translateX(calc(-50% + ${offset}px))`;
           return (
             <div
               key={f.id}
