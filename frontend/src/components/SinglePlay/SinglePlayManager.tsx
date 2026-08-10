@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { VsScreen } from "@/components/Vs/VsScreen";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
@@ -11,11 +12,11 @@ import {
   applySinglePlayLimitBreakSurvive,
   getSinglePlayLimitBreakDisplayDurationMs,
   getSinglePlayLimitBreakStatusLines,
-  LIMIT_BREAK_BGM_PATH,
   LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS,
   LIMIT_BREAK_SURVIVE_GLOW_MS,
 } from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
+import { getSinglePlayStageBgm } from "@/lib/vsTransition";
 import { getBossData } from "@/data/bosses";
 import type { Difficulty } from "@/data/bosses";
 import {
@@ -65,6 +66,7 @@ type SpStage =
   | "difficulty_select"
   | "drawing"
   | "char_select"
+  | "vs"
   | "battle"
   | "floor_win"
   | "floor_lose"
@@ -593,6 +595,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const resultRollStartTimerRef = useRef<number | null>(null);
   const resultTotalTimerRef = useRef<number | null>(null);
   const resultBackButtonTimerRef = useRef<number | null>(null);
+  const pendingBattleStartRef = useRef<(() => void) | null>(null);
 
   // Keep refs in sync
   useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
@@ -607,19 +610,14 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     Object.values(battleState).find((state) => state.id.startsWith("boss-"))?.limitBreakUsed ?? false;
 
   useEffect(() => {
-    if (limitBreaking || limitBreakUsed) {
-      soundManager.playBgm(LIMIT_BREAK_BGM_PATH);
-    } else if (spStage === "drawing") {
-      soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
-    } else if (spStage === "battle") {
-      let bgm = "/sounds/bgm/battle_loop.mp3";
-      if (floor === 3) {
-        bgm = "/sounds/bgm/boss3_loop.mp3";
-      } else if (floor === 4) {
-        bgm = "/sounds/bgm/boss4_loop.mp3";
-      } else if (floor === 5) {
-        bgm = bossPhase === 2 ? "/sounds/bgm/boss5-2_loop.mp3" : "/sounds/bgm/boss5-1_loop.mp3";
-      }
+    const bgm = getSinglePlayStageBgm(
+      spStage,
+      floor,
+      bossPhase,
+      limitBreaking,
+      limitBreakUsed,
+    );
+    if (bgm) {
       soundManager.playBgm(bgm);
     } else {
       soundManager.stopBgm();
@@ -1048,10 +1046,13 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
       setActiveCharIndex(charIndex);
       pendingActionRef.current = null;
       resumeBattleWithNextCharRef.current = false;
-      setSpStage("battle");
-
-      startCountdown(initial[playerState.id]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS);
-      doScheduleAutoActionRef.current(nextTurn, initial, playerState.id, enemyState.id);
+      pendingBattleStartRef.current = () => {
+        setSpStage("battle");
+        pendingBattleStartRef.current = null;
+        startCountdown(initial[playerState.id]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS);
+        doScheduleAutoActionRef.current(nextTurn, initial, playerState.id, enemyState.id);
+      };
+      setSpStage("vs");
     },
     [ensureFloorUsedCharSet, startCountdown],
   );
@@ -1119,6 +1120,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
     },
     [],
   );
+
+  const handleVsComplete = useCallback(() => {
+    pendingBattleStartRef.current?.();
+  }, []);
 
   const onActionSelect = useCallback((action: ActionType) => {
     if (pendingActionRef.current) return;
@@ -1431,6 +1436,16 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
         characters={characters}
         floor={floor}
         onSelect={handleCharSelect}
+      />
+    );
+  }
+
+  if (spStage === "vs" && myState && enemyState) {
+    return (
+      <VsScreen
+        me={myState}
+        enemy={enemyState}
+        onComplete={handleVsComplete}
       />
     );
   }
