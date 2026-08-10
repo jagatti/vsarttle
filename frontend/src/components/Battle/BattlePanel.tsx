@@ -48,7 +48,7 @@ const SELECTABLE_ACTIONS: ActionType[] = ["attack", "magicWeak", "magicStrong", 
 
 // Border colors for the name/HP/PP box, based on the character type detected from the drawing.
 // こうげき型＝赤、まほう型＝青、バリア型（defense）＝オレンジ、バランス型＝グレー
-const TYPE_BORDER_COLORS: Record<CharacterType, string> = {
+export const TYPE_BORDER_COLORS: Record<CharacterType, string> = {
   attack: "#ef4444",
   magic: "#3b82f6",
   defense: "#f97316",

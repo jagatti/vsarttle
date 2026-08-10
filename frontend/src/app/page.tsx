@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { VsScreen } from "@/components/Vs/VsScreen";
 import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { RoomPanel } from "@/components/Room/RoomPanel";
@@ -14,6 +15,7 @@ import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
+import { getMultiplayerStageBgm } from "@/lib/vsTransition";
 import type {
   ActionType,
   BattleMode,
@@ -86,6 +88,7 @@ export default function Home() {
   // edit after choosing "描きなおしてもう１戦"). This must NOT be treated as a
   // completed "ready" character for the new match.
   const previousDrawingRef = useRef<WireDrawingData | null>(null);
+  const pendingBattleStartRef = useRef<(() => void) | null>(null);
 
   const [stage, setStage] = useState<Stage>("title");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
@@ -239,21 +242,25 @@ export default function Home() {
     };
     const initial = { [me.id]: me, [enemy.id]: enemy };
     battleStateRef.current = initial;
-    pendingActionsRef.current = {};
-    finalizedTurnRef.current = 0;
-    setIsResolvingTurn(false);
-    resolvingTurnNumberRef.current = null;
-    resolvingEpochRef.current = null;
-    setCountdownEpoch(0);
     setBattleState(initial);
     setBattleFinish(null);
+    setTurnResult(null);
     setTurn(1);
-    setStage("battle");
     setStatus("対戦開始！");
-
-    if (roleRef.current === "host") {
-      startHostTurn(1, initial);
-    }
+    pendingBattleStartRef.current = () => {
+      pendingActionsRef.current = {};
+      finalizedTurnRef.current = 0;
+      setIsResolvingTurn(false);
+      resolvingTurnNumberRef.current = null;
+      resolvingEpochRef.current = null;
+      setCountdownEpoch(0);
+      setStage("battle");
+      pendingBattleStartRef.current = null;
+      if (roleRef.current === "host") {
+        startHostTurn(1, initial);
+      }
+    };
+    setStage("vs");
   };
 
   const finalizeTurn = (turnNumber: number) => {
@@ -370,7 +377,6 @@ export default function Home() {
       const remote = remoteCharacterRef.current;
       if (!local || !remote) return;
       beginBattle(local, remote);
-      soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
       setStatus("再戦開始！");
       return;
     }
@@ -429,6 +435,7 @@ export default function Home() {
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
+    pendingBattleStartRef.current = null;
     setPendingCharacterBase(null);
     setPendingReadyCharacter(null);
     battleModeRef.current = "simple";
@@ -512,6 +519,7 @@ export default function Home() {
 
     if (message.type === "forfeit") {
       // Only used for disconnection-based forfeits (not HP=0 game end)
+      pendingBattleStartRef.current = null;
       setStage("result");
       setWinnerText(message.payload.winnerId === myIdRef.current ? "相手切断により勝利" : "切断により敗北");
     }
@@ -527,6 +535,7 @@ export default function Home() {
     connRef.current = conn;
     conn.on("data", (data) => handleWireRef.current(data as WireMessage));
     conn.on("close", () => {
+      pendingBattleStartRef.current = null;
       setStatus(`接続切断。${RECONNECT_SECONDS}秒以内に復帰できなければ敗北`);
       reconnectTimerRef.current = window.setTimeout(() => {
         setStage("result");
@@ -661,13 +670,13 @@ export default function Home() {
 
   // BGM transitions: play drawing BGM on drawing stage, battle BGM on battle stage
   useEffect(() => {
-    if (stage === "drawing") {
-      soundManager.playBgm("/sounds/bgm/oekaki_loop.mp3");
-    } else if (stage === "battle") {
-      soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
-    } else if (stage === "singleplay") {
+    if (stage === "singleplay") {
       // SinglePlayManager manages BGM internally for its own drawing/battle stages.
       return;
+    }
+    const bgm = getMultiplayerStageBgm(stage);
+    if (bgm) {
+      soundManager.playBgm(bgm);
     } else {
       soundManager.stopBgm();
     }
@@ -722,6 +731,10 @@ export default function Home() {
     }
   };
 
+  const handleVsComplete = useCallback(() => {
+    pendingBattleStartRef.current?.();
+  }, []);
+
   const onBackToRoom = () => {
     destroyPeer();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
@@ -738,6 +751,7 @@ export default function Home() {
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
     previousDrawingRef.current = null;
+    pendingBattleStartRef.current = null;
     setPendingCharacterBase(null);
     setPendingReadyCharacter(null);
     battleModeRef.current = "simple";
@@ -925,6 +939,14 @@ export default function Home() {
           matchRecord={matchRecord}
           onReturnToTitle={onReturnToTitle}
           showArenaBackground={true}
+        />
+      )}
+
+      {stage === "vs" && myState && enemyState && (
+        <VsScreen
+          me={myState}
+          enemy={enemyState}
+          onComplete={handleVsComplete}
         />
       )}
 
