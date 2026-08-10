@@ -240,26 +240,57 @@ function PortraitBlock({
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ position: "relative" }}>
-        {floaters.map((f) => (
-          <div
-            key={f.id}
-            style={{
-              position: "absolute",
-              top: -10,
-              left: "50%",
-              zIndex: 5,
-              color: f.type === "hpRecover" ? "#22c55e" : f.type === "ppRecover" ? "#3b82f6" : f.avoided ? "#60a5fa" : "#f87171",
-              fontWeight: "bold",
-              fontSize: "clamp(15px, 1.6vw, 24px)",
-              textShadow: f.type === "hpRecover" ? "0 0 8px #22c55e" : f.type === "ppRecover" ? "0 0 8px #3b82f6" : f.avoided ? "0 0 8px #60a5fa" : "0 0 8px #f87171",
-              animation: "floatUp 1.4s ease-out forwards",
-              pointerEvents: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {f.type === "hpRecover" ? `+${f.amount} HP` : f.type === "ppRecover" ? `+${f.amount} PP` : f.avoided ? "かいひ！" : `-${f.amount}`}
-          </div>
-        ))}
+        {floaters.map((f, idx) => {
+          const big = !f.avoided && f.amount > 100;
+          const color =
+            f.type === "hpRecover"
+              ? big ? "#15803d" : "#22c55e"
+              : f.type === "ppRecover"
+              ? big ? "#1d4ed8" : "#3b82f6"
+              : f.avoided
+              ? "#60a5fa"
+              : big ? "#dc2626" : "#f87171";
+          const glowColor =
+            f.type === "hpRecover"
+              ? big ? "#15803d" : "#22c55e"
+              : f.type === "ppRecover"
+              ? big ? "#1d4ed8" : "#3b82f6"
+              : f.avoided
+              ? "#60a5fa"
+              : big ? "#dc2626" : "#f87171";
+          const fontSize = big
+            ? "clamp(20px, 2.2vw, 32px)"
+            : "clamp(17px, 1.85vw, 27px)";
+          const outline = "1px 0 rgba(0,0,0,0.8), -1px 0 rgba(0,0,0,0.8), 0 1px rgba(0,0,0,0.8), 0 -1px rgba(0,0,0,0.8)";
+          const textShadow = `${outline}, 0 0 8px ${glowColor}`;
+          // Spread multiple simultaneous floaters horizontally to avoid overlap.
+          // Center index so even counts straddle the midpoint.
+          const total = floaters.length;
+          const offset = total > 1 ? (idx - (total - 1) / 2) * 40 : 0;
+          const transform = `translateX(calc(-50% + ${offset}px))`;
+          return (
+            <div
+              key={f.id}
+              style={{
+                position: "absolute",
+                top: -10,
+                left: "50%",
+                transform,
+                zIndex: 5,
+                color,
+                fontWeight: "bold",
+                fontSize,
+                textShadow,
+                WebkitTextStroke: "1px rgba(0,0,0,0.8)",
+                animation: "floatUp 1.4s ease-out forwards",
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {f.type === "hpRecover" ? `+${f.amount} HP` : f.type === "ppRecover" ? `+${f.amount} PP` : f.avoided ? "かいひ！" : `-${f.amount}`}
+            </div>
+          );
+        })}
         {revealedAction && (
           <div
             style={{
