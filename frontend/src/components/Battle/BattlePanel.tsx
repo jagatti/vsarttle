@@ -261,8 +261,7 @@ function PortraitBlock({
           const fontSize = big
             ? "clamp(20px, 2.2vw, 32px)"
             : "clamp(17px, 1.85vw, 27px)";
-          const outline = "1px 0 rgba(0,0,0,0.8), -1px 0 rgba(0,0,0,0.8), 0 1px rgba(0,0,0,0.8), 0 -1px rgba(0,0,0,0.8)";
-          const textShadow = `${outline}, 0 0 8px ${glowColor}`;
+          const textShadow = `0 0 8px ${glowColor}`;
           // Spread multiple simultaneous floaters horizontally to avoid overlap.
           // Center index so even counts straddle the midpoint.
           const total = floaters.length;
@@ -281,13 +280,12 @@ function PortraitBlock({
                 fontWeight: "bold",
                 fontSize,
                 textShadow,
-                WebkitTextStroke: "1px rgba(0,0,0,0.8)",
                 animation: "floatUp 1.4s ease-out forwards",
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
               }}
             >
-              {f.type === "hpRecover" ? `+${f.amount} HP` : f.type === "ppRecover" ? `+${f.amount} PP` : f.avoided ? "かいひ！" : `-${f.amount}`}
+              {f.type === "hpRecover" ? `+${f.amount}` : f.type === "ppRecover" ? `+${f.amount}` : f.avoided ? "かいひ！" : `-${f.amount}`}
             </div>
           );
         })}
