@@ -11,6 +11,29 @@ function withAlpha(hex: string, alphaHex: string) {
   return `${hex}${alphaHex}`;
 }
 
+// The center seam is expressed entirely in percentages of the container so the
+// diagonal crack overlay always lines up exactly with the two background halves,
+// regardless of the container's actual pixel size or aspect ratio.
+const VS_SEAM_TOP_PERCENT = 58;
+const VS_SEAM_BOTTOM_PERCENT = 42;
+
+function buildVsSeamCrackPolygon() {
+  const yStops = [0, 5, 13, 21, 29, 37, 45, 55, 63, 71, 79, 87, 95, 100];
+  const jagOffsets = [-13, 12, -6, 17, -15, 13, -10, 15, -16, 11, -12, 16, -7, 9];
+  const amplitude = 0.4;
+
+  const centerX = (y: number) =>
+    VS_SEAM_TOP_PERCENT + ((VS_SEAM_BOTTOM_PERCENT - VS_SEAM_TOP_PERCENT) * y) / 100;
+
+  const rightEdge = yStops.map((y, i) => [centerX(y) + jagOffsets[i] * amplitude, y] as const);
+  const leftEdge = yStops.map((y, i) => [centerX(y) - jagOffsets[i] * amplitude, y] as const);
+
+  const points = [...rightEdge, ...[...leftEdge].reverse()];
+  return points.map(([x, y]) => `${x}% ${y}%`).join(", ");
+}
+
+const VS_SEAM_CRACK_POLYGON = buildVsSeamCrackPolygon();
+
 export function getVsScreenSideBackground(characterType: PlayerBattleState["characterType"], side: "left" | "right") {
   const color = TYPE_BORDER_COLORS[characterType];
   const accent = withAlpha(color, "dd");
@@ -135,7 +158,7 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
         style={{
           position: "absolute",
           inset: 0,
-          clipPath: "polygon(0 0, 61% 0, 42% 100%, 0 100%)",
+          clipPath: `polygon(0 0, ${VS_SEAM_TOP_PERCENT}% 0, ${VS_SEAM_BOTTOM_PERCENT}% 100%, 0 100%)`,
           background: getVsScreenSideBackground(me.characterType, "left"),
         }}
       />
@@ -143,7 +166,7 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
         style={{
           position: "absolute",
           inset: 0,
-          clipPath: "polygon(58% 0, 100% 0, 100% 100%, 39% 100%)",
+          clipPath: `polygon(${VS_SEAM_TOP_PERCENT}% 0, 100% 0, 100% 100%, ${VS_SEAM_BOTTOM_PERCENT}% 100%)`,
           background: getVsScreenSideBackground(enemy.characterType, "right"),
         }}
       />
@@ -151,15 +174,10 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
         aria-hidden="true"
         style={{
           position: "absolute",
-          top: -60,
-          bottom: -60,
-          left: "50%",
-          width: "min(18vw, 180px)",
-          transform: "translateX(-50%) rotate(7deg)",
+          inset: 0,
           background:
             "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(25,25,25,0.96) 100%)",
-          clipPath:
-            "polygon(37% 0%, 62% 5%, 44% 13%, 67% 21%, 35% 29%, 63% 37%, 40% 45%, 65% 55%, 34% 63%, 61% 71%, 38% 79%, 66% 87%, 43% 95%, 59% 100%, 0% 100%, 0% 0%)",
+          clipPath: `polygon(${VS_SEAM_CRACK_POLYGON})`,
           boxShadow: "0 0 24px rgba(0,0,0,0.65)",
           opacity: 0.95,
         }}
@@ -201,40 +219,22 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
           }}
         >
           <g transform="rotate(-8 120 80)">
-            <path
-              d="M33 36 L80 120 L58 126 L18 42 Z"
+            <text
+              x="120"
+              y="112"
+              textAnchor="middle"
+              fontFamily="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
+              fontWeight={900}
+              fontStyle="italic"
+              fontSize="120"
               fill="#ef4444"
               stroke="#fff7ed"
-              strokeWidth="12"
+              strokeWidth="10"
               strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <path
-              d="M126 32 L180 44 L142 80 L190 120 L158 132 L98 86 L142 38 Z"
-              fill="#ef4444"
-              stroke="#fff7ed"
-              strokeWidth="12"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <path
-              d="M33 36 L80 120 L58 126 L18 42 Z"
-              fill="none"
-              stroke="#7f1d1d"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray="6 8"
-              opacity="0.55"
-            />
-            <path
-              d="M126 32 L180 44 L142 80 L190 120 L158 132 L98 86 L142 38 Z"
-              fill="none"
-              stroke="#7f1d1d"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray="5 7"
-              opacity="0.55"
-            />
+              paintOrder="stroke"
+            >
+              VS
+            </text>
           </g>
         </svg>
       </div>
