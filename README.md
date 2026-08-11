@@ -99,3 +99,12 @@ npm run build
 3. 「Deployments」タブから「Redeploy」を実行する（または `main` ブランチへ push する）
 
 > **環境変数は一切不要**。`NEXT_PUBLIC_SIGNALING_SERVER_URL` を設定しなくても動作します。
+
+## 戦績・スコア保存
+
+- **採用**: Vercel KV（`/frontend/src/app/api/matches`, `/frontend/src/app/api/players/[id]`）
+- **理由**:
+  - **Vercel KV**: JSON をそのまま保存しやすく、今回のような匿名プロフィール・試合履歴・軽量集計に向いている。Vercel の Storage 連携を使えば、手動で追加の環境変数を配る構成より導入負荷が低い
+  - **Vercel Postgres**: 正規化や高度な集計には向くが、今回の最小構成にはスキーマ管理がやや重い
+  - **Supabase**: 機能は豊富だが、Vercel 外部サービス連携と環境変数設定が前提になりやすい
+- **ローカル開発 / テスト時の挙動**: `KV_REST_API_URL` / `KV_REST_API_TOKEN` が無い場合は `/tmp/vsarttle-persistence.json` を使うフォールバックで動作する

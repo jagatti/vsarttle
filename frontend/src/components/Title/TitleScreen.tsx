@@ -7,6 +7,7 @@ import { soundManager } from "@/lib/soundManager";
 export function TitleScreen(props: {
   onSinglePlay: () => void;
   onMultiPlay: () => void;
+  onProfile: () => void;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
 
@@ -18,6 +19,11 @@ export function TitleScreen(props: {
   const handleMultiPlay = () => {
     soundManager.playSe("/sounds/se/button.mp3");
     props.onMultiPlay();
+  };
+
+  const handleProfile = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    props.onProfile();
   };
 
   const handleOpenOptions = () => {
@@ -126,6 +132,27 @@ export function TitleScreen(props: {
             }}
           >
             👥 マルチプレイ
+          </button>
+
+          <button
+            onClick={handleProfile}
+            style={{
+              ...optionButtonStyle,
+              border: "2px solid #14b8a6",
+              background: "linear-gradient(135deg, rgba(20,184,166,0.2), rgba(59,130,246,0.18))",
+              color: "#99f6e4",
+              boxShadow: "0 0 20px rgba(20,184,166,0.25)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(20,184,166,0.4), rgba(59,130,246,0.34))";
+              e.currentTarget.style.transform = "scale(1.04)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(20,184,166,0.2), rgba(59,130,246,0.18))";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            📜 プロフィール
           </button>
 
           <button

@@ -5,9 +5,13 @@ import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { ProfileScreen } from "@/components/Profile/ProfileScreen";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
+import { createMatchPlayerRecord, calculateFinalHpRatio } from "@/lib/matchBuilders";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
+import { ensurePlayerIdentity, persistPlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
+import { submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
@@ -40,6 +44,7 @@ function generateRoomCode(): string {
 }
 
 interface PeerCharacter {
+  persistentPlayerId: string;
   nickname: string;
   drawing: WireDrawingData;
   stats: PlayerBattleState["stats"];
@@ -89,11 +94,15 @@ export default function Home() {
   // completed "ready" character for the new match.
   const previousDrawingRef = useRef<WireDrawingData | null>(null);
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
+  const matchIdRef = useRef("");
+  const turnHistoryRef = useRef<Pick<TurnResult, "turn" | "winnerId" | "nextStates">[]>([]);
+  const submittedMatchIdsRef = useRef<Set<string>>(new Set());
 
   const [stage, setStage] = useState<Stage>("title");
   const [status, setStatus] = useState("ルームを作成するか入室してください");
   const [roomCode, setRoomCode] = useState("");
   const [nickname, setNickname] = useState("プレイヤー");
+  const [playerIdentity, setPlayerIdentity] = useState<PlayerIdentity | null>(null);
   const [battleMode, setBattleMode] = useState<BattleMode>("simple");
   const [drawSeconds, setDrawSeconds] = useState(DRAW_SECONDS);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
@@ -129,6 +138,33 @@ export default function Home() {
   const sendWire = (payload: WireMessage) => {
     connRef.current?.send(payload);
   };
+
+  const recordTurnResult = useCallback((result: Pick<TurnResult, "turn" | "winnerId" | "nextStates">) => {
+    turnHistoryRef.current = [
+      ...turnHistoryRef.current.filter((entry) => entry.turn !== result.turn),
+      result,
+    ].sort((left, right) => left.turn - right.turn);
+  }, []);
+
+  const ensureSyncedIdentity = useCallback(
+    async (name: string) => {
+      const normalized = name.trim() || "プレイヤー";
+      const base = playerIdentity ?? ensurePlayerIdentity(normalized);
+      const updated = persistPlayerIdentity({
+        ...base,
+        nickname: normalized,
+      });
+      setPlayerIdentity(updated);
+      setNickname(updated.nickname);
+      try {
+        await syncPlayerNickname(updated.playerId, updated.nickname);
+      } catch {
+        // Ignore sync failures so local play can continue offline.
+      }
+      return updated;
+    },
+    [playerIdentity],
+  );
 
   const scheduleTurnFinalize = (turnNumber: number, delayMs: number) => {
     // Do not (re-)schedule a turn that is already finalized. Without this guard a
@@ -247,6 +283,8 @@ export default function Home() {
     setTurnResult(null);
     setTurn(1);
     setStatus("対戦開始！");
+    matchIdRef.current = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    turnHistoryRef.current = [];
     pendingBattleStartRef.current = () => {
       pendingActionsRef.current = {};
       finalizedTurnRef.current = 0;
@@ -305,6 +343,11 @@ export default function Home() {
     battleStateRef.current = result.nextStates;
     setBattleState(result.nextStates);
     setTurnResult(result);
+    recordTurnResult({
+      turn: result.turn,
+      winnerId: result.winnerId,
+      nextStates: result.nextStates,
+    });
     sendWire({ type: "turn_result", payload: result });
     pendingActionsRef.current = {};
 
@@ -341,6 +384,70 @@ export default function Home() {
       losses: prev.losses + (battleFinish.winnerId !== myId ? 1 : 0),
     }));
   }, [battleFinish]);
+
+  useEffect(() => {
+    const identity = ensurePlayerIdentity("プレイヤー");
+    setPlayerIdentity(identity);
+    setNickname(identity.nickname);
+    void syncPlayerNickname(identity.playerId, identity.nickname).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!battleFinish || roleRef.current !== "host") return;
+    if (!matchIdRef.current || submittedMatchIdsRef.current.has(matchIdRef.current)) return;
+    const local = localCharacterRef.current;
+    const remote = remoteCharacterRef.current;
+    const myBattleState = battleStateRef.current[myIdRef.current];
+    const enemyBattleState = battleStateRef.current[peerIdRef.current];
+    if (!local || !remote || !myBattleState || !enemyBattleState) return;
+
+    submittedMatchIdsRef.current.add(matchIdRef.current);
+    const winnerPersistentId =
+      battleFinish.winnerId === myIdRef.current
+        ? local.persistentPlayerId
+        : battleFinish.winnerId === peerIdRef.current
+        ? remote.persistentPlayerId
+        : null;
+
+    void (async () => {
+      try {
+        const players = await Promise.all([
+          createMatchPlayerRecord({
+            playerId: local.persistentPlayerId,
+            nickname: local.nickname,
+            characterType: myBattleState.characterType,
+            stats: myBattleState.stats,
+            drawingSource: myBattleState.imageDataUrl,
+          }),
+          createMatchPlayerRecord({
+            playerId: remote.persistentPlayerId,
+            nickname: remote.nickname,
+            characterType: enemyBattleState.characterType,
+            stats: enemyBattleState.stats,
+            drawingSource: enemyBattleState.imageDataUrl,
+          }),
+        ]);
+
+        await submitMatchRecord({
+          match: {
+            matchId: matchIdRef.current,
+            playedAt: new Date().toISOString(),
+            battleMode: battleModeRef.current,
+            source: "multiplayer",
+            players,
+            winnerId: winnerPersistentId,
+            turnCount: turnHistoryRef.current.length,
+            finalHpRatio: calculateFinalHpRatio(battleFinish.winnerId, battleStateRef.current),
+            singlePlayResult: null,
+            rating: null,
+          },
+          turnResults: turnHistoryRef.current,
+        });
+      } catch {
+        submittedMatchIdsRef.current.delete(matchIdRef.current);
+      }
+    })();
+  }, [battleFinish, recordTurnResult]);
 
   // Clear the resolving-turn flag once both the turn number has advanced past the
   // turn where the action was submitted AND startCountdown has been called again.
@@ -434,6 +541,8 @@ export default function Home() {
     setBattleState({});
     localCharacterRef.current = null;
     remoteCharacterRef.current = null;
+    matchIdRef.current = "";
+    turnHistoryRef.current = [];
     previousDrawingRef.current = null;
     pendingBattleStartRef.current = null;
     setPendingCharacterBase(null);
@@ -490,6 +599,11 @@ export default function Home() {
       battleStateRef.current = message.payload.nextStates;
       setBattleState(message.payload.nextStates);
       setTurnResult(message.payload);
+      recordTurnResult({
+        turn: message.payload.turn,
+        winnerId: message.payload.winnerId,
+        nextStates: message.payload.nextStates,
+      });
       // Also advance the guest's turn state so it stays in sync with the host even
       // if the turn_start message for the next turn is delayed or arrives after the
       // player has already interacted (belt-and-suspenders alongside turn_start).
@@ -550,7 +664,8 @@ export default function Home() {
 
   const startHostSession = async (name: string, selectedBattleMode: BattleMode) => {
     destroyPeer();
-    setNickname(name);
+    const identity = await ensureSyncedIdentity(name);
+    setNickname(identity.nickname);
     battleModeRef.current = selectedBattleMode;
     setBattleMode(selectedBattleMode);
     setStatus("ルームを作成中...");
@@ -598,7 +713,8 @@ export default function Home() {
 
   const startGuestSession = async (code: string, name: string) => {
     destroyPeer();
-    setNickname(name);
+    const identity = await ensureSyncedIdentity(name);
+    setNickname(identity.nickname);
     battleModeRef.current = "simple";
     setBattleMode("simple");
     setStatus("入室中...");
@@ -695,7 +811,9 @@ export default function Home() {
 
   const onEnhancementSlotSelect = (slot: EnhancementSlot) => {
     if (!pendingCharacterBase) return;
+    const identity = playerIdentity ?? ensurePlayerIdentity(nickname);
     const character: PeerCharacter = {
+      persistentPlayerId: identity.playerId,
       nickname,
       drawing: pendingCharacterBase.drawing,
       stats: applyEnhancementSlot(pendingCharacterBase.stats, slot),
@@ -746,6 +864,8 @@ export default function Home() {
     resolvingEpochRef.current = null;
     setCountdownEpoch(0);
     setBattleState({});
+    matchIdRef.current = "";
+    turnHistoryRef.current = [];
     // Clear stale character data so a future room's drawing phase never gets
     // prefilled with an illustration from a previous, unrelated match.
     localCharacterRef.current = null;
@@ -810,18 +930,40 @@ export default function Home() {
           onMultiPlay={() => {
             setStage("room");
           }}
+          onProfile={() => {
+            const identity = playerIdentity ?? ensurePlayerIdentity(nickname);
+            setPlayerIdentity(identity);
+            setNickname(identity.nickname);
+            setStage("profile");
+          }}
+        />
+      )}
+
+      {stage === "profile" && playerIdentity && (
+        <ProfileScreen
+          playerId={playerIdentity.playerId}
+          fallbackNickname={nickname}
+          onBack={() => setStage("title")}
         />
       )}
 
       {stage === "singleplay" && (
-        <SinglePlayManager onBackToTitle={() => setStage("title")} />
+        <SinglePlayManager
+          onBackToTitle={() => setStage("title")}
+          playerProfile={{
+            playerId: playerIdentity?.playerId ?? ensurePlayerIdentity("プレイヤー").playerId,
+            nickname,
+          }}
+        />
       )}
 
       {stage === "room" && (
         <RoomPanel
           status={status}
           roomCode={roomCode}
+          nickname={nickname}
           canUseSignaling={true}
+          onNicknameChange={setNickname}
           onCreate={onCreate}
           onJoin={onJoin}
           onBackToTitle={() => setStage("title")}
