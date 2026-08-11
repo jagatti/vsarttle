@@ -76,6 +76,9 @@ export default function Home() {
   const pendingActionsRef = useRef<Record<string, ActionType>>({});
   const turnTimerRef = useRef<number | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  /** True when we (or the peer) intentionally triggered a title-return, so the
+   *  close event should NOT start the forfeit countdown. */
+  const intentionalDisconnectRef = useRef(false);
   const countdownIntervalRef = useRef<number | null>(null);
   const localCharacterRef = useRef<PeerCharacter | null>(null);
   const remoteCharacterRef = useRef<PeerCharacter | null>(null);
@@ -534,9 +537,14 @@ export default function Home() {
 
   /** Clean up the current multiplayer session and return to the title screen. */
   const goToTitle = () => {
+    intentionalDisconnectRef.current = true;
     destroyPeer();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     setBattleFinish(null);
     setTurnResult(null);
     setIsResolvingTurn(false);
@@ -557,6 +565,7 @@ export default function Home() {
     setMatchRecord({ wins: 0, losses: 0 });
     setStage("title");
     setStatus("ルームを作成するか入室してください");
+    intentionalDisconnectRef.current = false;
   };
 
   const onReturnToTitle = () => {
@@ -627,7 +636,9 @@ export default function Home() {
     }
 
     if (message.type === "return_to_title") {
-      // Peer pressed "タイトルへ戻る" — display a notification then auto-navigate.
+      // Peer pressed "タイトルへ戻る" — set intentional flag so the close event
+      // does not start the forfeit countdown, then display notification and auto-navigate.
+      intentionalDisconnectRef.current = true;
       setPeerReturnMsg("ホストがタイトルへ戻りました");
       window.setTimeout(() => {
         goToTitle();
@@ -655,6 +666,10 @@ export default function Home() {
     conn.on("data", (data) => handleWireRef.current(data as WireMessage));
     conn.on("close", () => {
       pendingBattleStartRef.current = null;
+      if (intentionalDisconnectRef.current) {
+        // We (or the peer) deliberately closed the connection — skip forfeit flow.
+        return;
+      }
       setStatus(`接続切断。${RECONNECT_SECONDS}秒以内に復帰できなければ敗北`);
       reconnectTimerRef.current = window.setTimeout(() => {
         setStage("result");
