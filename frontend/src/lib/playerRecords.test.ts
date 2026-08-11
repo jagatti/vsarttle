@@ -66,3 +66,16 @@ test("applyMatchToPlayerRecords records singleplay best floor only after clearin
   assert.equal(players["player-a"].singlePlay.hard.bestFloorCleared, 0);
   assert.equal(players["player-a"].singlePlay.hard.bestScoreRank, null);
 });
+
+test("applyMatchToPlayerRecords tracks ghost counters separately from multiplayer record", () => {
+  const players = applyMatchToPlayerRecords({}, makeMatch({
+    source: "ghostmatch",
+    winnerId: "player-b",
+    ghostOpponentPlayerId: "player-b",
+  }));
+  assert.equal(players["player-a"].wins, 0);
+  assert.equal(players["player-a"].losses, 0);
+  assert.equal(players["player-a"].ghostWins, 0);
+  assert.equal(players["player-b"].asGhostBattles, 1);
+  assert.equal(players["player-b"].asGhostWins, 1);
+});

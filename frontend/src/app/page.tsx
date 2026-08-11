@@ -15,6 +15,7 @@ import { submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
+import { GhostMatchManager } from "@/components/GhostMatch/GhostMatchManager";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
@@ -918,7 +919,7 @@ export default function Home() {
         </div>
       )}
 
-      {stage !== "title" && stage !== "singleplay" && (
+      {stage !== "title" && stage !== "singleplay" && stage !== "ghostmatch" && (
         <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
       )}
 
@@ -929,6 +930,9 @@ export default function Home() {
           }}
           onMultiPlay={() => {
             setStage("room");
+          }}
+          onGhostMatch={() => {
+            setStage("ghostmatch");
           }}
           onProfile={() => {
             const identity = playerIdentity ?? ensurePlayerIdentity(nickname);
@@ -949,6 +953,16 @@ export default function Home() {
 
       {stage === "singleplay" && (
         <SinglePlayManager
+          onBackToTitle={() => setStage("title")}
+          playerProfile={{
+            playerId: playerIdentity?.playerId ?? ensurePlayerIdentity("プレイヤー").playerId,
+            nickname,
+          }}
+        />
+      )}
+
+      {stage === "ghostmatch" && (
+        <GhostMatchManager
           onBackToTitle={() => setStage("title")}
           playerProfile={{
             playerId: playerIdentity?.playerId ?? ensurePlayerIdentity("プレイヤー").playerId,

@@ -12,17 +12,24 @@ export function applyMatchToPlayerRecords(
   match: MatchRecord,
 ): Record<string, PlayerRecord> {
   const nextPlayers = { ...currentPlayers };
+  const ghostOpponentId = match.source === "ghostmatch" ? (match.ghostOpponentPlayerId ?? null) : null;
 
   for (const player of match.players) {
     if (!player.playerId) continue;
     const existing = nextPlayers[player.playerId] ?? createEmptyPlayerRecord(player.playerId, player.nickname, match.playedAt);
+    const isGhostOpponent = ghostOpponentId !== null && player.playerId === ghostOpponentId;
     const next: PlayerRecord = {
       ...existing,
       nickname: normalizeNickname(player.nickname),
-      typeUsageCount: {
-        ...existing.typeUsageCount,
-        [player.characterType]: existing.typeUsageCount[player.characterType] + 1,
-      },
+      typeUsageCount: isGhostOpponent
+        ? existing.typeUsageCount
+        : {
+            ...existing.typeUsageCount,
+            [player.characterType]: (existing.typeUsageCount[player.characterType] ?? 0) + 1,
+          },
+      ghostWins: existing.ghostWins ?? 0,
+      asGhostBattles: existing.asGhostBattles ?? 0,
+      asGhostWins: existing.asGhostWins ?? 0,
       updatedAt: match.playedAt,
     };
 
@@ -55,6 +62,17 @@ export function applyMatchToPlayerRecords(
               : existingDifficultyBest.bestScoreRank,
         },
       };
+    }
+
+    if (match.source === "ghostmatch") {
+      if (isGhostOpponent) {
+        next.asGhostBattles += 1;
+        if (match.winnerId === player.playerId) {
+          next.asGhostWins += 1;
+        }
+      } else if (match.winnerId === player.playerId) {
+        next.ghostWins += 1;
+      }
     }
 
     nextPlayers[player.playerId] = next;

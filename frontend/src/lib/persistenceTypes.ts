@@ -2,7 +2,7 @@ import { scoreRankToPoint, type ScoreRank } from "@/lib/scoreRank";
 import type { CharacterStats, CharacterType, TurnResult } from "@/types/game";
 import type { Difficulty } from "@/data/bosses";
 
-export type MatchSource = "multiplayer" | "singleplay";
+export type MatchSource = "multiplayer" | "singleplay" | "ghostmatch";
 
 // Single-play best scores should only reflect a run that cleared every floor
 // (i.e. the total score), not an individual floor's rank.
@@ -33,6 +33,7 @@ export interface MatchRecord {
   finalHpRatio: number;
   singlePlayResult: SinglePlayResultRecord | null;
   rating: number | null;
+  ghostOpponentPlayerId?: string | null;
 }
 
 export interface MatchSubmissionPayload {
@@ -53,8 +54,21 @@ export interface PlayerRecord {
     bestFloorCleared: number;
     bestScoreRank: ScoreRank | null;
   }>;
+  ghostWins: number;
+  asGhostBattles: number;
+  asGhostWins: number;
   rating: number | null;
   updatedAt: string;
+}
+
+export interface GhostRecord {
+  source: "archive" | "seed";
+  seedId: string | null;
+  ownerPlayerId: string | null;
+  nickname: string;
+  characterType: CharacterType;
+  stats: CharacterStats;
+  drawingThumbnail: string;
 }
 
 export interface PlayerProfileResponse {
@@ -110,6 +124,9 @@ export function createEmptyPlayerRecord(playerId: string, nickname: string, upda
         bestScoreRank: null,
       },
     },
+    ghostWins: 0,
+    asGhostBattles: 0,
+    asGhostWins: 0,
     rating: null,
     updatedAt,
   };

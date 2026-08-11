@@ -7,6 +7,7 @@ import { soundManager } from "@/lib/soundManager";
 export function TitleScreen(props: {
   onSinglePlay: () => void;
   onMultiPlay: () => void;
+  onGhostMatch: () => void;
   onProfile: () => void;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -24,6 +25,11 @@ export function TitleScreen(props: {
   const handleProfile = () => {
     soundManager.playSe("/sounds/se/button.mp3");
     props.onProfile();
+  };
+
+  const handleGhostMatch = () => {
+    soundManager.playSe("/sounds/se/button.mp3");
+    props.onGhostMatch();
   };
 
   const handleOpenOptions = () => {
@@ -132,6 +138,27 @@ export function TitleScreen(props: {
             }}
           >
             👥 マルチプレイ
+          </button>
+
+          <button
+            onClick={handleGhostMatch}
+            style={{
+              ...optionButtonStyle,
+              border: "2px solid #a855f7",
+              background: "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(79,70,229,0.2))",
+              color: "#e9d5ff",
+              boxShadow: "0 0 20px rgba(168,85,247,0.3)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.4), rgba(79,70,229,0.4))";
+              e.currentTarget.style.transform = "scale(1.04)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(79,70,229,0.2))";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            👻 ゴーストマッチへ
           </button>
 
           <button

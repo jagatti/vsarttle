@@ -11,6 +11,10 @@ function isThumbnail(value: string): boolean {
   return value.startsWith("data:image/") && value.length <= MAX_THUMBNAIL_LENGTH;
 }
 
+function isGhostThumbnail(value: string): boolean {
+  return isThumbnail(value) || value.startsWith("/");
+}
+
 function getLastTurnState(
   turnResults: Pick<TurnResult, "turn" | "winnerId" | "nextStates">[] | undefined,
 ): Pick<TurnResult, "turn" | "winnerId" | "nextStates"> | null {
@@ -29,16 +33,27 @@ function hasValidHp(state: PlayerBattleState | undefined): boolean {
 
 export function validateMatchRecordShape(match: MatchRecord): boolean {
   if (!match.matchId || !match.playedAt) return false;
-  if (match.source !== "multiplayer" && match.source !== "singleplay") return false;
+  if (match.source !== "multiplayer" && match.source !== "singleplay" && match.source !== "ghostmatch") return false;
   if (match.battleMode !== "simple" && match.battleMode !== "custom") return false;
   if (!Number.isInteger(match.turnCount) || match.turnCount < 1) return false;
   if (!isFiniteNumber(match.finalHpRatio) || match.finalHpRatio < 0 || match.finalHpRatio > 1) return false;
   if (!Array.isArray(match.players) || match.players.length === 0 || match.players.length > 2) return false;
-  if (!match.players.every((player) => player.nickname.trim().length > 0 && isThumbnail(player.drawingThumbnail))) return false;
+  if (!match.players.every((player) => player.nickname.trim().length > 0)) return false;
+  if (match.source === "ghostmatch") {
+    if (!match.players.every((player) => isGhostThumbnail(player.drawingThumbnail))) return false;
+  } else if (!match.players.every((player) => isThumbnail(player.drawingThumbnail))) return false;
   if (match.source === "singleplay" && !match.singlePlayResult) return false;
+  if (match.source === "ghostmatch" && match.singlePlayResult !== null) return false;
   if (match.source === "multiplayer" && match.singlePlayResult !== null) return false;
   if (match.singlePlayResult && (match.singlePlayResult.floor < 1 || match.singlePlayResult.floor > 5)) return false;
   if (match.singlePlayResult && match.singlePlayResult.difficulty !== "normal" && match.singlePlayResult.difficulty !== "hard") return false;
+  if (
+    match.source === "ghostmatch" &&
+    match.ghostOpponentPlayerId &&
+    !match.players.some((player) => player.playerId === match.ghostOpponentPlayerId)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -50,6 +65,13 @@ export function passesMatchSanity(
 
   if (match.source === "singleplay") {
     return match.players.some((player) => player.playerId !== null);
+  }
+
+  if (match.source === "ghostmatch") {
+    const playerIds = match.players.map((player) => player.playerId).filter((playerId): playerId is string => !!playerId);
+    if (playerIds.length === 0) return false;
+    if (match.winnerId === null) return true;
+    return playerIds.includes(match.winnerId);
   }
 
   if (!turnResults || turnResults.length !== match.turnCount || !isSequentialTurns(turnResults)) return false;

@@ -114,3 +114,29 @@ test("passesMatchSanity accepts singleplay records with a real player", () => {
   });
   assert.equal(passesMatchSanity(match), true);
 });
+
+test("passesMatchSanity accepts ghostmatch record with seed thumbnail path", () => {
+  const match = makeMatch({
+    source: "ghostmatch",
+    players: [
+      makeMatch().players[0],
+      {
+        ...makeMatch().players[1],
+        playerId: null,
+        drawingThumbnail: "/arttle_boss/boss1.png",
+      },
+    ],
+    winnerId: "player-a",
+    singlePlayResult: null,
+  });
+  assert.equal(passesMatchSanity(match), true);
+});
+
+test("passesMatchSanity rejects ghostmatch with unknown ghost opponent id", () => {
+  const match = makeMatch({
+    source: "ghostmatch",
+    ghostOpponentPlayerId: "missing-player",
+    singlePlayResult: null,
+  });
+  assert.equal(passesMatchSanity(match), false);
+});
