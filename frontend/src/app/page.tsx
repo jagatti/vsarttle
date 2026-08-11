@@ -8,7 +8,7 @@ import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { ProfileScreen } from "@/components/Profile/ProfileScreen";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
-import { createMatchPlayerRecord, calculateFinalHpRatio } from "@/lib/matchBuilders";
+import { createMatchPlayerRecord, calculateFinalHpRatio, remapTurnResultsToPersistentIds } from "@/lib/matchBuilders";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { ensurePlayerIdentity, persistPlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
 import { submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
@@ -442,7 +442,10 @@ export default function Home() {
             singlePlayResult: null,
             rating: null,
           },
-          turnResults: turnHistoryRef.current,
+          turnResults: remapTurnResultsToPersistentIds(turnHistoryRef.current, {
+            [myIdRef.current]: local.persistentPlayerId,
+            [peerIdRef.current]: remote.persistentPlayerId,
+          }),
         });
       } catch (err) {
         console.error("[page] submitMatchRecord failed:", err);
