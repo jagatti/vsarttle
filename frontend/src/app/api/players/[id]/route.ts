@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createEmptyPlayerRecord, normalizeNickname } from "@/lib/persistenceTypes";
-import { loadPersistenceSnapshot, savePersistenceSnapshot, getStorageBackend } from "@/lib/server/persistenceStore";
+import {
+  getStorageBackend,
+  loadPlayer,
+  loadRecentMatchesByPlayer,
+  savePlayer,
+} from "@/lib/server/persistenceStore";
 import { checkRateLimit } from "@/lib/server/rateLimit";
 
 export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
@@ -9,11 +14,10 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const snapshot = await loadPersistenceSnapshot();
-  const player = snapshot.players[id] ?? createEmptyPlayerRecord(id, "プレイヤー", new Date().toISOString());
-  const recentMatches = snapshot.matches
-    .filter((match) => match.source === "multiplayer" && match.players.some((entry) => entry.playerId === id))
-    .slice(0, 10);
+  const player = (await loadPlayer(id)) ?? createEmptyPlayerRecord(id, "プレイヤー", new Date().toISOString());
+  const recentMatches = (await loadRecentMatchesByPlayer(id, 10)).filter(
+    (match) => match.source === "multiplayer",
+  );
 
   return NextResponse.json({
     player,
@@ -33,21 +37,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "invalid_nickname" }, { status: 400 });
   }
 
-  const snapshot = await loadPersistenceSnapshot();
   const now = new Date().toISOString();
+  const existing = await loadPlayer(id);
   const player = {
-    ...(snapshot.players[id] ?? createEmptyPlayerRecord(id, body.nickname, now)),
+    ...(existing ?? createEmptyPlayerRecord(id, body.nickname, now)),
     nickname: normalizeNickname(body.nickname),
     updatedAt: now,
   };
 
-  await savePersistenceSnapshot({
-    ...snapshot,
-    players: {
-      ...snapshot.players,
-      [id]: player,
-    },
-  });
-
+  await savePlayer(player);
   return NextResponse.json({ player, storageBackend: getStorageBackend() });
 }

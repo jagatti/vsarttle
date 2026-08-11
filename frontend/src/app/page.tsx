@@ -444,7 +444,8 @@ export default function Home() {
           },
           turnResults: turnHistoryRef.current,
         });
-      } catch {
+      } catch (err) {
+        console.error("[page] submitMatchRecord failed:", err);
         submittedMatchIdsRef.current.delete(matchIdRef.current);
       }
     })();

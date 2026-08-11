@@ -10,7 +10,13 @@ export async function submitMatchRecord(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`match submit failed: ${response.status}`);
+    let body = "";
+    try {
+      body = await response.text();
+    } catch {
+      // ignore
+    }
+    throw new Error(`match submit failed: ${response.status} ${body}`);
   }
   return response.json() as Promise<{ ok: true; duplicate?: boolean }>;
 }

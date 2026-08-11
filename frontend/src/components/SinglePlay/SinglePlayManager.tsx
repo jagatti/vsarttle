@@ -798,7 +798,8 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             rating: null,
           },
         });
-      } catch {
+      } catch (err) {
+        console.error("[SinglePlayManager] submitMatchRecord failed:", err);
         submittedFloorRefs.current.delete(targetFloor);
       }
     },
