@@ -33,7 +33,7 @@ const SIZE_SWATCH_BOX = 36;
 const TYPE_LABELS: Record<string, string> = {
   attack: "こうげき型",
   magic: "まほう型",
-  defense: "ぼうぎょ型",
+  defense: "バリア型",
   balanced: "バランス型",
 };
 
