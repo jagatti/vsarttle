@@ -30,7 +30,7 @@ test("submitMatchRecord posts to matches api", async () => {
       winnerId: "player-1",
       turnCount: 1,
       finalHpRatio: 1,
-      singlePlayResult: { floor: 1, scoreRank: "S" },
+      singlePlayResult: { floor: 1, scoreRank: "S", difficulty: "normal" },
       rating: null,
     },
   } satisfies MatchSubmissionPayload;
@@ -54,7 +54,10 @@ test("fetchPlayerProfile reads player endpoint", async () => {
       currentStreak: 1,
       bestStreak: 1,
       typeUsageCount: { attack: 1, magic: 0, defense: 0, balanced: 0 },
-      singlePlay: { bestFloorCleared: 0, bestScoreRank: null },
+      singlePlay: {
+        normal: { bestFloorCleared: 0, bestScoreRank: null },
+        hard: { bestFloorCleared: 0, bestScoreRank: null },
+      },
       rating: null,
       updatedAt: "2026-08-11T00:00:00.000Z",
     },
@@ -76,7 +79,10 @@ test("syncPlayerNickname patches player endpoint", async () => {
     currentStreak: 0,
     bestStreak: 0,
     typeUsageCount: { attack: 0, magic: 0, defense: 0, balanced: 0 },
-    singlePlay: { bestFloorCleared: 0, bestScoreRank: null },
+    singlePlay: {
+      normal: { bestFloorCleared: 0, bestScoreRank: null },
+      hard: { bestFloorCleared: 0, bestScoreRank: null },
+    },
     rating: null,
     updatedAt: "2026-08-11T00:00:00.000Z",
   } satisfies PlayerRecord;

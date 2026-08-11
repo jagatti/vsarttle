@@ -1,7 +1,12 @@
 import { scoreRankToPoint, type ScoreRank } from "@/lib/scoreRank";
 import type { CharacterStats, CharacterType, TurnResult } from "@/types/game";
+import type { Difficulty } from "@/data/bosses";
 
 export type MatchSource = "multiplayer" | "singleplay";
+
+// Single-play best scores should only reflect a run that cleared every floor
+// (i.e. the total score), not an individual floor's rank.
+export const SINGLEPLAY_TOTAL_FLOORS = 5;
 
 export interface MatchPlayerRecord {
   playerId: string | null;
@@ -14,6 +19,7 @@ export interface MatchPlayerRecord {
 export interface SinglePlayResultRecord {
   floor: number;
   scoreRank: ScoreRank;
+  difficulty: Difficulty;
 }
 
 export interface MatchRecord {
@@ -43,10 +49,10 @@ export interface PlayerRecord {
   currentStreak: number;
   bestStreak: number;
   typeUsageCount: Record<CharacterType, number>;
-  singlePlay: {
+  singlePlay: Record<Difficulty, {
     bestFloorCleared: number;
     bestScoreRank: ScoreRank | null;
-  };
+  }>;
   rating: number | null;
   updatedAt: string;
 }
@@ -95,8 +101,14 @@ export function createEmptyPlayerRecord(playerId: string, nickname: string, upda
     bestStreak: 0,
     typeUsageCount: createEmptyTypeUsageCount(),
     singlePlay: {
-      bestFloorCleared: 0,
-      bestScoreRank: null,
+      normal: {
+        bestFloorCleared: 0,
+        bestScoreRank: null,
+      },
+      hard: {
+        bestFloorCleared: 0,
+        bestScoreRank: null,
+      },
     },
     rating: null,
     updatedAt,

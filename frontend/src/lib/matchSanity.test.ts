@@ -108,7 +108,7 @@ test("passesMatchSanity accepts singleplay records with a real player", () => {
   const match = makeMatch({
     source: "singleplay",
     players: [makeMatch().players[0]],
-    singlePlayResult: { floor: 2, scoreRank: "A" },
+    singlePlayResult: { floor: 2, scoreRank: "A", difficulty: "normal" },
     winnerId: "player-a",
     turnCount: 5,
   });

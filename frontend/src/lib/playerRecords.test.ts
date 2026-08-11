@@ -45,13 +45,24 @@ test("applyMatchToPlayerRecords updates wins losses and streaks", () => {
   assert.equal(players["player-b"].currentStreak, 0);
 });
 
-test("applyMatchToPlayerRecords records singleplay best floor and rank", () => {
-  const players = applyMatchToPlayerRecords({}, makeMatch({
+test("applyMatchToPlayerRecords records singleplay best floor only after clearing all floors", () => {
+  let players = applyMatchToPlayerRecords({}, makeMatch({
     source: "singleplay",
     players: [basePlayers[0]],
     winnerId: "player-a",
-    singlePlayResult: { floor: 4, scoreRank: "S" },
+    singlePlayResult: { floor: 4, scoreRank: "S", difficulty: "normal" },
   }));
-  assert.equal(players["player-a"].singlePlay.bestFloorCleared, 4);
-  assert.equal(players["player-a"].singlePlay.bestScoreRank, "S");
+  assert.equal(players["player-a"].singlePlay.normal.bestFloorCleared, 4);
+  assert.equal(players["player-a"].singlePlay.normal.bestScoreRank, null);
+
+  players = applyMatchToPlayerRecords(players, makeMatch({
+    source: "singleplay",
+    players: [basePlayers[0]],
+    winnerId: "player-a",
+    singlePlayResult: { floor: 5, scoreRank: "S", difficulty: "normal" },
+  }));
+  assert.equal(players["player-a"].singlePlay.normal.bestFloorCleared, 5);
+  assert.equal(players["player-a"].singlePlay.normal.bestScoreRank, "S");
+  assert.equal(players["player-a"].singlePlay.hard.bestFloorCleared, 0);
+  assert.equal(players["player-a"].singlePlay.hard.bestScoreRank, null);
 });

@@ -2,6 +2,7 @@ import {
   compareScoreRank,
   createEmptyPlayerRecord,
   normalizeNickname,
+  SINGLEPLAY_TOTAL_FLOORS,
   type MatchRecord,
   type PlayerRecord,
 } from "@/lib/persistenceTypes";
@@ -40,12 +41,19 @@ export function applyMatchToPlayerRecords(
     }
 
     if (match.source === "singleplay" && match.singlePlayResult) {
+      const { floor, scoreRank, difficulty } = match.singlePlayResult;
+      const existingDifficultyBest = existing.singlePlay[difficulty];
       next.singlePlay = {
-        bestFloorCleared: Math.max(next.singlePlay.bestFloorCleared, match.singlePlayResult.floor),
-        bestScoreRank:
-          compareScoreRank(match.singlePlayResult.scoreRank, next.singlePlay.bestScoreRank) > 0
-            ? match.singlePlayResult.scoreRank
-            : next.singlePlay.bestScoreRank,
+        ...existing.singlePlay,
+        [difficulty]: {
+          bestFloorCleared: Math.max(existingDifficultyBest.bestFloorCleared, floor),
+          // Only a run that cleared every floor represents the total score,
+          // so per-floor clears must not overwrite the best total rank.
+          bestScoreRank:
+            floor === SINGLEPLAY_TOTAL_FLOORS && compareScoreRank(scoreRank, existingDifficultyBest.bestScoreRank) > 0
+              ? scoreRank
+              : existingDifficultyBest.bestScoreRank,
+        },
       };
     }
 

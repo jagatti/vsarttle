@@ -812,6 +812,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             singlePlayResult: {
               floor: targetFloor,
               scoreRank: finalScoreRank,
+              difficulty: difficultyRef.current,
             },
             rating: null,
           },

@@ -76,7 +76,8 @@ export function ProfileScreen(props: {
             {[
               { label: "勝敗", value: `${player.wins}勝 ${player.losses}敗 ${player.draws}分` },
               { label: "連勝", value: `現在 ${player.currentStreak} / 最高 ${player.bestStreak}` },
-              { label: "シングルプレイ", value: `最高 ${player.singlePlay.bestFloorCleared}層 / ${player.singlePlay.bestScoreRank ?? "-"}` },
+              { label: "シングルプレイ(ノーマル)", value: `最高 ${player.singlePlay.normal.bestFloorCleared}層 / ${player.singlePlay.normal.bestScoreRank ?? "-"}` },
+              { label: "シングルプレイ(ハード)", value: `最高 ${player.singlePlay.hard.bestFloorCleared}層 / ${player.singlePlay.hard.bestScoreRank ?? "-"}` },
               { label: "使用タイプ", value: `攻${player.typeUsageCount.attack} 魔${player.typeUsageCount.magic} 防${player.typeUsageCount.defense} 均${player.typeUsageCount.balanced}` },
             ].map((item) => (
               <div key={item.label} className="rounded-lg border border-amber-500/30 bg-black/20 p-3">

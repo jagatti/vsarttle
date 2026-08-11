@@ -38,6 +38,7 @@ export function validateMatchRecordShape(match: MatchRecord): boolean {
   if (match.source === "singleplay" && !match.singlePlayResult) return false;
   if (match.source === "multiplayer" && match.singlePlayResult !== null) return false;
   if (match.singlePlayResult && (match.singlePlayResult.floor < 1 || match.singlePlayResult.floor > 5)) return false;
+  if (match.singlePlayResult && match.singlePlayResult.difficulty !== "normal" && match.singlePlayResult.difficulty !== "hard") return false;
   return true;
 }
 
