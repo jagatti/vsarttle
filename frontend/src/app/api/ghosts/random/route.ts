@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { pickRandomGhost } from "@/lib/ghosts";
-import { loadPersistenceSnapshot } from "@/lib/server/persistenceStore";
+import { pickRandomGhostFromPool } from "@/lib/ghosts";
+import { loadGhostPool } from "@/lib/server/persistenceStore";
 import { checkRateLimit } from "@/lib/server/rateLimit";
 
 export async function GET(request: Request) {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const snapshot = await loadPersistenceSnapshot();
-  const ghost = pickRandomGhost(snapshot.matches, { excludePlayerId });
+  const pool = await loadGhostPool();
+  const ghost = pickRandomGhostFromPool(pool, { excludePlayerId });
   return NextResponse.json({ ghost });
 }

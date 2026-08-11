@@ -271,7 +271,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
             ghostOpponentPlayerId: ghost.ownerPlayerId,
           },
         });
-      } catch {
+      } catch (err) {
+        console.error("[GhostMatchManager] submitMatchRecord failed:", err);
         submittedMatchRef.current = false;
       }
     })();
