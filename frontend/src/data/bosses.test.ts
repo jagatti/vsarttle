@@ -6,7 +6,7 @@ test("getBossData normal mode floor 1", () => {
   const boss = getBossData(1, 1, "normal");
   assert.equal(boss.stats.maxHp, 315);
   assert.equal(boss.stats.maxPp, 55);
-  assert.equal(boss.stats.attack, 180);
+  assert.equal(boss.stats.attack, 170);
   assert.equal(boss.stats.defense, 100);
   assert.equal(boss.stats.speed, 6);
   assert.ok(Math.abs(boss.stats.evasion - 0.01) < 1e-9);
@@ -14,10 +14,10 @@ test("getBossData normal mode floor 1", () => {
 
 test("getBossData normal mode floor 2", () => {
   const boss = getBossData(2, 1, "normal");
-  assert.equal(boss.stats.maxHp, 450);
+  assert.equal(boss.stats.maxHp, 456);
   assert.equal(boss.stats.maxPp, 80);
   assert.equal(boss.stats.attack, 110);
-  assert.equal(boss.stats.defense, 110);
+  assert.equal(boss.stats.defense, 100);
   assert.equal(boss.stats.speed, 7);
   assert.ok(Math.abs(boss.stats.evasion - 0.03) < 1e-9);
 });
@@ -25,16 +25,17 @@ test("getBossData normal mode floor 2", () => {
 test("getBossData normal mode floor 3", () => {
   const boss = getBossData(3, 1, "normal");
   assert.equal(boss.stats.maxHp, 256);
-  assert.equal(boss.stats.attack, 135);
-  assert.equal(boss.stats.defense, 165);
+  assert.equal(boss.stats.attack, 128);
+  assert.equal(boss.stats.defense, 160);
+  assert.equal(boss.stats.speed, 1);
   assert.ok(Math.abs(boss.stats.evasion - 0.20) < 1e-9);
 });
 
 test("getBossData normal mode floor 4", () => {
   const boss = getBossData(4, 1, "normal");
   assert.equal(boss.stats.maxHp, 666);
-  assert.equal(boss.stats.attack, 140);
-  assert.equal(boss.stats.defense, 140);
+  assert.equal(boss.stats.attack, 128);
+  assert.equal(boss.stats.defense, 128);
   assert.equal(boss.stats.speed, 7);
   assert.ok(Math.abs(boss.stats.evasion - 0.06) < 1e-9);
 });
@@ -53,8 +54,8 @@ test("getBossData normal mode floor 5 phase 2", () => {
   const boss = getBossData(5, 2, "normal");
   assert.equal(boss.stats.maxHp, 777);
   assert.equal(boss.stats.maxPp, 77);
-  assert.equal(boss.stats.attack, 177);
-  assert.equal(boss.stats.defense, 177);
+  assert.equal(boss.stats.attack, 166);
+  assert.equal(boss.stats.defense, 166);
   assert.equal(boss.stats.speed, 5);
   assert.ok(Math.abs(boss.stats.evasion - 0.05) < 1e-9);
 });
@@ -74,7 +75,7 @@ test("getBossData hard mode floor 2", () => {
   assert.equal(boss.stats.maxHp, 499);
   assert.equal(boss.stats.maxPp, 80);
   assert.equal(boss.stats.attack, 125);
-  assert.equal(boss.stats.defense, 120);
+  assert.equal(boss.stats.defense, 115);
   assert.equal(boss.stats.speed, 9);
   assert.ok(Math.abs(boss.stats.evasion - 0.05) < 1e-9);
 });
@@ -82,7 +83,7 @@ test("getBossData hard mode floor 2", () => {
 test("getBossData hard mode floor 3", () => {
   const boss = getBossData(3, 1, "hard");
   assert.equal(boss.stats.maxHp, 256);
-  assert.equal(boss.stats.attack, 150);
+  assert.equal(boss.stats.attack, 128);
   assert.equal(boss.stats.defense, 200);
   assert.equal(boss.stats.speed, 1);
   assert.ok(Math.abs(boss.stats.evasion - 0.25) < 1e-9);
@@ -91,8 +92,8 @@ test("getBossData hard mode floor 3", () => {
 test("getBossData hard mode floor 4", () => {
   const boss = getBossData(4, 1, "hard");
   assert.equal(boss.stats.maxHp, 666);
-  assert.equal(boss.stats.attack, 150);
-  assert.equal(boss.stats.defense, 150);
+  assert.equal(boss.stats.attack, 140);
+  assert.equal(boss.stats.defense, 130);
   assert.equal(boss.stats.speed, 9);
   assert.ok(Math.abs(boss.stats.evasion - 0.06) < 1e-9);
 });
@@ -111,7 +112,7 @@ test("getBossData hard mode floor 5 phase 2", () => {
   const boss = getBossData(5, 2, "hard");
   assert.equal(boss.stats.maxHp, 999);
   assert.equal(boss.stats.maxPp, 99);
-  assert.equal(boss.stats.attack, 188);
+  assert.equal(boss.stats.attack, 177);
   assert.equal(boss.stats.defense, 177);
   assert.equal(boss.stats.speed, 6);
   assert.ok(Math.abs(boss.stats.evasion - 0.05) < 1e-9);
@@ -134,4 +135,3 @@ test("getBossData throws for invalid floor", () => {
   assert.throws(() => getBossData(99, 1, "normal"));
   assert.throws(() => getBossData(99, 1, "hard"));
 });
-

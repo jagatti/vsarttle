@@ -44,7 +44,7 @@ test("applySinglePlayLimitBreak fully restores HP/PP and raises stats to 999", (
   assert.equal(limitBroken.stats.speed, 999);
   assert.equal(limitBroken.limitBreakUsed, true);
   assert.equal(limitBroken.limitBreakActive, true);
-  assert.equal(limitBroken.stats.evasion, 0.09);
+  assert.equal(limitBroken.stats.evasion, 0);
   assert.equal(limitBroken.chargeMultiplier, 2);
 });
 

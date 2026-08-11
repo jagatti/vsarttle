@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
+import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
+import { submitMatchRecord } from "@/lib/profileApi";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
@@ -545,7 +547,7 @@ function CharSelectScreen(props: {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function SinglePlayManager(props: { onBackToTitle: () => void }) {
+export function SinglePlayManager(props: { onBackToTitle: () => void; playerProfile: { playerId: string; nickname: string } }) {
   // ── Stage ───────────────────────────────────────────────────────────────
   const [spStage, setSpStage] = useState<SpStage>("difficulty_select");
 
@@ -596,6 +598,8 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   const resultTotalTimerRef = useRef<number | null>(null);
   const resultBackButtonTimerRef = useRef<number | null>(null);
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
+  const floorRecordsRef = useRef<FloorRecords>({});
+  const submittedFloorRefs = useRef<Set<number>>(new Set());
 
   // Keep refs in sync
   useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
@@ -604,6 +608,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   useEffect(() => { bossPhaseRef.current = bossPhase; }, [bossPhase]);
   useEffect(() => { activeCharIndexRef.current = activeCharIndex; }, [activeCharIndex]);
   useEffect(() => { turnRef.current = turn; }, [turn]);
+  useEffect(() => { floorRecordsRef.current = floorRecords; }, [floorRecords]);
 
   // ── BGM ───────────────────────────────────────────────────────────────────
   const limitBreakUsed =
@@ -740,16 +745,83 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
   }, []);
 
   const recordFloorClear = useCallback(
-    (targetFloor: number, clearTurn: number) => {
+    async (
+      targetFloor: number,
+      clearTurn: number,
+      battleSnapshot: Record<string, PlayerBattleState>,
+      playerIdParam: string,
+      enemyIdParam: string,
+    ) => {
       const usedChars = ensureFloorUsedCharSet(targetFloor);
       const record: FloorRecord = {
         continued: floorContinuedRef.current[targetFloor] ?? false,
         charactersUsed: Math.max(1, usedChars.size),
         clearTurn,
       };
-      setFloorRecords((prev) => ({ ...prev, [targetFloor]: record }));
+      const nextFloorRecords = { ...floorRecordsRef.current, [targetFloor]: record };
+      floorRecordsRef.current = nextFloorRecords;
+      setFloorRecords(nextFloorRecords);
+
+      if (submittedFloorRefs.current.has(targetFloor)) return;
+      const playerState = battleSnapshot[playerIdParam];
+      const enemyState = battleSnapshot[enemyIdParam];
+      if (!playerState || !enemyState) return;
+
+      submittedFloorRefs.current.add(targetFloor);
+      const floorScore = getFloorScoreDetail(targetFloor, record);
+      const finalScoreRank =
+        targetFloor === TOTAL_FLOORS
+          ? getTotalScoreRank(
+            Array.from({ length: TOTAL_FLOORS }, (_, index) =>
+              getFloorScoreDetail(index + 1, nextFloorRecords[index + 1] ?? {
+                continued: true,
+                charactersUsed: 3,
+                clearTurn: 99,
+              }).score,
+            ),
+          ).rank
+          : floorScore.score;
+
+      try {
+        const players = await Promise.all([
+          createMatchPlayerRecord({
+            playerId: props.playerProfile.playerId,
+            nickname: props.playerProfile.nickname,
+            characterType: playerState.characterType,
+            stats: playerState.stats,
+            drawingSource: playerState.imageDataUrl,
+          }),
+          createMatchPlayerRecord({
+            playerId: null,
+            nickname: enemyState.nickname,
+            characterType: enemyState.characterType,
+            stats: enemyState.stats,
+            drawingSource: enemyState.imageDataUrl,
+          }),
+        ]);
+        await submitMatchRecord({
+          match: {
+            matchId: globalThis.crypto?.randomUUID?.() ?? `${targetFloor}-${Date.now()}`,
+            playedAt: new Date().toISOString(),
+            battleMode: "simple",
+            source: "singleplay",
+            players,
+            winnerId: props.playerProfile.playerId,
+            turnCount: clearTurn,
+            finalHpRatio: calculateFinalHpRatio(playerIdParam, battleSnapshot),
+            singlePlayResult: {
+              floor: targetFloor,
+              scoreRank: finalScoreRank,
+              difficulty: difficultyRef.current,
+            },
+            rating: null,
+          },
+        });
+      } catch {
+        submittedFloorRefs.current.delete(targetFloor);
+      }
     },
-    [ensureFloorUsedCharSet],
+    [ensureFloorUsedCharSet, props.playerProfile.nickname, props.playerProfile.playerId],
   );
 
   // ── Core battle loop (uses refs to avoid stale closures) ──────────────────
@@ -939,7 +1011,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void }) {
           const clearTurn = currentFloor === 5
             ? Math.max(1, turnNumber - (floor5Phase2StartTurnRef.current ?? 1) + 1)
             : turnNumber;
-          recordFloorClear(currentFloor, clearTurn);
+          void recordFloorClear(currentFloor, clearTurn, nextStates, playerIdParam, enemyIdParam);
           setBattleFinish({ winnerId: playerIdParam });
           setSpStage("floor_win");
         }

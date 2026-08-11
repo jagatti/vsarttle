@@ -7,23 +7,24 @@ import type { BattleMode } from "@/types/game";
 export function RoomPanel(props: {
   status: string;
   roomCode: string;
+  nickname: string;
   canUseSignaling: boolean;
+  onNicknameChange: (nickname: string) => void;
   onCreate: (nickname: string, battleMode: BattleMode) => void;
   onJoin: (roomCode: string, nickname: string) => void;
   onBackToTitle: () => void;
 }) {
-  const [nickname, setNickname] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [battleMode, setBattleMode] = useState<BattleMode>("simple");
 
   const handleCreate = () => {
     soundManager.playSe("/sounds/se/button.mp3");
-    props.onCreate(nickname.trim(), battleMode);
+    props.onCreate(props.nickname.trim(), battleMode);
   };
 
   const handleJoin = () => {
     soundManager.playSe("/sounds/se/button.mp3");
-    props.onJoin(joinCode, nickname.trim());
+    props.onJoin(joinCode, props.nickname.trim());
   };
 
   const handleBackToTitle = () => {
@@ -40,8 +41,8 @@ export function RoomPanel(props: {
         ニックネーム
         <input
           className="rounded border border-gray-600 bg-gray-900/70 px-2 py-1 text-gray-50 placeholder-gray-500"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
+          value={props.nickname}
+          onChange={(e) => props.onNicknameChange(e.target.value)}
           maxLength={16}
         />
       </label>
@@ -89,7 +90,7 @@ export function RoomPanel(props: {
         </button>
         <button
           className="rounded bg-indigo-500 px-3 py-2 font-semibold text-white shadow-[0_0_12px_rgba(99,102,241,0.5)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
-          disabled={!props.canUseSignaling || !nickname.trim()}
+          disabled={!props.canUseSignaling || !props.nickname.trim()}
           onClick={handleCreate}
         >
           ルーム作成
@@ -103,7 +104,7 @@ export function RoomPanel(props: {
         />
         <button
           className="rounded bg-sky-500 px-3 py-2 font-semibold text-white shadow-[0_0_12px_rgba(14,165,233,0.5)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
-          disabled={!props.canUseSignaling || !nickname.trim() || joinCode.length !== 6}
+          disabled={!props.canUseSignaling || !props.nickname.trim() || joinCode.length !== 6}
           onClick={handleJoin}
         >
           入室
