@@ -374,7 +374,7 @@ function DrawingPhase(props: {
             ? "「セット」で絵をセットしよう"
             : nextSlotIndex !== -1
             ? `次は枠${nextSlotIndex + 1}にセットされます`
-            : "3体セット完了！"}
+            : "3体セット完了"}
         </div>
 
         <button
@@ -395,7 +395,7 @@ function DrawingPhase(props: {
             transition: "all 0.15s",
           }}
         >
-          {filledCount > 0 ? "⚔️ バトル開始！" : "完成"}
+          {filledCount > 0 ? "⚔️ バトル開始" : "完成"}
         </button>
       </div>
     </div>
@@ -1294,10 +1294,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             animation: "rainbowShift 0.5s linear infinite",
           }}
         >
-          ✨ 変身！ ✨
+          ✨ 変身 ✨
         </div>
         <div style={{ color: "#fde68a", fontSize: 18, fontWeight: "bold" }}>
-          ボスが姿を変えた…！
+          ボスの姿が変化していく…
         </div>
       </div>
     );
@@ -1332,10 +1332,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             backgroundClip: "text",
           }}
         >
-          💥 リミットブレイク！ 💥
+          💥 リミットブレイク 💥
         </div>
         <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
-          ステータスが激変した！
+          ステータスが激変した
         </div>
         {limitBreakEnemyState && (
           <div
@@ -1471,7 +1471,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           </button>
         </div>
         <div style={{ marginBottom: 8, color: "#9ca3af", fontSize: 13 }}>
-          キャラクターを描いて「セット」ボタンで枠にセットしよう。1〜3体セットしたら「バトル開始！」へ進めます。
+          キャラクターを描いて「セット」ボタンで枠にセットしよう。1〜3体セットしたら「バトル開始」へ進めます。
         </div>
         <DrawingPhase
           slots={characters}
@@ -1695,7 +1695,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             letterSpacing: "0.08em",
           }}
         >
-          🏆 ALL CLEAR! 🏆
+          🏆 ALL CLEAR 🏆
         </div>
         <div
           style={{
