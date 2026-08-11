@@ -28,6 +28,7 @@ import {
   type FloorRecord,
   type ScoreRank,
 } from "@/lib/scoreRank";
+import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import type {
   ActionType,
   CharacterStats,
@@ -47,9 +48,6 @@ const FINAL_FLOOR_WIN_TO_RESULT_MS = 2200;
 const RESULT_ROLL_SCROLL_MS = 36000;
 const RESULT_ROLL_LOGO_MS = 5000;
 const RESULT_TOTAL_BUTTON_DELAY_MS = 3000;
-// The final (5th floor) boss should only use チャージ (charge) once its HP
-// has dropped to this fraction (or below) of its max HP.
-const FLOOR5_BOSS_CHARGE_HP_THRESHOLD = 0.3;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,23 +133,6 @@ function getRankTextStyle(rank: BasicRank | ScoreRank): React.CSSProperties {
   if (rank === "A") return { color: "#22c55e" };
   if (rank === "B") return { color: "#3b82f6" };
   return { color: "#9ca3af" };
-}
-
-// `isFloor5Boss` restricts チャージ (charge) so that the final boss (floor 5,
-// either phase) will only use it once its HP has dropped to 30% or below of
-// its max HP. This keeps the CPU from charging early when it doesn't need to.
-function pickCpuAction(enemy: PlayerBattleState, isFloor5Boss: boolean, turn: number): ActionType {
-  if (enemy.limitBreakActive) return "magicStrong";
-  let available = getAvailableActions(enemy, turn);
-  if (isFloor5Boss) {
-    const hpRatio = enemy.stats.maxHp > 0 ? enemy.currentHp / enemy.stats.maxHp : 0;
-    if (hpRatio > FLOOR5_BOSS_CHARGE_HP_THRESHOLD) {
-      const withoutCharge = available.filter((a) => a !== "charge");
-      if (withoutCharge.length > 0) available = withoutCharge;
-    }
-  }
-  if (available.length === 0) return "paralysis";
-  return available[Math.floor(Math.random() * available.length)];
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -878,11 +859,11 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       })();
 
       const isFloor5Boss = floorRef.current === 5 && enemyIdParam.startsWith("boss-5-");
-      const cpuAction: ActionType = currentBattle[enemyIdParam].limitBreakActive
-        ? "magicStrong"
-        : currentBattle[enemyIdParam].paralyzedNextTurn
+      const cpuAction: ActionType = currentBattle[enemyIdParam].paralyzedNextTurn
         ? "paralysis"
-        : pickCpuAction(currentBattle[enemyIdParam], isFloor5Boss, turnNumber);
+        : pickGhostCpuAction(currentBattle[enemyIdParam], turnNumber, {
+            chargeAllowedHpRatio: isFloor5Boss ? FLOOR5_BOSS_CHARGE_HP_THRESHOLD : undefined,
+          });
 
       const result = resolveTurn({
         turn: turnNumber,

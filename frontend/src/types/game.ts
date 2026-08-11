@@ -1,4 +1,4 @@
-export type Stage = "room" | "drawing" | "vs" | "battle" | "result" | "title" | "singleplay" | "profile";
+export type Stage = "room" | "drawing" | "vs" | "battle" | "result" | "title" | "singleplay" | "profile" | "ghostmatch";
 export type BattleMode = "simple" | "custom";
 
 export interface Point {
