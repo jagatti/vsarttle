@@ -18,6 +18,26 @@ export async function createMatchPlayerRecord(input: {
   };
 }
 
+/**
+ * Remaps PeerJS session IDs to persistent player UUIDs inside TurnResult arrays.
+ * Call this on a copy before submitting to /api/matches — never mutate the
+ * original turnHistoryRef.
+ */
+export function remapTurnResultsToPersistentIds<
+  T extends Pick<import("@/types/game").TurnResult, "winnerId" | "nextStates">,
+>(turnResults: T[], idMap: Record<string, string>): T[] {
+  return turnResults.map((turn) => {
+    const remappedNextStates: typeof turn.nextStates = {};
+    for (const [sessionId, state] of Object.entries(turn.nextStates)) {
+      const persistentId = idMap[sessionId] ?? sessionId;
+      remappedNextStates[persistentId] = state;
+    }
+    const remappedWinnerId =
+      turn.winnerId !== null ? (idMap[turn.winnerId] ?? turn.winnerId) : null;
+    return { ...turn, winnerId: remappedWinnerId, nextStates: remappedNextStates };
+  });
+}
+
 export function calculateFinalHpRatio(
   winnerId: string | null,
   states: Record<string, Pick<PlayerBattleState, "currentHp" | "stats">>,
