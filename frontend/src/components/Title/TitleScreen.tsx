@@ -158,7 +158,7 @@ export function TitleScreen(props: {
               e.currentTarget.style.transform = "scale(1)";
             }}
           >
-            👻 ゴーストマッチへ
+            👻 ゴーストマッチ
           </button>
 
           <button
