@@ -7,13 +7,13 @@ import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { pickGhostCpuAction } from "@/lib/ghostCpuAction";
-import { drawingToDataUrl } from "@/lib/drawingWire";
+import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
-import type { ActionType, PlayerBattleState, TurnResult } from "@/types/game";
+import type { ActionType, PlayerBattleState, TurnResult, WireDrawingData } from "@/types/game";
 
 type GhostMatchStage = "loading" | "drawing" | "vs" | "battle" | "error";
 
@@ -41,6 +41,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   const enemyBattleIdRef = useRef("ghost-enemy");
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
   const submittedMatchRef = useRef(false);
+  const previousDrawingRef = useRef<WireDrawingData | null>(null);
 
   const meState = useMemo(() => battleState[playerBattleIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[enemyBattleIdRef.current], [battleState]);
@@ -201,12 +202,14 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
 
   const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
     if (!ghost) return;
+    const wireDrawing = prepareDrawingForWire(payload.drawing);
+    previousDrawingRef.current = wireDrawing;
     const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
     const characterType = detectCharacterType(payload.imageData);
     const playerState: PlayerBattleState = {
       id: playerBattleIdRef.current,
       nickname: props.playerProfile.nickname,
-      imageDataUrl: drawingToDataUrl(payload.drawing),
+      imageDataUrl: drawingToDataUrl(wireDrawing),
       characterType,
       stats,
       currentHp: stats.maxHp,
@@ -321,10 +324,34 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     return (
       <div>
         <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-violet-100">
-          <div className="font-bold">👻 ゴーストマッチ（CPU戦）</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="font-bold">👻 ゴーストマッチ（CPU戦）</div>
+            <button
+              onClick={() => {
+                soundManager.playSe("/sounds/se/button.mp3");
+                props.onBackToTitle();
+              }}
+              style={{
+                border: "2px solid #6b7280",
+                background: "rgba(30,30,30,0.9)",
+                color: "#9ca3af",
+                borderRadius: 10,
+                padding: "8px 14px",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              タイトルへ戻る
+            </button>
+          </div>
           <div className="mt-1 text-sm text-violet-200/80">相手は他プレイヤーの過去作品です。Roomの対人戦ではありません。</div>
         </div>
-        <DrawPanel seconds={300} onComplete={onDrawingComplete} />
+        <DrawPanel
+          seconds={999999}
+          noTimer
+          initialDrawing={previousDrawingRef.current ?? undefined}
+          onComplete={onDrawingComplete}
+        />
       </div>
     );
   }
