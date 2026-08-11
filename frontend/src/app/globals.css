@@ -2,14 +2,15 @@
 
 :root {
   color-scheme: dark;
-  --bg-deep: #05060d;
-  --bg-panel: rgba(15, 18, 32, 0.72);
-  --bg-panel-solid: #12142080;
-  --border-glow: rgba(99, 102, 241, 0.35);
-  --border-glow-strong: rgba(129, 140, 248, 0.55);
-  --text-primary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --accent: #818cf8;
+  /* お絵描き・手描き・インクをイメージした配色 */
+  --bg-deep: #1a1410;            /* インクブラック: スケッチブックの深い黒茶 */
+  --bg-panel: rgba(42, 34, 28, 0.90); /* パーチメント: 古い紙の温かみ */
+  --bg-panel-solid: #2a221c;     /* パネル実色 */
+  --border-glow: rgba(180, 140, 80, 0.45);  /* インクアンバー枠 */
+  --border-glow-strong: rgba(210, 170, 90, 0.75); /* 強調枠（VS・シグネチャ） */
+  --text-primary: #e8ddd0;       /* チョークホワイト: 柔らかい白 */
+  --text-muted: #9a8878;         /* 鉛筆グレー: くすんだグレー茶 */
+  --accent: #c8a96a;             /* インクアンバー: 金茶色アクセント */
 }
 
 html {
@@ -21,16 +22,16 @@ body {
   min-height: 100vh;
   color: var(--text-primary);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* Unified dark background: a deep navy/indigo radial glow over a near-black
-     base, plus a very subtle diagonal hairline pattern so large empty areas
-     don't look flat/cheap. This replaces the plain light-gray page background
-     that clashed with the neon-styled battle screen. */
+  /* スケッチブックのページを連想させる背景: インクブラックの下地に
+     アンバートーンのビネットと微細なグリッドを重ねて、紙の質感を演出。 */
   background-color: var(--bg-deep);
   background-image:
-    radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(99, 102, 241, 0.20), transparent 60%),
-    radial-gradient(ellipse 900px 600px at 100% 10%, rgba(168, 85, 247, 0.14), transparent 55%),
-    radial-gradient(ellipse 1000px 800px at 50% 120%, rgba(56, 189, 248, 0.10), transparent 60%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 42px);
+    /* 薄いクロスハッチ: ノート用紙の罫線を連想させる微細グリッド */
+    repeating-linear-gradient(0deg, rgba(200, 169, 106, 0.04) 0px, rgba(200, 169, 106, 0.04) 1px, transparent 1px, transparent 48px),
+    repeating-linear-gradient(90deg, rgba(200, 169, 106, 0.03) 0px, rgba(200, 169, 106, 0.03) 1px, transparent 1px, transparent 48px),
+    /* 全体に柔らかいアンバーのかすかなビネット */
+    radial-gradient(ellipse 110% 80% at 50% 0%, rgba(80, 55, 30, 0.45), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(60, 40, 20, 0.35), transparent 65%);
   background-attachment: fixed;
 }
 
@@ -39,15 +40,18 @@ input {
   font: inherit;
 }
 
-/* Shared card/panel look used across the room, drawing, and result screens so
-   the whole app reads as one consistent dark UI instead of mixing light-gray
-   Tailwind default cards with the neon battle screen. */
+/* Shared card/panel look used across the room, drawing, and result screens.
+   紙・スケッチブックページのような質感: グラスモーフィズムを廃止し、
+   温かみのあるパーチメント色 + 手描き風の不均一なインク縁取りで表現。 */
 .app-panel {
   background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 0.9rem;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 12px 32px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
+  border: 2px solid var(--border-glow);
+  border-radius: 0.5rem;
+  /* 手描き風の二重影: 内側に薄い光、外側に重みのある影 */
+  box-shadow:
+    0 0 0 1px rgba(200, 169, 106, 0.08) inset,
+    2px 3px 0 0 rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.50);
 }
 
 @keyframes floatUp {
