@@ -939,7 +939,7 @@ export default function Home() {
       )}
 
       {stage !== "title" && stage !== "singleplay" && stage !== "ghostmatch" && (
-        <h1 className="text-2xl font-bold">ラクガキ対戦 arttle</h1>
+        <h1 className="font-heading text-2xl font-bold">ラクガキ対戦 arttle</h1>
       )}
 
       {stage === "title" && (
@@ -1127,10 +1127,10 @@ export default function Home() {
 
       {stage === "result" && (
         <section className="rounded-lg border p-4">
-          <h2 className="text-xl font-bold">勝負結果</h2>
+          <h2 className="font-heading text-xl font-bold">勝負結果</h2>
           <p className="text-lg">{winnerText}</p>
           <button
-            className="mt-4 rounded bg-blue-600 px-4 py-2 text-white"
+            className="btn-secondary mt-4"
             onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); onBackToRoom(); }}
           >
             ルーム作成へ戻る

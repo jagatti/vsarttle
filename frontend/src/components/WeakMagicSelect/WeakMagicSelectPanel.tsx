@@ -128,7 +128,7 @@ export function WeakMagicSelectPanel(props: {
         {step === 2 ? (
           <button
             type="button"
-            className="rounded border border-amber-700 bg-amber-950 px-4 py-2 font-semibold text-amber-200 transition hover:bg-amber-900"
+            className="btn-ghost"
             onClick={() => {
               soundManager.playSe("/sounds/se/button.mp3");
               setStep(1);
@@ -143,7 +143,7 @@ export function WeakMagicSelectPanel(props: {
         {step === 1 ? (
           <button
             type="button"
-            className="rounded bg-amber-500 px-4 py-2 font-semibold text-white shadow-[0_0_12px_rgba(251,191,36,0.45)] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
+            className="btn-primary"
             disabled={!oneTurn}
             onClick={() => {
               if (!oneTurn) return;
@@ -156,7 +156,7 @@ export function WeakMagicSelectPanel(props: {
         ) : (
           <button
             type="button"
-            className="rounded bg-amber-500 px-4 py-2 font-semibold text-white shadow-[0_0_12px_rgba(251,191,36,0.45)] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
+            className="btn-primary"
             disabled={!isComplete || !selection}
             onClick={() => {
               if (!selection) return;
