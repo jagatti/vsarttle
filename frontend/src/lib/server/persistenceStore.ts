@@ -7,12 +7,17 @@
  *   matchIndex:byPlayer:{playerId}   – JSON array of matchId strings (newest-first, max 50)
  *   ghostPool                        – JSON array of GhostPoolEntry (max 200)
  *
+ * KV backend: node-redis (REDIS_URL env var, standard redis:// connection string).
+ * The Redis client is held as a module-level singleton (globalThis cache) so that
+ * Next.js hot-reload in development does not open multiple connections.
+ *
  * NOTE: The /tmp fallback is for local development only.
- * In production (NODE_ENV=production + Vercel environment) KV_REST_API_URL must be set.
+ * In production (NODE_ENV=production + Vercel environment) REDIS_URL must be set.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { GhostRecord, MatchRecord, PlayerRecord, StorageBackend } from "@/lib/persistenceTypes";
+import { createClient, type RedisClientType } from "redis";
 
 const FALLBACK_DIR = path.join(process.env.TMPDIR ?? "/tmp", "vsarttle-kv");
 const MATCH_INDEX_LIMIT = 50;
@@ -31,7 +36,7 @@ export interface GhostPoolEntry {
 // ---- KV configured check & warning ----
 
 function isKvConfigured(): boolean {
-  return !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
+  return !!process.env.REDIS_URL;
 }
 
 let _kvWarnedOnce = false;
@@ -41,35 +46,43 @@ function warnIfKvMissing(): void {
   if (process.env.NODE_ENV === "production" && isVercel && !isKvConfigured()) {
     _kvWarnedOnce = true;
     console.warn(
-      "[vsarttle] WARNING: KV_REST_API_URL / KV_REST_API_TOKEN are not set in this Vercel production environment. " +
+      "[vsarttle] WARNING: REDIS_URL is not set in this Vercel production environment. " +
         "Falling back to /tmp which is NOT shared across serverless instances — data will NOT persist reliably. " +
-        "Please configure Vercel KV.",
+        "Please configure a Redis database (REDIS_URL) in Vercel Storage.",
     );
   }
 }
 
-// ---- Low-level KV helpers ----
+// ---- Redis singleton (globalThis cache to survive hot-reload in development) ----
 
-async function kvCommand<T>(...command: (string | number)[]): Promise<T | null> {
-  const response = await fetch(process.env.KV_REST_API_URL!, {
-    method: "POST",
-    headers: {
-      Authorization: ["Bearer", process.env.KV_REST_API_TOKEN!].join(" "),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`KV command failed: ${response.status}`);
-  }
-  const data = (await response.json()) as { result?: T | null };
-  return data.result ?? null;
+declare global {
+  var __vsarttle_redis: RedisClientType | undefined;
 }
 
+async function getRedisClient(): Promise<RedisClientType> {
+  if (globalThis.__vsarttle_redis) {
+    return globalThis.__vsarttle_redis;
+  }
+  const client = createClient({ url: process.env.REDIS_URL }) as RedisClientType;
+  client.on("error", (err: unknown) => {
+    console.error("[vsarttle] Redis client error:", err);
+  });
+  try {
+    await client.connect();
+  } catch (err) {
+    console.error("[vsarttle] Redis connection failed:", err);
+    throw err;
+  }
+  globalThis.__vsarttle_redis = client;
+  return client;
+}
+
+// ---- Low-level KV helpers (node-redis) ----
+
 async function kvGet<T>(key: string): Promise<T | null> {
-  const raw = await kvCommand<string>("GET", key);
-  if (!raw) return null;
+  const client = await getRedisClient();
+  const raw = await client.get(key);
+  if (raw === null || raw === undefined) return null;
   try {
     return JSON.parse(raw) as T;
   } catch {
@@ -78,12 +91,13 @@ async function kvGet<T>(key: string): Promise<T | null> {
 }
 
 async function kvSet(key: string, value: unknown): Promise<void> {
-  await kvCommand("SET", key, JSON.stringify(value));
+  const client = await getRedisClient();
+  await client.set(key, JSON.stringify(value));
 }
 
 async function kvIncr(key: string): Promise<number> {
-  const result = await kvCommand<number>("INCR", key);
-  return result ?? 1;
+  const client = await getRedisClient();
+  return client.incr(key);
 }
 
 // ---- File-based fallback helpers (dev only) ----

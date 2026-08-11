@@ -1,13 +1,12 @@
 /**
  * Unit tests for the individual-key persistence store.
- * Uses the /tmp file backend (no KV env vars set).
+ * Uses the /tmp file backend (REDIS_URL not set).
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// Remove KV env vars to force file backend
-delete process.env.KV_REST_API_URL;
-delete process.env.KV_REST_API_TOKEN;
+// Ensure REDIS_URL is not set so file backend is used
+delete process.env.REDIS_URL;
 
 import {
   appendMatchIndexForPlayer,
