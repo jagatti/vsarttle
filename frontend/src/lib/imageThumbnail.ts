@@ -1,20 +1,38 @@
 const MAX_THUMBNAIL_BYTES = 250_000;
+const MIN_VALID_THUMBNAIL_LENGTH = 1_200;
+
+export function isBlankThumbnail(dataUrl: string, options?: { fullyTransparent?: boolean }): boolean {
+  if (options?.fullyTransparent) return true;
+  if (!dataUrl.startsWith("data:image/")) return false;
+  return dataUrl.length < MIN_VALID_THUMBNAIL_LENGTH;
+}
 
 export async function createThumbnailFromImageSource(source: string, size = 128): Promise<string> {
   if (typeof window === "undefined" || !source) return source;
-  return new Promise((resolve) => {
+  try {
     const image = new Image();
-    image.onload = () => {
-      const result = renderThumbnail(image, size);
-      if (result !== null) {
-        resolve(result);
-        return;
-      }
-      // Rendering failed; try fallback compression on the original source
-      resolve(compressFallback(source));
-    };
-    image.onerror = () => resolve(compressFallback(source));
     image.src = source;
+    await waitForImageReady(image);
+    const result = renderThumbnail(image, size);
+    if (result === null || isBlankThumbnail(result)) return compressFallback(source);
+    return result;
+  } catch {
+    return compressFallback(source);
+  }
+}
+
+async function waitForImageReady(image: HTMLImageElement): Promise<void> {
+  if (typeof image.decode === "function") {
+    await image.decode();
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    if (image.complete && image.naturalWidth > 0) {
+      resolve();
+      return;
+    }
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("failed_to_load_image"));
   });
 }
 
@@ -27,9 +45,24 @@ function renderThumbnail(image: HTMLImageElement, size: number): string | null {
     if (!context) return null;
     context.clearRect(0, 0, size, size);
     context.drawImage(image, 0, 0, size, size);
-    return canvas.toDataURL("image/png");
+    const fullyTransparent = isCanvasFullyTransparent(context, size);
+    const dataUrl = canvas.toDataURL("image/png");
+    if (isBlankThumbnail(dataUrl, { fullyTransparent })) return null;
+    return dataUrl;
   } catch {
     return null;
+  }
+}
+
+function isCanvasFullyTransparent(context: CanvasRenderingContext2D, size: number): boolean {
+  try {
+    const { data } = context.getImageData(0, 0, size, size);
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] !== 0) return false;
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 

@@ -108,3 +108,15 @@ npm run build
   - **Vercel Postgres**: 正規化や高度な集計には向くが、今回の最小構成にはスキーマ管理がやや重い
   - **Supabase**: 機能は豊富だが、Vercel 外部サービス連携と環境変数設定が前提になりやすい
 - **ローカル開発 / テスト時の挙動**: `KV_REST_API_URL` / `KV_REST_API_TOKEN` が無い場合は `/tmp/vsarttle-persistence.json` を使うフォールバックで動作する
+
+### 空サムネイルの一括クリーンアップ（手動・一度きり想定）
+
+過去不具合で混入した透明サムネイルを除去/検知するため、以下を実行できます。
+
+```bash
+cd frontend
+REDIS_URL="redis://..." npm run cleanup:blank-thumbnails
+```
+
+- `ghostPool` から空サムネイルを除去して保存し直します
+- `match:*` は Redis `SCAN` で走査し、`players[].drawingThumbnail` が空判定の試合をログ出力します（試合レコード自体は削除しません）
