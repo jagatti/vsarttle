@@ -67,34 +67,47 @@ function isCanvasFullyTransparent(context: CanvasRenderingContext2D, size: numbe
 }
 
 /**
- * Last-resort fallback: if the source is already small enough, return it as-is.
- * Otherwise try re-encoding as a low-quality JPEG at a small fixed size.
+ * A guaranteed-valid 1×1 grey PNG, used as a placeholder when all thumbnail
+ * generation paths fail. Generated once with:
+ *   const c = document.createElement("canvas"); c.width = c.height = 1;
+ *   const ctx = c.getContext("2d"); ctx.fillStyle="#888"; ctx.fillRect(0,0,1,1);
+ *   c.toDataURL("image/png")
  */
-function compressFallback(source: string): string {
-  if (source.length <= MAX_THUMBNAIL_BYTES) return source;
-  console.error(
-    "[imageThumbnail] createThumbnailFromImageSource failed to compress source; attempting low-quality JPEG re-encode.",
-    { sourceLength: source.length },
-  );
+const PLACEHOLDER_THUMBNAIL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+/**
+ * Fallback thumbnail generator.
+ * 1. Try to decode the source image with image.decode() and re-encode as a
+ *    64×64 JPEG (quality 0.3).  If that fits within MAX_THUMBNAIL_BYTES, return it.
+ * 2. If source is already small enough AND looks like a valid data URL, return it.
+ * 3. Otherwise return the hard-coded placeholder PNG — never a truncated string.
+ */
+async function compressFallback(source: string): Promise<string> {
   try {
     const img = new Image();
     img.src = source;
-    // If the image is already loaded (same-origin data URL), encode immediately
-    if (img.complete && img.naturalWidth > 0) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, 64, 64);
-        const compressed = canvas.toDataURL("image/jpeg", 0.3);
-        if (compressed.length <= MAX_THUMBNAIL_BYTES) return compressed;
-      }
+    await waitForImageReady(img);
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(img, 0, 0, 64, 64);
+      const compressed = canvas.toDataURL("image/jpeg", 0.3);
+      if (compressed.length <= MAX_THUMBNAIL_BYTES) return compressed;
     }
   } catch {
-    // ignore
+    // decode / draw failed — fall through
   }
-  // Return a truncated slice only if absolutely nothing else works
-  // (this path should be extremely rare — the image is genuinely un-encodable)
-  return source.slice(0, MAX_THUMBNAIL_BYTES);
+
+  if (source.length <= MAX_THUMBNAIL_BYTES && source.startsWith("data:image/")) {
+    return source;
+  }
+
+  console.error(
+    "[imageThumbnail] compressFallback: all compression paths failed; returning placeholder.",
+    { sourceLength: source.length },
+  );
+  return PLACEHOLDER_THUMBNAIL;
 }
