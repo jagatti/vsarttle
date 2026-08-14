@@ -14,7 +14,7 @@ export async function createThumbnailFromImageSource(source: string, size = 128)
     image.src = source;
     await waitForImageReady(image);
     const result = renderThumbnail(image, size);
-    if (result === null || isBlankThumbnail(result)) return compressFallback(source);
+    if (result === null) return compressFallback(source);
     return result;
   } catch {
     return compressFallback(source);
@@ -47,7 +47,7 @@ function renderThumbnail(image: HTMLImageElement, size: number): string | null {
     context.drawImage(image, 0, 0, size, size);
     const fullyTransparent = isCanvasFullyTransparent(context, size);
     const dataUrl = canvas.toDataURL("image/png");
-    if (isBlankThumbnail(dataUrl, { fullyTransparent })) return null;
+    if (fullyTransparent) return null;
     return dataUrl;
   } catch {
     return null;
@@ -93,6 +93,8 @@ async function compressFallback(source: string): Promise<string> {
     canvas.height = 64;
     const ctx = canvas.getContext("2d");
     if (ctx) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 64, 64);
       ctx.drawImage(img, 0, 0, 64, 64);
       const compressed = canvas.toDataURL("image/jpeg", 0.3);
       if (compressed.length <= MAX_THUMBNAIL_BYTES) return compressed;
