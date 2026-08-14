@@ -19,10 +19,10 @@ export interface RoguelikeFloorBand {
 }
 
 export const ROGUELIKE_FLOOR_BANDS: RoguelikeFloorBand[] = [
-  { floors: [1, 2, 3, 4], base: { hp: 160, pp: 30, attack: 65, defense: 65, speed: 1, evasion: 0.01 }, upgradeAdd: { hp: 35, pp: 9, attack: 14, defense: 10, speed: 3, evasion: 0.01 } },
-  { floors: [6, 7, 8, 9], base: { hp: 355, pp: 35, attack: 70, defense: 70, speed: 2, evasion: 0.01 }, upgradeAdd: { hp: 70, pp: 18, attack: 21, defense: 15, speed: 3, evasion: 0.01 } },
-  { floors: [11, 12], base: { hp: 385, pp: 44, attack: 160, defense: 75, speed: 3, evasion: 0.01 }, upgradeAdd: { hp: 120, pp: 28, attack: 30, defense: 35, speed: 5, evasion: 0.02 } },
-  { floors: [14, 15], base: { hp: 411, pp: 47, attack: 174, defense: 84, speed: 5, evasion: 0.01 }, upgradeAdd: { hp: 125, pp: 30, attack: 35, defense: 35, speed: 5, evasion: 0.02 } },
+  { floors: [1, 2, 3, 4], base: { hp: 180, pp: 35, attack: 70, defense: 70, speed: 1, evasion: 0.01 }, upgradeAdd: { hp: 35, pp: 9, attack: 14, defense: 10, speed: 3, evasion: 0.01 } },
+  { floors: [6, 7, 8, 9], base: { hp: 355, pp: 45, attack: 85, defense: 85, speed: 2, evasion: 0.01 }, upgradeAdd: { hp: 70, pp: 18, attack: 21, defense: 15, speed: 3, evasion: 0.01 } },
+  { floors: [11, 12], base: { hp: 450, pp: 65, attack: 120, defense: 100, speed: 3, evasion: 0.01 }, upgradeAdd: { hp: 120, pp: 28, attack: 30, defense: 35, speed: 5, evasion: 0.02 } },
+  { floors: [14, 15], base: { hp: 480, pp: 70, attack: 165, defense: 110, speed: 5, evasion: 0.01 }, upgradeAdd: { hp: 125, pp: 30, attack: 35, defense: 35, speed: 5, evasion: 0.02 } },
 ];
 
 export function getFloorBand(floor: number): RoguelikeFloorBand | null {
@@ -111,7 +111,16 @@ export function applyBossUpgrade(stats: CharacterStats, floor: number): Characte
   if (floor === 10) return { ...stats, pp: stats.pp * 2, maxPp: stats.maxPp * 2 };
   if (floor === 13) return { ...stats, defense: stats.defense * 2 };
   if (floor === 16) return { ...stats, hp: stats.hp * 2, maxHp: stats.maxHp * 2 };
-  if (floor === 17) return { ...stats, hp: stats.hp * 2, maxHp: stats.maxHp * 2, defense: stats.defense * 2 };
+  return stats;
+}
+
+export type BossMultiplyKey = "hp" | "defense" | "evasion";
+
+/** For floor 17's 3-choice upgrade: multiply a single chosen stat by 2. */
+export function applyBossMultiplyUpgrade(stats: CharacterStats, key: BossMultiplyKey): CharacterStats {
+  if (key === "hp") return { ...stats, hp: stats.hp * 2, maxHp: stats.maxHp * 2 };
+  if (key === "defense") return { ...stats, defense: stats.defense * 2 };
+  if (key === "evasion") return { ...stats, evasion: Math.min(0.95, stats.evasion * 2) };
   return stats;
 }
 

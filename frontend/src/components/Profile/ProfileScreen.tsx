@@ -87,6 +87,22 @@ export function ProfileScreen(props: {
             ))}
           </div>
 
+          <div className="rounded-lg border border-violet-500/30 bg-black/20 p-3">
+            <div className="mb-2 text-sm font-bold text-violet-200">ローグライクモード実績</div>
+            <div className="flex flex-wrap gap-4">
+              <div>
+                <div className="text-xs text-gray-400">自己ベスト到達層</div>
+                <div className="mt-1 text-lg font-bold text-gray-50">第{player.roguelike.bestFloorReached}層</div>
+              </div>
+              {player.roguelike.bestFloorReached >= 20 && (
+                <div className="flex items-center gap-1 rounded-md border border-yellow-400/60 bg-yellow-900/30 px-3 py-1">
+                  <span className="text-xl">🏆</span>
+                  <span className="text-sm font-bold text-yellow-200">全20層制覇</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-3">
             <h3 className="text-lg font-bold text-gray-50">直近の対戦履歴</h3>
             {recentMatches.length === 0 ? (

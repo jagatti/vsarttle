@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyBossMultiplyUpgrade,
   applyBossUpgrade,
   applyTypeCorrection,
   applyUpgrade,
@@ -30,28 +31,28 @@ test("applyTypeCorrection applies attack magic defense balanced corrections", ()
 });
 
 test("buildWeakEnemyStats uses floor 1-4 band", () => {
-  assert.equal(buildWeakEnemyStats(1, "attack").attack, 98);
-  assert.equal(buildWeakEnemyStats(1, "magic").pp, 45);
-  assert.equal(buildWeakEnemyStats(1, "defense").defense, 98);
+  assert.equal(buildWeakEnemyStats(1, "attack").attack, 105);
+  assert.equal(buildWeakEnemyStats(1, "magic").pp, 53);
+  assert.equal(buildWeakEnemyStats(1, "defense").defense, 105);
   const balanced = buildWeakEnemyStats(4, "balanced");
-  assert.deepEqual({ hp: balanced.hp, pp: balanced.pp, attack: balanced.attack, defense: balanced.defense, speed: balanced.speed, evasion: balanced.evasion }, { hp: 160, pp: 36, attack: 78, defense: 78, speed: 1, evasion: 0.01 });
+  assert.deepEqual({ hp: balanced.hp, pp: balanced.pp, attack: balanced.attack, defense: balanced.defense, speed: balanced.speed, evasion: balanced.evasion }, { hp: 180, pp: 42, attack: 84, defense: 84, speed: 1, evasion: 0.01 });
 });
 
 test("buildWeakEnemyStats uses floor 6-9 band", () => {
   const attack = buildWeakEnemyStats(6, "attack");
   const balanced = buildWeakEnemyStats(9, "balanced");
-  assert.deepEqual({ hp: attack.hp, pp: attack.pp, attack: attack.attack, defense: attack.defense, speed: attack.speed }, { hp: 355, pp: 35, attack: 105, defense: 70, speed: 2 });
-  assert.deepEqual({ pp: balanced.pp, attack: balanced.attack, defense: balanced.defense }, { pp: 42, attack: 84, defense: 84 });
+  assert.deepEqual({ hp: attack.hp, pp: attack.pp, attack: attack.attack, defense: attack.defense, speed: attack.speed }, { hp: 355, pp: 45, attack: 128, defense: 85, speed: 2 });
+  assert.deepEqual({ pp: balanced.pp, attack: balanced.attack, defense: balanced.defense }, { pp: 54, attack: 102, defense: 102 });
 });
 
 test("buildWeakEnemyStats uses floor 11-12 band", () => {
   const balanced = buildWeakEnemyStats(11, "balanced");
-  assert.deepEqual({ hp: balanced.hp, pp: balanced.pp, attack: balanced.attack, defense: balanced.defense, speed: balanced.speed }, { hp: 385, pp: 53, attack: 192, defense: 90, speed: 3 });
+  assert.deepEqual({ hp: balanced.hp, pp: balanced.pp, attack: balanced.attack, defense: balanced.defense, speed: balanced.speed }, { hp: 450, pp: 78, attack: 144, defense: 120, speed: 3 });
 });
 
 test("buildWeakEnemyStats uses floor 14-15 band", () => {
   const defense = buildWeakEnemyStats(14, "defense");
-  assert.deepEqual({ hp: defense.hp, pp: defense.pp, attack: defense.attack, defense: defense.defense, speed: defense.speed }, { hp: 411, pp: 47, attack: 174, defense: 126, speed: 5 });
+  assert.deepEqual({ hp: defense.hp, pp: defense.pp, attack: defense.attack, defense: defense.defense, speed: defense.speed }, { hp: 480, pp: 70, attack: 165, defense: 165, speed: 5 });
 });
 
 test("getUpgradeAddAmounts returns band-specific values", () => {
@@ -77,8 +78,18 @@ test("applyBossUpgrade applies floor-specific multipliers", () => {
   assert.deepEqual({ pp: applyBossUpgrade(baseStats, 10).pp, maxPp: applyBossUpgrade(baseStats, 10).maxPp }, { pp: 80, maxPp: 80 });
   assert.equal(applyBossUpgrade(baseStats, 13).defense, 60);
   assert.deepEqual({ hp: applyBossUpgrade(baseStats, 16).hp, maxHp: applyBossUpgrade(baseStats, 16).maxHp }, { hp: 200, maxHp: 200 });
-  const floor17 = applyBossUpgrade(baseStats, 17);
-  assert.deepEqual({ hp: floor17.hp, maxHp: floor17.maxHp, defense: floor17.defense }, { hp: 200, maxHp: 200, defense: 60 });
+  // floor 17 is now handled by applyBossMultiplyUpgrade
+  assert.deepEqual(applyBossUpgrade(baseStats, 17), baseStats);
+});
+
+test("applyBossMultiplyUpgrade applies floor 17 single-key multipliers", () => {
+  const hp = applyBossMultiplyUpgrade(baseStats, "hp");
+  assert.deepEqual({ hp: hp.hp, maxHp: hp.maxHp }, { hp: 200, maxHp: 200 });
+  assert.equal(applyBossMultiplyUpgrade(baseStats, "defense").defense, 60);
+  // evasion 0.1 * 2 = 0.2
+  assert.equal(applyBossMultiplyUpgrade(baseStats, "evasion").evasion, 0.2);
+  // evasion capped at 0.95
+  assert.equal(applyBossMultiplyUpgrade({ ...baseStats, evasion: 0.6 }, "evasion").evasion, 0.95);
 });
 
 test("isWeakFloor and isBossFloor classify floors", () => {

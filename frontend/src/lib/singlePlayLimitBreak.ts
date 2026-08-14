@@ -43,6 +43,7 @@ export function applySinglePlayLimitBreak(enemy: PlayerBattleState): PlayerBattl
     },
     limitBreakUsed: true,
     limitBreakActive: true,
+    forceMagicStrongAction: true,
   };
 }
 
