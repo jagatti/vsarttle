@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getMultiplayerStageBgm,
+  getRoguelikeStageBgm,
   getSinglePlayStageBgm,
   VS_SCREEN_DURATION_MS,
 } from "@/lib/vsTransition";
@@ -31,4 +32,20 @@ test("single play battle bgm still follows floor and boss phase", () => {
 test("single play limit break bgm still overrides other stage bgm", () => {
   assert.equal(getSinglePlayStageBgm("vs", 5, 2, true, false), null);
   assert.equal(getSinglePlayStageBgm("battle", 5, 2, false, true), "/sounds/bgm/boss5-3_loop.mp3");
+});
+
+
+test("roguelike stage bgm follows stage and floor", () => {
+  assert.equal(getRoguelikeStageBgm("drawing", 1), "/sounds/bgm/oekaki_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("upgrade", 1), null);
+  assert.equal(getRoguelikeStageBgm("result", 20), null);
+  assert.equal(getRoguelikeStageBgm("battle", 1), "/sounds/bgm/battle_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 5), "/sounds/bgm/boss1_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 10), "/sounds/bgm/boss2_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 13), "/sounds/bgm/boss3_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 16), "/sounds/bgm/boss4_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 17), "/sounds/bgm/boss17_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 18), "/sounds/bgm/boss5-1_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 19), "/sounds/bgm/boss5-2_loop.mp3");
+  assert.equal(getRoguelikeStageBgm("battle", 20), "/sounds/bgm/boss5-3_loop.mp3");
 });

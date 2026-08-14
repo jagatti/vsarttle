@@ -443,6 +443,7 @@ export default function Home() {
             turnCount: turnHistoryRef.current.length,
             finalHpRatio: calculateFinalHpRatio(battleFinish.winnerId, battleStateRef.current),
             singlePlayResult: null,
+            roguelikeResult: null,
             rating: null,
           },
           turnResults: remapTurnResultsToPersistentIds(turnHistoryRef.current, {

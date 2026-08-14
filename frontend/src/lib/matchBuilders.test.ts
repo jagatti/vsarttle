@@ -102,6 +102,7 @@ test("remapped turnResults pass passesMatchSanity (winner_mismatch regression)",
     turnCount: 2,
     finalHpRatio: 0.8,
     singlePlayResult: null,
+    roguelikeResult: null,
     rating: null,
   };
 
@@ -136,6 +137,7 @@ test("un-remapped turnResults (session IDs) fail passesMatchSanity with winner_m
     turnCount: 2,
     finalHpRatio: 0.8,
     singlePlayResult: null,
+    roguelikeResult: null,
     rating: null,
   };
 

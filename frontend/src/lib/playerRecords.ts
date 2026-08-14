@@ -75,6 +75,12 @@ export function applyMatchToPlayerRecords(
       }
     }
 
+    if (match.source === "roguelike" && match.roguelikeResult) {
+      next.roguelike = {
+        bestFloorReached: Math.max(existing.roguelike?.bestFloorReached ?? 0, match.roguelikeResult.floorReached),
+      };
+    }
+
     nextPlayers[player.playerId] = next;
   }
 
