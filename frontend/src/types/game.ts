@@ -113,8 +113,10 @@ export interface PlayerBattleState {
   tieBanActive?: boolean;
   /** When true, this player has already triggered its limit break and cannot trigger it again. */
   limitBreakUsed?: boolean;
-  /** When true, this player is in limit break mode and must always use magicStrong, ignoring all restrictions. */
+  /** When true, this player is in limit break mode. Combined with forceMagicStrongAction, actions are forced to magicStrong. */
   limitBreakActive?: boolean;
+  /** When true, this player's action is forced to magicStrong (used by the existing single-play final boss). Set to false for roguelike floor 20 where limitBreakActive is set but normal CPU AI should be used. */
+  forceMagicStrongAction?: boolean;
   /** When true, this player used チャージ on the previous turn; the 1.5x chargeMultiplier is active for this turn only and will be reset at the end of this turn regardless of what action is taken. */
   chargedPreviousTurn?: boolean;
   /** When true, the 空間支配（ヴォイドミネーション）is active; both players' evasion is treated as 0%. */

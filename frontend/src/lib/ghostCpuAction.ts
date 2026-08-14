@@ -11,7 +11,7 @@ export function pickGhostCpuAction(
     random?: () => number;
   } = {},
 ): ActionType {
-  if (enemy.limitBreakActive) return "magicStrong";
+  if (enemy.forceMagicStrongAction) return "magicStrong";
 
   let available = getAvailableActions(enemy, turn);
   if (options.chargeAllowedHpRatio !== undefined) {

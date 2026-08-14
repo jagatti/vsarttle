@@ -8,7 +8,6 @@ import { VsScreen } from "@/components/Vs/VsScreen";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
-import { detectCharacterType } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { soundManager } from "@/lib/soundManager";
 import { getRoguelikeStageBgm } from "@/lib/vsTransition";
@@ -16,12 +15,14 @@ import { LIMIT_BREAK_BGM_PATH } from "@/lib/singlePlayLimitBreak";
 import {
   ROGUELIKE_PLAYER_INITIAL_STATS,
   ROGUELIKE_TOTAL_FLOORS,
+  applyBossMultiplyUpgrade,
   applyBossUpgrade,
   applyUpgrade,
   buildWeakEnemyStats,
   getUpgradeAddAmounts,
   isWeakFloor,
   pickRandomUpgradeSlots,
+  type BossMultiplyKey,
   type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
@@ -41,11 +42,12 @@ const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
 const PLAYER_BATTLE_ID = "rl-player";
 
-type RlStage = "drawing" | "vs" | "battle" | "upgrade" | "result";
+type RlStage = "drawing" | "vs" | "battle" | "win" | "upgrade" | "result";
 
 type UpgradeChoice =
   | { kind: "weak"; key: UpgradeStatKey; amount: number }
-  | { kind: "boss"; floor: number; label: string };
+  | { kind: "boss"; floor: number; label: string }
+  | { kind: "boss-multiply"; key: BossMultiplyKey; label: string };
 
 interface RunResultSummary {
   floorReached: number;
@@ -71,9 +73,14 @@ function getBossUpgradeLabel(floor: number): string {
   if (floor === 10) return "PP ×2";
   if (floor === 13) return "防御 ×2";
   if (floor === 16) return "HP ×2";
-  if (floor === 17) return "HP ×2 / 防御 ×2";
   return "強化";
 }
+
+const BOSS_MULTIPLY_LABELS: Record<BossMultiplyKey, string> = {
+  hp: "HP ×2",
+  defense: "防御 ×2",
+  evasion: "回避 ×2",
+};
 
 function formatUpgradeAmount(key: UpgradeStatKey, amount: number): string {
   if (key === "evasion") return `+${Math.round(amount * 100)}%`;
@@ -228,7 +235,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         const enemyStats = buildWeakEnemyStats(targetFloor, ghost.characterType);
         enemyState = {
           id: `rl-enemy-${targetFloor}`,
-          nickname: `${ghost.nickname}さんの作品`,
+          nickname: `第${targetFloor}層のAnima`,
           imageDataUrl: ghost.drawingThumbnail,
           characterType: ghost.characterType,
           stats: enemyStats,
@@ -337,6 +344,13 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         setBattleFinish({ winnerId: playerId });
         setTurnResult(result);
 
+        // Floors 18 and 19 transition seamlessly to the next boss (no YOU WIN, no upgrade)
+        if (floorRef.current === 18 || floorRef.current === 19) {
+          startSeamlessNextBoss(floorRef.current + 1, nextPlayer);
+          return;
+        }
+
+        // For weak floors and boss floors 5,10,13,16,17: show YOU WIN, then upgrade
         if (isWeakFloor(floorRef.current)) {
           const amounts = getUpgradeAddAmounts(floorRef.current);
           const choices = pickRandomUpgradeSlots(floorRef.current).map((key) => ({
@@ -345,13 +359,24 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             amount: amounts[key],
           }));
           setUpgradeChoices(choices);
-          setRlStage("upgrade");
+          setRlStage("win");
           return;
         }
 
-        if ([5, 10, 13, 16, 17].includes(floorRef.current)) {
+        if (floorRef.current === 17) {
+          const choices: UpgradeChoice[] = (["hp", "defense", "evasion"] as BossMultiplyKey[]).map((key) => ({
+            kind: "boss-multiply" as const,
+            key,
+            label: BOSS_MULTIPLY_LABELS[key],
+          }));
+          setUpgradeChoices(choices);
+          setRlStage("win");
+          return;
+        }
+
+        if ([5, 10, 13, 16].includes(floorRef.current)) {
           setUpgradeChoices([{ kind: "boss", floor: floorRef.current, label: getBossUpgradeLabel(floorRef.current) }]);
-          setRlStage("upgrade");
+          setRlStage("win");
           return;
         }
 
@@ -395,13 +420,45 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     }, delaySeconds * 1000);
   }
 
+  function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState) {
+    clearTimers();
+    const nextEnemy = buildRoguelikeBossState(nextFloor);
+    const cleanedPlayer: PlayerBattleState = {
+      ...currentPlayer,
+      chargeMultiplier: 1,
+      lastActionCategory: null,
+      chargedPreviousTurn: false,
+      paralyzedNextTurn: false,
+      tieBanActive: false,
+      attackBanTurns: 0,
+      barrierBanTurns: 0,
+      chargeBanTurns: 0,
+      magicBanTurns: 0,
+    };
+    const nextBattle = { [PLAYER_BATTLE_ID]: cleanedPlayer, [nextEnemy.id]: nextEnemy };
+    enemyBattleIdRef.current = nextEnemy.id;
+    battleStateRef.current = nextBattle;
+    setBattleState(nextBattle);
+    setBattleFinish(null);
+    setTurnResult(null);
+    setTurn(1);
+    turnRef.current = 1;
+    setFloor(nextFloor);
+    floorRef.current = nextFloor;
+    pendingActionRef.current = null;
+    setRlStage("battle");
+    startCountdown(TURN_SECONDS);
+    scheduleAutoAction(1, nextBattle, PLAYER_BATTLE_ID, nextEnemy.id);
+  }
+
   function handleVsComplete() {
     pendingBattleStartRef.current?.();
   }
 
   function handleDrawingSet(payload: { drawing: DrawingData; imageData: ImageData }) {
     soundManager.playSe("/sounds/se/button.mp3");
-    setPlayerCharacterType(detectCharacterType(payload.imageData));
+    // Player is always treated as "balanced" in roguelike mode (spec requirement)
+    setPlayerCharacterType("balanced");
     setPlayerDrawingDataUrl(drawingToDataUrl(payload.drawing));
   }
 
@@ -426,9 +483,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   function handleUpgradeSelect(choice: UpgradeChoice) {
     soundManager.playSe("/sounds/se/button.mp3");
-    const nextStats = choice.kind === "weak"
-      ? applyUpgrade(playerStatsRef.current, choice.key, choice.amount)
-      : applyBossUpgrade(playerStatsRef.current, choice.floor);
+    let nextStats = playerStatsRef.current;
+    if (choice.kind === "weak") {
+      nextStats = applyUpgrade(playerStatsRef.current, choice.key, choice.amount);
+    } else if (choice.kind === "boss-multiply") {
+      nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key);
+    } else {
+      nextStats = applyBossUpgrade(playerStatsRef.current, choice.floor);
+    }
     setPlayerStats(nextStats);
     playerStatsRef.current = nextStats;
     setUpgradeChoices([]);
@@ -569,7 +631,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             )}
           </div>
           <div style={{ color: "#d1d5db", fontSize: 12, textAlign: "center" }}>
-            {playerCharacterType ? `判定タイプ: ${playerCharacterType}` : "タイプ未確定"}
+            {playerCharacterType ? `タイプ: ${playerCharacterType}（固定）` : "絵をセットしてください"}
           </div>
           <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
             ステータスは固定で開始し、各階層クリア時の強化だけで成長します。
@@ -633,14 +695,59 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     );
   }
 
+  if (rlStage === "win") {
+    return (
+      <section className="rounded-lg border border-green-500/40 bg-slate-900/60 p-6 text-center text-green-100">
+        <div className="text-sm text-green-300">第{floor}層クリア！</div>
+        <h2 className="mt-2 text-4xl font-black text-yellow-300">YOU WIN</h2>
+        <div className="mt-6">
+          <button
+            onClick={() => {
+              soundManager.playSe("/sounds/se/button.mp3");
+              setRlStage("upgrade");
+            }}
+            style={{
+              padding: "12px 28px",
+              borderRadius: 10,
+              border: "2px solid #f59e0b",
+              background: "rgba(120,53,15,0.9)",
+              color: "#fde68a",
+              fontWeight: "bold",
+              fontSize: "clamp(14px, 1.2vw, 18px)",
+              cursor: "pointer",
+            }}
+          >
+            強化スロット選択
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (rlStage === "upgrade") {
+    const init = ROGUELIKE_PLAYER_INITIAL_STATS;
+    const statsDisplay: { label: string; value: string }[] = [
+      { label: "HP",   value: `${playerStats.maxHp}(+${playerStats.maxHp - init.maxHp})` },
+      { label: "PP",   value: `${playerStats.maxPp}(+${playerStats.maxPp - init.maxPp})` },
+      { label: "攻撃", value: `${playerStats.attack}(+${playerStats.attack - init.attack})` },
+      { label: "防御", value: `${playerStats.defense}(+${playerStats.defense - init.defense})` },
+      { label: "速度", value: `${playerStats.speed}(+${playerStats.speed - init.speed})` },
+      { label: "回避", value: `${Math.round(playerStats.evasion * 100)}%(+${Math.round((playerStats.evasion - init.evasion) * 100)}%)` },
+    ];
     return (
       <section className="rounded-lg border border-amber-500/40 bg-slate-900/60 p-6 text-amber-50">
         <div className="text-center">
           <div className="text-sm text-amber-200">第{floor}層クリア！</div>
           <h2 className="mt-2 text-2xl font-black">強化を選択</h2>
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-300">
+          {statsDisplay.map((s) => (
+            <span key={s.label} className="rounded bg-slate-800/60 px-2 py-1">
+              {s.label}{s.value}
+            </span>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
           {upgradeChoices.map((choice, index) => (
             <button
               key={`${choice.kind}-${index}`}
@@ -656,13 +763,13 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
               }}
             >
               <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700 }}>
-                {choice.kind === "boss" ? "ボス撃破報酬" : "成長スロット"}
+                {choice.kind === "boss" ? "ボス撃破報酬" : choice.kind === "boss-multiply" ? "ボス撃破報酬(17層)" : "成長スロット"}
               </div>
               <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                {choice.kind === "boss" ? choice.label : UPGRADE_LABELS[choice.key]}
+                {choice.kind === "boss" ? choice.label : choice.kind === "boss-multiply" ? choice.label : UPGRADE_LABELS[choice.key]}
               </div>
               <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
-                {choice.kind === "boss" ? "クリックして強化を適用" : formatUpgradeAmount(choice.key, choice.amount)}
+                {choice.kind === "boss" || choice.kind === "boss-multiply" ? "クリックして強化を適用" : formatUpgradeAmount(choice.key, choice.amount)}
               </div>
             </button>
           ))}

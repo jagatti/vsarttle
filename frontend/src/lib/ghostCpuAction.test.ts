@@ -19,7 +19,7 @@ function makeEnemy(overrides: Partial<PlayerBattleState> = {}): PlayerBattleStat
 }
 
 test("pickGhostCpuAction returns magicStrong during limit break", () => {
-  assert.equal(pickGhostCpuAction(makeEnemy({ limitBreakActive: true }), 5), "magicStrong");
+  assert.equal(pickGhostCpuAction(makeEnemy({ forceMagicStrongAction: true }), 5), "magicStrong");
 });
 
 test("pickGhostCpuAction filters charge above configured hp ratio", () => {
