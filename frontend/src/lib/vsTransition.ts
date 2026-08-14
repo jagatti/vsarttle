@@ -47,3 +47,19 @@ export function getSinglePlayStageBgm(
   }
   return "/sounds/bgm/battle_loop.mp3";
 }
+
+export type RoguelikeBgmStage = "drawing" | "battle" | "upgrade" | "result";
+
+export function getRoguelikeStageBgm(stage: RoguelikeBgmStage, floor: number): string | null {
+  if (stage === "drawing") return "/sounds/bgm/oekaki_loop.mp3";
+  if (stage !== "battle") return null;
+  if (floor === 5) return "/sounds/bgm/boss1_loop.mp3";
+  if (floor === 10) return "/sounds/bgm/boss2_loop.mp3";
+  if (floor === 13) return "/sounds/bgm/boss3_loop.mp3";
+  if (floor === 16) return "/sounds/bgm/boss4_loop.mp3";
+  if (floor === 17) return "/sounds/bgm/boss17_loop.mp3";
+  if (floor === 18) return "/sounds/bgm/boss5-1_loop.mp3";
+  if (floor === 19) return "/sounds/bgm/boss5-2_loop.mp3";
+  if (floor === 20) return "/sounds/bgm/boss5-3_loop.mp3";
+  return "/sounds/bgm/battle_loop.mp3";
+}

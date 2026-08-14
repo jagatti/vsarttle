@@ -23,6 +23,7 @@ function makeMatch(playerId: string, nickname: string): MatchRecord {
     turnCount: 1,
     finalHpRatio: 0.5,
     singlePlayResult: null,
+    roguelikeResult: null,
     rating: null,
   };
 }

@@ -31,6 +31,7 @@ function makeMatch(overrides: Partial<MatchRecord> = {}): MatchRecord {
     turnCount: 3,
     finalHpRatio: 0.2,
     singlePlayResult: null,
+    roguelikeResult: null,
     rating: null,
     ...overrides,
   };
@@ -78,4 +79,23 @@ test("applyMatchToPlayerRecords tracks ghost counters separately from multiplaye
   assert.equal(players["player-a"].ghostWins, 0);
   assert.equal(players["player-b"].asGhostBattles, 1);
   assert.equal(players["player-b"].asGhostWins, 1);
+});
+
+
+test("applyMatchToPlayerRecords tracks roguelike best floor reached", () => {
+  let players = applyMatchToPlayerRecords({}, makeMatch({
+    source: "roguelike",
+    players: [basePlayers[0]],
+    winnerId: "rl-enemy-8",
+    roguelikeResult: { floorReached: 8, cleared: false },
+  }));
+  assert.equal(players["player-a"].roguelike.bestFloorReached, 8);
+
+  players = applyMatchToPlayerRecords(players, makeMatch({
+    source: "roguelike",
+    players: [basePlayers[0]],
+    winnerId: "player-a",
+    roguelikeResult: { floorReached: 20, cleared: true },
+  }));
+  assert.equal(players["player-a"].roguelike.bestFloorReached, 20);
 });

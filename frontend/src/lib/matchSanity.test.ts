@@ -30,6 +30,7 @@ function makeMatch(overrides: Partial<MatchRecord> = {}): MatchRecord {
     turnCount: 2,
     finalHpRatio: 0.4,
     singlePlayResult: null,
+    roguelikeResult: null,
     rating: null,
     ...overrides,
   };
@@ -139,4 +140,22 @@ test("passesMatchSanity rejects ghostmatch with unknown ghost opponent id", () =
     singlePlayResult: null,
   });
   assert.equal(passesMatchSanity(match), false);
+});
+
+
+test("passesMatchSanity accepts roguelike records with a real player", () => {
+  const match = makeMatch({
+    source: "roguelike",
+    players: [
+      makeMatch().players[0],
+      {
+        ...makeMatch().players[1],
+        playerId: null,
+      },
+    ],
+    winnerId: "rl-enemy-8",
+    singlePlayResult: null,
+    roguelikeResult: { floorReached: 8, cleared: false },
+  });
+  assert.equal(passesMatchSanity(match), true);
 });

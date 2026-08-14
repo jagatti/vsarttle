@@ -6,7 +6,7 @@ import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
-import { submitMatchRecord } from "@/lib/profileApi";
+import { fetchPlayerProfile, submitMatchRecord } from "@/lib/profileApi";
 import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
@@ -29,6 +29,8 @@ import {
   type ScoreRank,
 } from "@/lib/scoreRank";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
+import { compareScoreRank } from "@/lib/persistenceTypes";
+import { RoguelikeManager } from "@/components/RoguelikeMode/RoguelikeManager";
 import type {
   ActionType,
   CharacterStats,
@@ -137,7 +139,39 @@ function getRankTextStyle(rank: BasicRank | ScoreRank): React.CSSProperties {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function DifficultySelectScreen(props: { onSelect: (difficulty: Difficulty) => void }) {
+function DifficultySelectScreen(props: {
+  onSelect: (difficulty: Difficulty) => void;
+  onSelectRoguelike: () => void;
+  playerProfile: { playerId: string; nickname: string };
+}) {
+  const [unlocked, setUnlocked] = useState(false);
+  const [loadingUnlock, setLoadingUnlock] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void fetchPlayerProfile(props.playerProfile.playerId)
+      .then((profile) => {
+        if (!active) return;
+        const sp = profile.player.singlePlay;
+        const isUnlocked =
+          compareScoreRank(sp.normal.bestScoreRank, "A") >= 0 ||
+          compareScoreRank(sp.hard.bestScoreRank, "A") >= 0;
+        setUnlocked(isUnlocked);
+      })
+      .catch(() => {
+        if (!active) return;
+        setUnlocked(false);
+      })
+      .finally(() => {
+        if (active) setLoadingUnlock(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [props.playerProfile.playerId]);
+
+  const roguelikeReady = !loadingUnlock && unlocked;
+
   return (
     <div
       style={{
@@ -228,6 +262,52 @@ function DifficultySelectScreen(props: { onSelect: (difficulty: Difficulty) => v
         >
           🔥 ハードモード
         </button>
+
+        <button
+          disabled={!roguelikeReady}
+          onClick={() => {
+            if (!roguelikeReady) return;
+            soundManager.playSe("/sounds/se/button.mp3");
+            props.onSelectRoguelike();
+          }}
+          style={{
+            padding: "18px 32px",
+            borderRadius: 12,
+            border: roguelikeReady ? "2px solid #a855f7" : "2px solid #4b5563",
+            background: roguelikeReady
+              ? "linear-gradient(135deg, rgba(168,85,247,0.22), rgba(59,130,246,0.18))"
+              : "linear-gradient(135deg, rgba(75,85,99,0.45), rgba(31,41,55,0.7))",
+            color: roguelikeReady ? "#ddd6fe" : "#9ca3af",
+            fontWeight: "bold",
+            fontSize: "clamp(16px, 2vw, 22px)",
+            cursor: roguelikeReady ? "pointer" : "not-allowed",
+            letterSpacing: "0.05em",
+            boxShadow: roguelikeReady ? "0 0 20px rgba(168,85,247,0.28)" : "none",
+            transition: "all 0.2s ease",
+            opacity: loadingUnlock ? 0.8 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!roguelikeReady) return;
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.38), rgba(59,130,246,0.3))";
+            e.currentTarget.style.transform = "scale(1.04)";
+          }}
+          onMouseLeave={(e) => {
+            if (!roguelikeReady) return;
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.22), rgba(59,130,246,0.18))";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          🗡️ ローグライクモード
+        </button>
+        {roguelikeReady ? (
+          <div style={{ color: "#c4b5fd", fontSize: 12, textAlign: "center" }}>解禁済み</div>
+        ) : (
+          <div style={{ color: "#9ca3af", fontSize: 12, textAlign: "center", lineHeight: 1.6 }}>
+            {loadingUnlock
+              ? "解禁条件を確認中…"
+              : "ノーマルまたはハードモードをAランク以上でクリアすると解禁されます"}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -531,6 +611,7 @@ function CharSelectScreen(props: {
 export function SinglePlayManager(props: { onBackToTitle: () => void; playerProfile: { playerId: string; nickname: string } }) {
   // ── Stage ───────────────────────────────────────────────────────────────
   const [spStage, setSpStage] = useState<SpStage>("difficulty_select");
+  const [roguelikeMode, setRoguelikeMode] = useState(false);
 
   // ── Difficulty ─────────────────────────────────────────────────────────────
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
@@ -795,6 +876,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
               scoreRank: finalScoreRank,
               difficulty: difficultyRef.current,
             },
+            roguelikeResult: null,
             rating: null,
           },
         });
@@ -1424,9 +1506,19 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
     );
   }
 
+  if (roguelikeMode) {
+    return <RoguelikeManager onBackToTitle={props.onBackToTitle} playerProfile={props.playerProfile} />;
+  }
+
   // ── Difficulty select ──────────────────────────────────────────────────────
   if (spStage === "difficulty_select") {
-    return <DifficultySelectScreen onSelect={handleDifficultySelect} />;
+    return (
+      <DifficultySelectScreen
+        onSelect={handleDifficultySelect}
+        onSelectRoguelike={() => setRoguelikeMode(true)}
+        playerProfile={props.playerProfile}
+      />
+    );
   }
 
   // ── Drawing phase ────────────────────────────────────────────────────────

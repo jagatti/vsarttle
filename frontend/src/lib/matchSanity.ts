@@ -36,7 +36,7 @@ export function validateMatchReasonString(
   turnResults?: Pick<TurnResult, "turn" | "winnerId" | "nextStates">[],
 ): string {
   if (!match.matchId || !match.playedAt) return "missing_match_id_or_played_at";
-  if (match.source !== "multiplayer" && match.source !== "singleplay" && match.source !== "ghostmatch")
+  if (match.source !== "multiplayer" && match.source !== "singleplay" && match.source !== "ghostmatch" && match.source !== "roguelike")
     return "invalid_source";
   if (match.battleMode !== "simple" && match.battleMode !== "custom") return "invalid_battle_mode";
   if (!Number.isInteger(match.turnCount) || match.turnCount < 1) return "invalid_turn_count";
@@ -51,8 +51,9 @@ export function validateMatchReasonString(
   } else if (!match.players.every((player) => isThumbnail(player.drawingThumbnail)))
     return "thumbnail_too_large_or_invalid";
   if (match.source === "singleplay" && !match.singlePlayResult) return "missing_singleplay_result";
-  if (match.source === "ghostmatch" && match.singlePlayResult !== null) return "unexpected_singleplay_result";
-  if (match.source === "multiplayer" && match.singlePlayResult !== null) return "unexpected_singleplay_result";
+  if (match.source === "roguelike" && !match.roguelikeResult) return "missing_roguelike_result";
+  if ((match.source === "ghostmatch" || match.source === "multiplayer" || match.source === "roguelike") && match.singlePlayResult !== null) return "unexpected_singleplay_result";
+  if ((match.source === "ghostmatch" || match.source === "multiplayer" || match.source === "singleplay") && match.roguelikeResult !== null) return "unexpected_roguelike_result";
   if (match.singlePlayResult && (match.singlePlayResult.floor < 1 || match.singlePlayResult.floor > 5))
     return "invalid_singleplay_floor";
   if (
@@ -61,6 +62,10 @@ export function validateMatchReasonString(
     match.singlePlayResult.difficulty !== "hard"
   )
     return "invalid_singleplay_difficulty";
+  if (match.roguelikeResult && (match.roguelikeResult.floorReached < 1 || match.roguelikeResult.floorReached > 20))
+    return "invalid_roguelike_floor";
+  if (match.roguelikeResult && typeof match.roguelikeResult.cleared !== "boolean")
+    return "invalid_roguelike_clear_flag";
   if (
     match.source === "ghostmatch" &&
     match.ghostOpponentPlayerId &&
@@ -71,6 +76,10 @@ export function validateMatchReasonString(
   // Beyond shape validation
   if (match.source === "singleplay") {
     if (!match.players.some((player) => player.playerId !== null)) return "singleplay_missing_real_player";
+    return "ok";
+  }
+  if (match.source === "roguelike") {
+    if (!match.players.some((player) => player.playerId !== null)) return "roguelike_missing_real_player";
     return "ok";
   }
   if (match.source === "ghostmatch") {
@@ -105,7 +114,7 @@ export function validateMatchReasonString(
 
 export function validateMatchRecordShape(match: MatchRecord): boolean {
   if (!match.matchId || !match.playedAt) return false;
-  if (match.source !== "multiplayer" && match.source !== "singleplay" && match.source !== "ghostmatch") return false;
+  if (match.source !== "multiplayer" && match.source !== "singleplay" && match.source !== "ghostmatch" && match.source !== "roguelike") return false;
   if (match.battleMode !== "simple" && match.battleMode !== "custom") return false;
   if (!Number.isInteger(match.turnCount) || match.turnCount < 1) return false;
   if (!isFiniteNumber(match.finalHpRatio) || match.finalHpRatio < 0 || match.finalHpRatio > 1) return false;
@@ -115,10 +124,12 @@ export function validateMatchRecordShape(match: MatchRecord): boolean {
     if (!match.players.every((player) => isGhostThumbnail(player.drawingThumbnail))) return false;
   } else if (!match.players.every((player) => isThumbnail(player.drawingThumbnail))) return false;
   if (match.source === "singleplay" && !match.singlePlayResult) return false;
-  if (match.source === "ghostmatch" && match.singlePlayResult !== null) return false;
-  if (match.source === "multiplayer" && match.singlePlayResult !== null) return false;
+  if (match.source === "roguelike" && !match.roguelikeResult) return false;
+  if ((match.source === "ghostmatch" || match.source === "multiplayer" || match.source === "roguelike") && match.singlePlayResult !== null) return false;
+  if ((match.source === "ghostmatch" || match.source === "multiplayer" || match.source === "singleplay") && match.roguelikeResult !== null) return false;
   if (match.singlePlayResult && (match.singlePlayResult.floor < 1 || match.singlePlayResult.floor > 5)) return false;
   if (match.singlePlayResult && match.singlePlayResult.difficulty !== "normal" && match.singlePlayResult.difficulty !== "hard") return false;
+  if (match.roguelikeResult && (match.roguelikeResult.floorReached < 1 || match.roguelikeResult.floorReached > 20)) return false;
   if (
     match.source === "ghostmatch" &&
     match.ghostOpponentPlayerId &&
@@ -136,6 +147,10 @@ export function passesMatchSanity(
   if (!validateMatchRecordShape(match)) return false;
 
   if (match.source === "singleplay") {
+    return match.players.some((player) => player.playerId !== null);
+  }
+
+  if (match.source === "roguelike") {
     return match.players.some((player) => player.playerId !== null);
   }
 

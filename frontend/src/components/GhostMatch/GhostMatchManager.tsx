@@ -270,6 +270,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
             turnCount: turnRef.current,
             finalHpRatio: calculateFinalHpRatio(battleFinish.winnerId, battleStateRef.current),
             singlePlayResult: null,
+            roguelikeResult: null,
             rating: null,
             ghostOpponentPlayerId: ghost.ownerPlayerId,
           },
