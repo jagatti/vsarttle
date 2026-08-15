@@ -103,6 +103,76 @@ test("resolveTurn applies no additional effect when custom weak-magic pool is em
   assert.equal(result.nextStates.b.paralyzedNextTurn ?? false, false);
 });
 
+test("roguelike: player with 0 learned effects deals damage only (no status effect)", () => {
+  const player = makePlayer("player");
+  const enemy = makePlayer("enemy");
+  const hpBefore = enemy.currentHp;
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, enemy },
+    actions: { player: "magicWeak", enemy: "attack" },
+    weakMagicSelections: {
+      player: { kinds: [] },
+      enemy: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
+    },
+    rng: () => 0.5,
+  });
+  assert.equal(result.magicEffectEvents.length, 0, "no status effect should be applied to enemy");
+  assert.ok(result.nextStates.enemy.currentHp < hpBefore, "enemy should take damage");
+  assert.equal(result.nextStates.enemy.paralyzedNextTurn ?? false, false);
+  assert.equal(result.nextStates.enemy.barrierBanTurns ?? 0, 0);
+  assert.equal(result.nextStates.enemy.chargeBanTurns ?? 0, 0);
+});
+
+test("roguelike: enemy always draws from fixed 3-kind pool regardless of player's learned pool", () => {
+  const player = makePlayer("player");
+  const enemy = makePlayer("enemy");
+  const allLearnedPool = ["paralysis", "barrierBan", "chargeBan", "attackBan", "magicBan", "tieBan"] as const;
+  // Enemy uses fixed 3-kind pool even when player has all 6 effects learned
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, enemy },
+    actions: { player: "attack", enemy: "magicWeak" },
+    weakMagicSelections: {
+      player: { kinds: [...allLearnedPool] },
+      enemy: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
+    },
+    rng: () => 0.01, // picks index 0 = "paralysis"
+  });
+  assert.equal(result.magicEffectEvents.length, 1);
+  const effectName = result.magicEffectEvents[0]?.effectName;
+  // Must be one of the fixed 3 enemy effects
+  assert.ok(
+    effectName === "まひ" || effectName === "バリア禁止" || effectName === "チャージ禁止",
+    `expected enemy effect from fixed pool, got: ${effectName}`,
+  );
+  assert.equal(effectName, "まひ", "rng=0.01 picks index 0 = paralysis");
+});
+
+test("roguelike: player's learned pool does not bleed into enemy's effect pool", () => {
+  const player = makePlayer("player");
+  const enemy = makePlayer("enemy");
+  // Player has attackBan and magicBan learned; enemy should NOT get those effects
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, enemy },
+    actions: { player: "attack", enemy: "magicWeak" },
+    weakMagicSelections: {
+      player: { kinds: ["attackBan", "magicBan"] },
+      enemy: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
+    },
+    rng: () => 0.99, // picks last index of enemy's 3-kind pool = "chargeBan"
+  });
+  assert.equal(result.magicEffectEvents.length, 1);
+  const effectName = result.magicEffectEvents[0]?.effectName;
+  assert.ok(
+    effectName === "まひ" || effectName === "バリア禁止" || effectName === "チャージ禁止",
+    `expected enemy effect from fixed pool only, got: ${effectName}`,
+  );
+  assert.equal(result.nextStates.player.attackBanTurns ?? 0, 0, "enemy should not apply attackBan (not in enemy pool)");
+  assert.equal(result.nextStates.player.magicBanTurns ?? 0, 0, "enemy should not apply magicBan (not in enemy pool)");
+});
+
 test("getAvailableActions returns no actions while paralyzed", () => {
   const player = makePlayer("a");
   player.paralyzedNextTurn = true;

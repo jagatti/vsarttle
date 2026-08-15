@@ -325,13 +325,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         [playerId]: playerAction,
         [enemyId]: cpuAction,
       },
-      weakMagicSelections:
-        weakMagicPool.length > 0
-          ? {
-              [playerId]: { kinds: weakMagicPool },
-              [enemyId]: { kinds: weakMagicPool },
-            }
-          : undefined,
+      weakMagicSelections: {
+        [playerId]: { kinds: weakMagicPool },
+        [enemyId]: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
+      },
       disableVoidmination: true,
     });
 
