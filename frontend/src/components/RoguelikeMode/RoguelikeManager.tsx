@@ -19,14 +19,17 @@ import {
   applyBossUpgrade,
   applyUpgrade,
   buildWeakEnemyStats,
-  getUpgradeAddAmounts,
   isWeakFloor,
-  pickRandomUpgradeSlots,
   type BossMultiplyKey,
   type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
+import {
+  buildWeakMagicTooltip,
+  pickRoguelikeWeakFloorUpgradeSlots,
+  type RoguelikeUpgradeRarity,
+} from "@/lib/roguelikeUpgrades";
 import type {
   ActionType,
   CharacterStats,
@@ -34,6 +37,7 @@ import type {
   DrawingData,
   PlayerBattleState,
   TurnResult,
+  WeakMagicEffectKind,
 } from "@/types/game";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 
@@ -45,7 +49,8 @@ const PLAYER_BATTLE_ID = "rl-player";
 type RlStage = "drawing" | "vs" | "battle" | "win" | "upgrade" | "result";
 
 type UpgradeChoice =
-  | { kind: "weak"; key: UpgradeStatKey; amount: number }
+  | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
+  | { kind: "weak-magic"; rarity: 3; effectKind: WeakMagicEffectKind; effectName: string }
   | { kind: "boss"; floor: number; label: string }
   | { kind: "boss-multiply"; key: BossMultiplyKey; label: string };
 
@@ -99,6 +104,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [turn, setTurn] = useState(1);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [upgradeChoices, setUpgradeChoices] = useState<UpgradeChoice[]>([]);
+  const [acquiredWeakMagicKinds, setAcquiredWeakMagicKinds] = useState<WeakMagicEffectKind[]>([]);
   const [runResult, setRunResult] = useState<RunResultSummary | null>(null);
   const [preparingFloor, setPreparingFloor] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -118,6 +124,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const recentOwnerIdsRef = useRef<string[]>([]);
   const submittedMatchRef = useRef(false);
   const retryActionRef = useRef<(() => void) | null>(null);
+  const acquiredWeakMagicKindsRef = useRef<WeakMagicEffectKind[]>([]);
 
   useEffect(() => {
     battleStateRef.current = battleState;
@@ -137,6 +144,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   useEffect(() => {
     playerDrawingRef.current = playerDrawingDataUrl;
   }, [playerDrawingDataUrl]);
+  useEffect(() => {
+    acquiredWeakMagicKindsRef.current = acquiredWeakMagicKinds;
+  }, [acquiredWeakMagicKinds]);
 
   const currentEnemyState = useMemo(() => {
     const enemyId = enemyBattleIdRef.current;
@@ -307,6 +317,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           chargeAllowedHpRatio: floorRef.current === 5 ? FLOOR5_BOSS_CHARGE_HP_THRESHOLD : undefined,
         });
 
+    const weakMagicPool = acquiredWeakMagicKindsRef.current;
     const result = resolveTurn({
       turn: turnNumber,
       players: currentBattle,
@@ -314,6 +325,13 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         [playerId]: playerAction,
         [enemyId]: cpuAction,
       },
+      weakMagicSelections:
+        weakMagicPool.length > 0
+          ? {
+              [playerId]: { kinds: weakMagicPool },
+              [enemyId]: { kinds: weakMagicPool },
+            }
+          : undefined,
       disableVoidmination: true,
     });
 
@@ -352,12 +370,20 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
         // For weak floors and boss floors 5,10,13,16,17: show YOU WIN, then upgrade
         if (isWeakFloor(floorRef.current)) {
-          const amounts = getUpgradeAddAmounts(floorRef.current);
-          const choices = pickRandomUpgradeSlots(floorRef.current).map((key) => ({
-            kind: "weak" as const,
-            key,
-            amount: amounts[key],
-          }));
+          const choices = pickRoguelikeWeakFloorUpgradeSlots(
+            floorRef.current,
+            acquiredWeakMagicKindsRef.current,
+            3,
+          ).map((slot): UpgradeChoice =>
+            slot.kind === "stat"
+              ? { kind: "weak-stat", rarity: slot.rarity, key: slot.key, amount: slot.amount }
+              : {
+                  kind: "weak-magic",
+                  rarity: 3,
+                  effectKind: slot.effectKind,
+                  effectName: slot.effectName,
+                },
+          );
           setUpgradeChoices(choices);
           setRlStage("win");
           return;
@@ -470,6 +496,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     soundManager.playSe("/sounds/se/button.mp3");
     submittedMatchRef.current = false;
     setRunResult(null);
+    setAcquiredWeakMagicKinds([]);
+    acquiredWeakMagicKindsRef.current = [];
     setPlayerStats(ROGUELIKE_PLAYER_INITIAL_STATS);
     playerStatsRef.current = ROGUELIKE_PLAYER_INITIAL_STATS;
     void prepareFloor(1, ROGUELIKE_PLAYER_INITIAL_STATS);
@@ -484,8 +512,15 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   function handleUpgradeSelect(choice: UpgradeChoice) {
     soundManager.playSe("/sounds/se/button.mp3");
     let nextStats = playerStatsRef.current;
-    if (choice.kind === "weak") {
+    if (choice.kind === "weak-stat") {
       nextStats = applyUpgrade(playerStatsRef.current, choice.key, choice.amount);
+    } else if (choice.kind === "weak-magic") {
+      setAcquiredWeakMagicKinds((prev) => {
+        if (prev.includes(choice.effectKind)) return prev;
+        const next = [...prev, choice.effectKind];
+        acquiredWeakMagicKindsRef.current = next;
+        return next;
+      });
     } else if (choice.kind === "boss-multiply") {
       nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key);
     } else {
@@ -677,54 +712,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     return <VsScreen me={currentPlayerState} enemy={currentEnemyState} onComplete={handleVsComplete} />;
   }
 
-  if (rlStage === "battle" && currentPlayerState && currentEnemyState) {
-    return (
-      <BattlePanel
-        me={currentPlayerState}
-        enemy={currentEnemyState}
-        role="host"
-        turn={turn}
-        turnResult={turnResult}
-        countdown={turnCountdown}
-        onActionSelect={battleFinish ? () => {} : handleActionSelect}
-        finishResult={battleFinish}
-        onRematchSame={() => {}}
-        onRematchRedraw={() => {}}
-        showArenaBackground={true}
-      />
-    );
-  }
-
-  if (rlStage === "win") {
-    return (
-      <section className="rounded-lg border border-green-500/40 bg-slate-900/60 p-6 text-center text-green-100">
-        <div className="text-sm text-green-300">第{floor}層クリア！</div>
-        <h2 className="mt-2 text-4xl font-black text-yellow-300">YOU WIN</h2>
-        <div className="mt-6">
-          <button
-            onClick={() => {
-              soundManager.playSe("/sounds/se/button.mp3");
-              setRlStage("upgrade");
-            }}
-            style={{
-              padding: "12px 28px",
-              borderRadius: 10,
-              border: "2px solid #f59e0b",
-              background: "rgba(120,53,15,0.9)",
-              color: "#fde68a",
-              fontWeight: "bold",
-              fontSize: "clamp(14px, 1.2vw, 18px)",
-              cursor: "pointer",
-            }}
-          >
-            強化スロット選択
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (rlStage === "upgrade") {
+  if ((rlStage === "battle" || rlStage === "win" || rlStage === "upgrade") && currentPlayerState && currentEnemyState) {
+    const weakMagicTooltip = buildWeakMagicTooltip(acquiredWeakMagicKinds);
+    const isOverlayVisible = rlStage === "win" || rlStage === "upgrade";
     const init = ROGUELIKE_PLAYER_INITIAL_STATS;
     const statsDisplay: { label: string; value: string }[] = [
       { label: "HP",   value: `${playerStats.maxHp}(+${playerStats.maxHp - init.maxHp})` },
@@ -734,47 +724,132 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       { label: "速度", value: `${playerStats.speed}(+${playerStats.speed - init.speed})` },
       { label: "回避", value: `${Math.round(playerStats.evasion * 100)}%(+${Math.round((playerStats.evasion - init.evasion) * 100)}%)` },
     ];
+    const rarityMeta: Record<RoguelikeUpgradeRarity, { stars: string; color: string; label: string }> = {
+      1: { stars: "★", color: "#2563eb", label: "★1" },
+      2: { stars: "★★", color: "#16a34a", label: "★2" },
+      3: { stars: "★★★", color: "#7c3aed", label: "★3" },
+    };
+
     return (
-      <section className="rounded-lg border border-amber-500/40 bg-slate-900/60 p-6 text-amber-50">
-        <div className="text-center">
-          <div className="text-sm text-amber-200">第{floor}層クリア！</div>
-          <h2 className="mt-2 text-2xl font-black">強化を選択</h2>
-        </div>
-        <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-300">
-          {statsDisplay.map((s) => (
-            <span key={s.label} className="rounded bg-slate-800/60 px-2 py-1">
-              {s.label}{s.value}
-            </span>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {upgradeChoices.map((choice, index) => (
-            <button
-              key={`${choice.kind}-${index}`}
-              onClick={() => handleUpgradeSelect(choice)}
-              style={{
-                borderRadius: 14,
-                border: "2px solid #f59e0b",
-                background: "linear-gradient(135deg, rgba(120,53,15,0.85), rgba(217,119,6,0.25))",
-                padding: "20px 18px",
-                textAlign: "left",
-                cursor: "pointer",
-                boxShadow: "0 0 18px rgba(245,158,11,0.18)",
-              }}
-            >
-              <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700 }}>
-                {choice.kind === "boss" ? "ボス撃破報酬" : choice.kind === "boss-multiply" ? "ボス撃破報酬(17層)" : "成長スロット"}
-              </div>
-              <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                {choice.kind === "boss" ? choice.label : choice.kind === "boss-multiply" ? choice.label : UPGRADE_LABELS[choice.key]}
-              </div>
-              <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
-                {choice.kind === "boss" || choice.kind === "boss-multiply" ? "クリックして強化を適用" : formatUpgradeAmount(choice.key, choice.amount)}
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
+      <div>
+        <BattlePanel
+          me={currentPlayerState}
+          enemy={currentEnemyState}
+          role="host"
+          turn={turn}
+          turnResult={turnResult}
+          countdown={turnCountdown}
+          onActionSelect={battleFinish ? () => {} : handleActionSelect}
+          finishResult={battleFinish}
+          onRematchSame={() => {}}
+          onRematchRedraw={() => {}}
+          showArenaBackground={true}
+          suppressFinishOverlay={isOverlayVisible}
+          roguelikeWeakMagicTooltipTitle={weakMagicTooltip}
+        />
+        {isOverlayVisible && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              zIndex: 70,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            {rlStage === "win" ? (
+              <section className="w-full max-w-xl rounded-lg border border-green-500/40 bg-slate-900/95 p-6 text-center text-green-100">
+                <div className="text-sm text-green-300">第{floor}層クリア！</div>
+                <h2 className="mt-2 text-4xl font-black text-yellow-300">YOU WIN</h2>
+                <div className="mt-6">
+                  <button
+                    onClick={() => {
+                      soundManager.playSe("/sounds/se/button.mp3");
+                      setRlStage("upgrade");
+                    }}
+                    style={{
+                      padding: "12px 28px",
+                      borderRadius: 10,
+                      border: "2px solid #f59e0b",
+                      background: "rgba(120,53,15,0.9)",
+                      color: "#fde68a",
+                      fontWeight: "bold",
+                      fontSize: "clamp(14px, 1.2vw, 18px)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    強化スロット選択
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <section className="w-full max-w-4xl rounded-lg border border-amber-500/40 bg-slate-900/95 p-6 text-amber-50">
+                <div className="text-center">
+                  <div className="text-sm text-amber-200">第{floor}層クリア！</div>
+                  <h2 className="mt-2 text-2xl font-black">強化を選択</h2>
+                </div>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-300">
+                  {statsDisplay.map((s) => (
+                    <span key={s.label} className="rounded bg-slate-800/60 px-2 py-1">
+                      {s.label}{s.value}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  {upgradeChoices.map((choice, index) => {
+                    const rarity = choice.kind === "weak-stat" || choice.kind === "weak-magic" ? choice.rarity : null;
+                    const rarityStyle = rarity ? rarityMeta[rarity] : null;
+                    return (
+                      <button
+                        key={`${choice.kind}-${index}`}
+                        onClick={() => handleUpgradeSelect(choice)}
+                        style={{
+                          borderRadius: 14,
+                          border: `2px solid ${rarityStyle?.color ?? "#f59e0b"}`,
+                          background:
+                            rarityStyle
+                              ? `linear-gradient(135deg, ${rarityStyle.color}66, rgba(15,23,42,0.95))`
+                              : "linear-gradient(135deg, rgba(120,53,15,0.85), rgba(217,119,6,0.25))",
+                          padding: "20px 18px",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          boxShadow: `0 0 18px ${rarityStyle?.color ?? "#f59e0b"}55`,
+                        }}
+                      >
+                        <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
+                          <span>
+                            {choice.kind === "boss" ? "ボス撃破報酬" : choice.kind === "boss-multiply" ? "ボス撃破報酬(17層)" : "成長スロット"}
+                          </span>
+                          {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
+                        </div>
+                        <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                          {choice.kind === "boss"
+                            ? choice.label
+                            : choice.kind === "boss-multiply"
+                            ? choice.label
+                            : choice.kind === "weak-magic"
+                            ? `🪄 ${choice.effectName}`
+                            : UPGRADE_LABELS[choice.key]}
+                        </div>
+                        <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
+                          {choice.kind === "boss" || choice.kind === "boss-multiply"
+                            ? "クリックして強化を適用"
+                            : choice.kind === "weak-magic"
+                            ? `${rarityStyle?.label} 弱まほう効果を習得`
+                            : `${rarityStyle?.label} ${formatUpgradeAmount(choice.key, choice.amount)}`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -803,6 +878,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
               setTurnResult(null);
               setBattleFinish(null);
               setUpgradeChoices([]);
+              setAcquiredWeakMagicKinds([]);
+              acquiredWeakMagicKindsRef.current = [];
               setRunResult(null);
               enemyBattleIdRef.current = null;
               recentOwnerIdsRef.current = [];

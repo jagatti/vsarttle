@@ -82,8 +82,10 @@ export type WeakMagicEffectKind = OneTurnWeakMagicEffectKind | TwoTurnWeakMagicE
 export type CharacterType = "attack" | "magic" | "defense" | "balanced";
 
 export interface WeakMagicEffectSelection {
-  oneTurn: OneTurnWeakMagicEffectKind;
-  twoTurn: [TwoTurnWeakMagicEffectKind, TwoTurnWeakMagicEffectKind];
+  oneTurn?: OneTurnWeakMagicEffectKind;
+  twoTurn?: [TwoTurnWeakMagicEffectKind, TwoTurnWeakMagicEffectKind];
+  /** Optional custom weak-magic pool. When set, resolveTurn draws effects from this list as-is. */
+  kinds?: WeakMagicEffectKind[];
 }
 
 export interface PlayerBattleState {

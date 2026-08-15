@@ -88,6 +88,21 @@ test("resolveTurn can apply tie-ban from a custom weak-magic selection", () => {
   assert.deepEqual(result.suppressedByTieBanIds, []);
 });
 
+test("resolveTurn applies no additional effect when custom weak-magic pool is empty", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicWeak", b: "attack" },
+    weakMagicSelections: { a: { kinds: [] } },
+    rng: () => 0.99,
+  });
+  assert.equal(result.magicEffectEvents.length, 0);
+  assert.equal(result.nextStates.b.attackBanTurns ?? 0, 0);
+  assert.equal(result.nextStates.b.paralyzedNextTurn ?? false, false);
+});
+
 test("getAvailableActions returns no actions while paralyzed", () => {
   const player = makePlayer("a");
   player.paralyzedNextTurn = true;

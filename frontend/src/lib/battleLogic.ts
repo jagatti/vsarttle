@@ -59,7 +59,11 @@ const DEFAULT_WEAK_MAGIC_EFFECT_KINDS: WeakMagicEffectKind[] = ["barrierBan", "c
 const WEAK_MAGIC_EFFECT_MAP = new Map(ALL_WEAK_MAGIC_EFFECTS.map((effect) => [effect.kind, effect] as const));
 
 const getWeakMagicEffects = (selection?: WeakMagicEffectSelection): WeakMagicEffectDefinition[] => {
-  const kinds = selection ? [selection.oneTurn, ...selection.twoTurn] : DEFAULT_WEAK_MAGIC_EFFECT_KINDS;
+  const kinds = selection?.kinds
+    ? selection.kinds
+    : selection?.oneTurn && selection?.twoTurn
+    ? [selection.oneTurn, ...selection.twoTurn]
+    : DEFAULT_WEAK_MAGIC_EFFECT_KINDS;
   return kinds
     .map((kind) => WEAK_MAGIC_EFFECT_MAP.get(kind))
     .filter((effect): effect is WeakMagicEffectDefinition => !!effect);
@@ -177,7 +181,8 @@ export function resolveTurn(params: {
   // Applies a random 弱まほう special effect to `affected`, caused by `caster`'s weak magic hit.
   const applyWeakMagicEffect = (caster: PlayerBattleState, affected: PlayerBattleState, reflected: boolean) => {
     const effects = getWeakMagicEffects(params.weakMagicSelections?.[caster.id]);
-    const pick = effects[Math.floor(rng() * effects.length)] ?? WEAK_MAGIC_EFFECT_MAP.get("paralysis")!;
+    const pick = effects[Math.floor(rng() * effects.length)];
+    if (!pick) return;
     if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;
     if (pick.kind === "barrierBan") affected.barrierBanTurns = pick.turns;
     if (pick.kind === "magicBan") affected.magicBanTurns = pick.turns;
