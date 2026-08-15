@@ -292,27 +292,27 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
 
   if (stage === "loading") {
     return (
-      <section className="rounded-lg border border-violet-500/40 bg-slate-900/50 p-6 text-center text-violet-100">
+      <section className="app-panel p-6 text-center" style={{ color: "var(--text-primary)" }}>
         <p className="text-lg font-bold">👻 ゴーストマッチ準備中…</p>
-        <p className="mt-2 text-sm text-violet-200/80">このモードは過去プレイヤー作品とのCPU対戦です（対人戦ではありません）</p>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>このモードは過去プレイヤー作品とのCPU対戦です（対人戦ではありません）</p>
       </section>
     );
   }
 
   if (stage === "error") {
     return (
-      <section className="rounded-lg border border-rose-500/40 bg-slate-900/60 p-6 text-center text-rose-100">
+      <section className="rounded-lg border p-6 text-center" style={{ borderColor: "rgba(220,60,60,0.5)", background: "rgba(60,20,20,0.5)", color: "#e8a0a0" }}>
         <p className="text-base font-bold">{errorMessage}</p>
         <div className="mt-4 flex justify-center gap-3">
           <button
             onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); void fetchGhost(); }}
-            className="rounded border border-violet-400 bg-violet-500/20 px-4 py-2 font-bold text-violet-100"
+            className="btn-secondary"
           >
             再試行
           </button>
           <button
             onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onBackToTitle(); }}
-            className="rounded border border-slate-400 bg-slate-700/30 px-4 py-2 font-bold text-slate-100"
+            className="btn-ghost"
           >
             タイトルへ戻る
           </button>
@@ -324,7 +324,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   if (stage === "drawing") {
     return (
       <div>
-        <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-violet-100">
+        <div className="app-panel mb-3 p-3" style={{ color: "var(--text-primary)" }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-bold">👻 ゴーストマッチ（CPU戦）</div>
             <button
@@ -332,20 +332,12 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
                 soundManager.playSe("/sounds/se/button.mp3");
                 props.onBackToTitle();
               }}
-              style={{
-                border: "2px solid #6b7280",
-                background: "rgba(30,30,30,0.9)",
-                color: "#9ca3af",
-                borderRadius: 10,
-                padding: "8px 14px",
-                fontWeight: "bold",
-                cursor: "pointer",
-              }}
+              className="btn-ghost"
             >
               タイトルへ戻る
             </button>
           </div>
-          <div className="mt-1 text-sm text-violet-200/80">相手は他プレイヤーの過去作品です。Roomの対人戦ではありません。</div>
+          <div className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>相手は他プレイヤーの過去作品です。Roomの対人戦ではありません。</div>
         </div>
         <DrawPanel
           seconds={999999}
@@ -360,7 +352,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   if (stage === "vs" && meState && enemyState) {
     return (
       <div>
-        <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-sm text-violet-100">
+        <div className="app-panel mb-3 p-3 text-sm" style={{ color: "var(--text-primary)" }}>
           相手は <span className="font-bold">{ghost?.nickname}さんの作品</span> を元にしたゴースト（CPU操作）です
         </div>
         <VsScreen me={meState} enemy={enemyState} onComplete={handleVsComplete} />
@@ -407,7 +399,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
 
     return (
       <div>
-        <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-xs text-violet-200">
+        <div className="app-panel mb-3 p-3 text-xs" style={{ color: "var(--text-muted)" }}>
           ゴーストマッチはCPU戦のため、通常の対人戦績（勝敗/連勝）には反映されません。
         </div>
         <BattlePanel

@@ -469,7 +469,8 @@ export function DrawPanel(props: {
         </button>
         <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden />
         <button
-          className="rounded-md border-2 border-red-400 bg-red-50 px-3 py-1.5 text-sm font-bold text-red-600"
+          className="rounded-md border-2 px-3 py-1.5 text-sm font-bold transition"
+          style={{ borderColor: "rgba(220,60,60,0.6)", color: "#e87070", background: "rgba(80,20,20,0.4)" }}
           onClick={clearAll}
           disabled={submitted}
         >
@@ -625,7 +626,7 @@ export function DrawPanel(props: {
       {/* ── End Save Slots ──────────────────────────────────────────────── */}
       {props.onSet ? (
         <button
-          className="rounded bg-indigo-600 px-3 py-2 text-white"
+          className="btn-primary"
           disabled={submitted}
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
@@ -638,7 +639,7 @@ export function DrawPanel(props: {
       ) : submitted ? (
         <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
       ) : (
-        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>完成</button>
+        <button className="btn-primary" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>完成</button>
       )}
     </section>
   );

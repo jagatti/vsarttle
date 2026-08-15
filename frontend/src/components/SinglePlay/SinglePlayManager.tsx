@@ -314,7 +314,7 @@ function DifficultySelectScreen(props: {
 }
 
 function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label: string; onClear?: () => void }) {
-  const borderColor = char ? "#6366f1" : "#374151";
+  const borderColor = char ? "var(--accent)" : "rgba(100,90,80,0.40)";
   const pct = char ? Math.max(0, Math.min(100, (char.currentHp / char.stats.maxHp) * 100)) : 0;
   const hpColor = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
 
@@ -542,22 +542,22 @@ function CharSelectScreen(props: {
                 gap: 8,
                 padding: "16px 20px",
                 borderRadius: 12,
-                border: "2px solid #6366f1",
-                background: "rgba(99,102,241,0.1)",
+                border: "2px solid var(--accent)",
+                background: "rgba(200,169,106,0.10)",
                 cursor: "pointer",
                 transition: "all 0.2s",
                 minWidth: 140,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(99,102,241,0.25)";
+                e.currentTarget.style.background = "rgba(200,169,106,0.25)";
                 e.currentTarget.style.transform = "scale(1.05)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(99,102,241,0.1)";
+                e.currentTarget.style.background = "rgba(200,169,106,0.10)";
                 e.currentTarget.style.transform = "scale(1)";
               }}
             >
-              <div style={{ color: "#c7d2fe", fontWeight: "bold", fontSize: 14 }}>
+              <div style={{ color: "var(--text-primary)", fontWeight: "bold", fontSize: 14 }}>
                 枠 {i + 1}
               </div>
               <div
@@ -565,7 +565,7 @@ function CharSelectScreen(props: {
                   width: 100,
                   height: 100,
                   borderRadius: 10,
-                  border: "2px solid #6366f1",
+                  border: "2px solid var(--accent)",
                   background: "#fff",
                   overflow: "hidden",
                 }}
@@ -1744,9 +1744,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
               zIndex: 3,
               padding: "16px 32px",
               borderRadius: 10,
-              border: "2px solid #6366f1",
-              background: "rgba(99,102,241,0.15)",
-              color: "#c7d2fe",
+              border: "2px solid var(--accent)",
+              background: "rgba(200,169,106,0.15)",
+              color: "var(--text-primary)",
               fontWeight: "bold",
               fontSize: 18,
               cursor: "pointer",
@@ -1809,9 +1809,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           style={{
             padding: "16px 32px",
             borderRadius: 10,
-            border: "2px solid #6366f1",
-            background: "rgba(99,102,241,0.15)",
-            color: "#c7d2fe",
+            border: "2px solid var(--accent)",
+            background: "rgba(200,169,106,0.15)",
+            color: "var(--text-primary)",
             fontWeight: "bold",
             fontSize: 18,
             cursor: "pointer",
