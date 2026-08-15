@@ -142,10 +142,11 @@ interface DamageFloater {
   type: "damage" | "hpRecover" | "ppRecover";
 }
 
-function NameHpBox({ player, align }: { player: PlayerBattleState; align: "left" | "right" }) {
+function NameHpBox({ player, align, title }: { player: PlayerBattleState; align: "left" | "right"; title?: string }) {
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   return (
     <div
+      title={title}
       style={{
         background: "rgba(0,0,0,0.55)",
         borderRadius: 10,
@@ -579,12 +580,14 @@ function ActionButtonsRow({
   selectedAction,
   onSelect,
   readOnly,
+  weakMagicButtonTitle,
 }: {
   actions: ActionType[];
   player: PlayerBattleState;
   selectedAction?: ActionType | null;
   onSelect?: (action: ActionType) => void;
   readOnly?: boolean;
+  weakMagicButtonTitle?: string;
 }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" }}>
@@ -595,6 +598,7 @@ function ActionButtonsRow({
         return (
           <button
             key={action}
+            title={action === "magicWeak" ? weakMagicButtonTitle : undefined}
             disabled={!!readOnly}
             onClick={() => {
               if (!canUse) {
@@ -664,6 +668,10 @@ export function BattlePanel(props: {
   showArenaBackground?: boolean;
   /** Optional background image URL to display on the header/portrait area (single-play use). Takes priority over showArenaBackground. */
   backgroundImageUrl?: string;
+  /** Optional tooltip shown for roguelike weak-magic pool info. */
+  roguelikeWeakMagicTooltipTitle?: string;
+  /** When true, keep battle-finished state but hide the built-in finish overlay. */
+  suppressFinishOverlay?: boolean;
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
@@ -984,7 +992,7 @@ export function BattlePanel(props: {
       )}
 
       {/* Finish overlay: YOU WIN / YOU LOSE */}
-      {isFinished && (
+      {isFinished && !props.suppressFinishOverlay && (
         <div
           style={{
             position: "absolute",
@@ -1208,8 +1216,8 @@ export function BattlePanel(props: {
 
         {/* Name / HP / PP boxes, colored by character type */}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
-          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" />
-          <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" />
+          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} />
+          <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" title={props.roguelikeWeakMagicTooltipTitle} />
         </div>
 
         {/* Portraits + timer */}
@@ -1368,6 +1376,7 @@ export function BattlePanel(props: {
                 <ActionButtonsRow
                   actions={availableActions}
                   player={props.me}
+                  weakMagicButtonTitle={props.roguelikeWeakMagicTooltipTitle}
                   selectedAction={selectedAction}
                   onSelect={(action) => {
                     setSelectedAction(action);
