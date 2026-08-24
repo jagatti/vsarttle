@@ -10,6 +10,8 @@ function setupThumbnailEnv(options: {
   hasDecode?: boolean;
   /** When true, every decode() call rejects (used to test compressFallback path) */
   alwaysDecodeReject?: boolean;
+  /** When true, getImageData always returns white pixels (simulates blank draw) */
+  blankDraw?: boolean;
 }) {
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
@@ -46,6 +48,9 @@ function setupThumbnailEnv(options: {
           canvasState.fillRectCalls.push([x, y, width, height]);
         },
         getImageData: () => {
+          if (options.blankDraw) {
+            return { data: new Uint8ClampedArray([255, 255, 255, 255]) };
+          }
           const alpha = options.allTransparent ? 0 : 255;
           return { data: new Uint8ClampedArray([0, 0, 0, alpha]) };
         },
@@ -222,6 +227,27 @@ test("compressFallback fills a white background before JPEG export", async () =>
     assert.deepEqual(fallbackCanvas.fillRectCalls, [[0, 0, 64, 64]]);
     assert.equal(fallbackCanvas.drawImageCalls, 1);
     assert.deepEqual(fallbackCanvas.toDataURLCalls, [{ type: "image/jpeg", quality: 0.3 }]);
+  } finally {
+    restore();
+  }
+});
+
+test("compressFallback: does not return blank JPEG when drawImage produces no visible content", async () => {
+  // blankDraw: true → getImageData returns all-white pixels → hasVisibleContent returns false
+  // allTransparent: true → renderThumbnail returns null → compressFallback is called
+  const source = "data:image/svg+xml;base64,abc";
+  const { restore } = setupThumbnailEnv({
+    renderDataUrl: `data:image/png;base64,${"a".repeat(1_300)}`,
+    fallbackDataUrl: `data:image/jpeg;base64,${"W".repeat(1_000)}`,
+    allTransparent: true,
+    blankDraw: true,
+  });
+  try {
+    const result = await createThumbnailFromImageSource(source);
+    // Must NOT be a JPEG (which would be the blank white canvas output)
+    assert.ok(!result.startsWith("data:image/jpeg"), `Expected non-JPEG fallback, got: ${result.slice(0, 80)}`);
+    // Must be a valid image data URL (either source or placeholder)
+    assert.ok(result.startsWith("data:image/"), `Expected valid data URL, got: ${result.slice(0, 80)}`);
   } finally {
     restore();
   }
