@@ -76,6 +76,30 @@ function isCanvasFullyTransparent(context: CanvasRenderingContext2D, size: numbe
 const PLACEHOLDER_THUMBNAIL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
+function hasVisibleContent(
+  context: CanvasRenderingContext2D,
+  size: number,
+  bg: [number, number, number],
+): boolean {
+  try {
+    const { data } = context.getImageData(0, 0, size, size);
+    const [bgR, bgG, bgB] = bg;
+    const threshold = 10;
+    for (let i = 0; i < data.length; i += 4) {
+      if (
+        Math.abs(data[i] - bgR) > threshold ||
+        Math.abs(data[i + 1] - bgG) > threshold ||
+        Math.abs(data[i + 2] - bgB) > threshold
+      ) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fallback thumbnail generator.
  * 1. Try to decode the source image with image.decode() and re-encode as a
@@ -96,6 +120,10 @@ async function compressFallback(source: string): Promise<string> {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, 64, 64);
       ctx.drawImage(img, 0, 0, 64, 64);
+      if (!hasVisibleContent(ctx, 64, [255, 255, 255])) {
+        console.error("compressFallback: drawn content appears blank");
+        throw new Error("blank_draw");
+      }
       const compressed = canvas.toDataURL("image/jpeg", 0.3);
       if (compressed.length <= MAX_THUMBNAIL_BYTES) return compressed;
     }
