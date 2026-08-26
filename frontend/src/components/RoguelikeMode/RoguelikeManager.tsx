@@ -45,6 +45,8 @@ const TURN_SECONDS = 30;
 const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
 const PLAYER_BATTLE_ID = "rl-player";
+const ROGUELIKE_PLAYER_DAMAGE_CAP = 999;
+const ROGUELIKE_ENEMY_DAMAGE_CAP = 499;
 
 type RlStage = "drawing" | "vs" | "battle" | "win" | "upgrade" | "result";
 
@@ -324,6 +326,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       actions: {
         [playerId]: playerAction,
         [enemyId]: cpuAction,
+      },
+      damageCaps: {
+        [playerId]: ROGUELIKE_PLAYER_DAMAGE_CAP,
+        [enemyId]: ROGUELIKE_ENEMY_DAMAGE_CAP,
       },
       weakMagicSelections: {
         [playerId]: { kinds: weakMagicPool },

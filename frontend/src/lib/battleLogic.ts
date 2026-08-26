@@ -125,6 +125,7 @@ export function resolveTurn(params: {
   players: Record<string, PlayerBattleState>;
   actions: Record<string, ActionType>;
   weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection>>;
+  damageCaps?: Partial<Record<string, number>>;
   rng?: () => number;
   /** When true, voidmination trigger is suppressed (e.g. single-play mode). */
   disableVoidmination?: boolean;
@@ -167,13 +168,15 @@ export function resolveTurn(params: {
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string, phaseHint?: "counter") => {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
+    const cap = params.damageCaps?.[to.id];
+    const cappedAmount = typeof cap === "number" ? Math.min(scaledAmount, Math.max(0, cap)) : scaledAmount;
     const voidActive = !!(left.voidminationActive || right.voidminationActive);
-    const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng, voidActive);
+    const actual = maybeAvoid(cappedAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
       damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, phaseHint });
     } else {
-      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: true, reason, phaseHint });
+      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: cappedAmount > 0, reason, phaseHint });
     }
     return actual;
   };

@@ -277,6 +277,75 @@ test("resolveTurn: barrier vs barrier logs simple attack reason", () => {
   assert.ok(result.damageEvents.every((event) => !event.phaseHint));
 });
 
+test("resolveTurn: damageCaps omitted keeps uncapped reflected damage behavior", () => {
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, defense: 999, pp: 999, maxPp: 999 };
+  boss.currentPp = 999;
+  const player = makePlayer("player");
+  const result = resolveTurn({
+    turn: 1,
+    players: { boss, player },
+    actions: { boss: "magicStrong", player: "barrier" },
+    rng: () => 0.99,
+  });
+  assert.equal(result.damageEvents[0]?.reason, "バリア反射");
+  assert.equal(result.damageEvents[0]?.amount, 1501);
+});
+
+test("resolveTurn: damageCaps clamps enemy damage to 499", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, attack: 3000 };
+  const enemy = makePlayer("enemy");
+  enemy.stats = { ...enemy.stats, hp: 999, maxHp: 999 };
+  enemy.currentHp = 999;
+  enemy.paralyzedNextTurn = true;
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, enemy },
+    actions: { player: "attack", enemy: "paralysis" },
+    damageCaps: { enemy: 499 },
+    rng: () => 0.99,
+  });
+  assert.equal(result.damageEvents[0]?.amount, 499);
+  assert.equal(result.nextStates.enemy.currentHp, 500);
+});
+
+test("resolveTurn: damageCaps clamps player damage to 999", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, hp: 2000, maxHp: 2000 };
+  player.currentHp = 2000;
+  player.paralyzedNextTurn = true;
+  const enemy = makePlayer("enemy");
+  enemy.stats = { ...enemy.stats, attack: 3000 };
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, enemy },
+    actions: { player: "paralysis", enemy: "attack" },
+    damageCaps: { player: 999 },
+    rng: () => 0.99,
+  });
+  assert.equal(result.damageEvents[0]?.amount, 999);
+  assert.equal(result.nextStates.player.currentHp, 1001);
+});
+
+test("resolveTurn: reflected limit-break boss self-damage is capped so 999 HP survives one hit", () => {
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, hp: 999, maxHp: 999, defense: 999, pp: 999, maxPp: 999 };
+  boss.currentHp = 999;
+  boss.currentPp = 999;
+  const player = makePlayer("player");
+  const result = resolveTurn({
+    turn: 1,
+    players: { boss, player },
+    actions: { boss: "magicStrong", player: "barrier" },
+    damageCaps: { boss: 499, player: 999 },
+    rng: () => 0.99,
+  });
+  assert.equal(result.damageEvents[0]?.reason, "バリア反射");
+  assert.equal(result.damageEvents[0]?.amount, 499);
+  assert.equal(result.nextStates.boss.currentHp, 500);
+});
+
 test("resolveTurn: chargeMultiplier resets after the turn following charge (turn-based reset)", () => {
   const a = makePlayer("a");
   const b = makePlayer("b");
