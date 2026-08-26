@@ -11,7 +11,7 @@ import { submitMatchRecord } from "@/lib/profileApi";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { soundManager } from "@/lib/soundManager";
 import { getRoguelikeStageBgm } from "@/lib/vsTransition";
-import { LIMIT_BREAK_BGM_PATH } from "@/lib/singlePlayLimitBreak";
+import { LIMIT_BREAK_BGM_PATH, LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS, getSinglePlayLimitBreakStatusLines, getSinglePlayLimitBreakDisplayDurationMs } from "@/lib/singlePlayLimitBreak";
 import {
   ROGUELIKE_PLAYER_INITIAL_STATS,
   ROGUELIKE_TOTAL_FLOORS,
@@ -114,6 +114,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [roguelikeLimitBreaking, setRoguelikeLimitBreaking] = useState(false);
   const [roguelikeBossSpeechBubble, setRoguelikeBossSpeechBubble] = useState(false);
   const [roguelikeTransitionBossUrl, setRoguelikeTransitionBossUrl] = useState<string | null>(null);
+  const [roguelikeLimitBreakStatusLines, setRoguelikeLimitBreakStatusLines] = useState<string[]>([]);
+  const [visibleRoguelikeLimitBreakStatCount, setVisibleRoguelikeLimitBreakStatCount] = useState(0);
 
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
   const turnRef = useRef(1);
@@ -187,6 +189,24 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     }
     soundManager.stopBgm();
   }, [currentEnemyState?.limitBreakActive, floor, rlStage]);
+
+  // Reveal limit-break status lines one by one (mirrors SinglePlay behaviour).
+  useEffect(() => {
+    if (!roguelikeLimitBreaking) {
+      setVisibleRoguelikeLimitBreakStatCount(0);
+      return;
+    }
+    if (roguelikeLimitBreakStatusLines.length === 0) return;
+    setVisibleRoguelikeLimitBreakStatCount(1);
+    const revealTimers = roguelikeLimitBreakStatusLines.slice(1).map((_, index) =>
+      window.setTimeout(() => {
+        setVisibleRoguelikeLimitBreakStatCount(index + 2);
+      }, (index + 1) * LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS),
+    );
+    return () => {
+      revealTimers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [roguelikeLimitBreaking, roguelikeLimitBreakStatusLines]);
 
   const startCountdown = useCallback((seconds: number = TURN_SECONDS) => {
     if (countdownIntervalRef.current !== null) {
@@ -339,6 +359,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         [enemyId]: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
       },
       disableVoidmination: true,
+      ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
     });
 
     battleStateRef.current = result.nextStates;
@@ -481,33 +502,38 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     }
 
     if (nextFloor === 20) {
-      // 19→20: show リミットブレイク overlay, then speech bubble, then heal and start floor 20
+      // 19→20: show limit-break stat-reveal overlay (same as SinglePlay), then
+      // transition to the battle panel where the speech bubble is overlaid.
       const boss20 = buildRoguelikeBossState(20);
+      const statusLines = getSinglePlayLimitBreakStatusLines(boss20);
+      setRoguelikeLimitBreakStatusLines(statusLines);
       setRoguelikeTransitionBossUrl(boss20.imageDataUrl);
       setRoguelikeLimitBreaking(true);
+      const totalDuration = getSinglePlayLimitBreakDisplayDurationMs(statusLines.length);
       transitionTimerRef.current = window.setTimeout(() => {
         setRoguelikeLimitBreaking(false);
+        // Set up the battle state so BattlePanel renders behind the speech bubble.
+        const healedPlayer = healPlayerFully(currentPlayer);
+        const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [boss20.id]: boss20 };
+        enemyBattleIdRef.current = boss20.id;
+        battleStateRef.current = nextBattle;
+        setBattleState(nextBattle);
+        setBattleFinish(null);
+        setTurnResult(null);
+        setTurn(1);
+        turnRef.current = 1;
+        setFloor(20);
+        floorRef.current = 20;
+        pendingActionRef.current = null;
+        setRlStage("battle");
         setRoguelikeBossSpeechBubble(true);
         transitionTimerRef.current = window.setTimeout(() => {
           setRoguelikeBossSpeechBubble(false);
           setRoguelikeTransitionBossUrl(null);
-          const healedPlayer = healPlayerFully(currentPlayer);
-          const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [boss20.id]: boss20 };
-          enemyBattleIdRef.current = boss20.id;
-          battleStateRef.current = nextBattle;
-          setBattleState(nextBattle);
-          setBattleFinish(null);
-          setTurnResult(null);
-          setTurn(1);
-          turnRef.current = 1;
-          setFloor(20);
-          floorRef.current = 20;
-          pendingActionRef.current = null;
-          setRlStage("battle");
           startCountdown(TURN_SECONDS);
           scheduleAutoAction(1, nextBattle, PLAYER_BATTLE_ID, boss20.id);
-        }, 2500);
-      }, 2500);
+        }, 3000);
+      }, totalDuration);
       return;
     }
 
@@ -721,24 +747,6 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
           ステータスが激変した
         </div>
-      </div>
-    );
-  }
-
-  // ── Boss speech bubble overlay (20層登場) ────────────────────────────────────
-  if (roguelikeBossSpeechBubble) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "70vh",
-          gap: 16,
-          background: "rgba(80,0,0,0.5)",
-        }}
-      >
         {roguelikeTransitionBossUrl && (
           <div
             style={{
@@ -746,7 +754,6 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
               width: 240,
               height: 240,
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -759,7 +766,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                 background:
                   "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
                 backgroundSize: "300% 300%",
-                animation: "rainbowShift 0.7s linear infinite",
+                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
                 filter: "blur(18px)",
                 opacity: 0.95,
               }}
@@ -772,7 +779,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                 background:
                   "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
                 backgroundSize: "300% 300%",
-                animation: "rainbowShift 0.7s linear infinite",
+                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
                 boxShadow: "0 0 36px rgba(255,255,255,0.35)",
               }}
             />
@@ -792,8 +799,36 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             />
           </div>
         )}
-        <div style={{ marginTop: 8 }}>
-          <BossSpeechBubble text="正々堂々闘おう" />
+        <div
+          style={{
+            color: "#fca5a5",
+            fontSize: 15,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            textAlign: "center",
+            border: "2px solid #ef4444",
+            borderRadius: 10,
+            padding: "12px 24px",
+            background: "rgba(0,0,0,0.5)",
+          }}
+        >
+          {roguelikeLimitBreakStatusLines.map((line, index) => {
+            const isVisible = index < visibleRoguelikeLimitBreakStatCount;
+            return (
+              <div
+                key={line}
+                style={{
+                  opacity: isVisible ? 1 : 0,
+                  transform: isVisible ? "translateY(0)" : "translateY(8px)",
+                  transition: "opacity 500ms ease, transform 500ms ease",
+                  minHeight: 22,
+                }}
+              >
+                {isVisible ? line : "\u00a0"}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -958,6 +993,18 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           suppressFinishOverlay={isOverlayVisible}
           roguelikeWeakMagicTooltipTitle={weakMagicTooltip}
         />
+        {roguelikeBossSpeechBubble && (
+          <div
+            style={{
+              position: "fixed",
+              bottom: "25%",
+              right: "8%",
+              zIndex: 60,
+            }}
+          >
+            <BossSpeechBubble text="正々堂々闘おう" />
+          </div>
+        )}
         {isOverlayVisible && (
           <div
             style={{

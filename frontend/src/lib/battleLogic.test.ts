@@ -462,3 +462,125 @@ test("voidmination: case-insensitive EVA0 match (eva0 triggers)", () => {
   });
   assert.equal(result.voidminationTriggered, true);
 });
+
+// ── damageCaps ────────────────────────────────────────────────────────────────
+
+test("damageCaps: clamps damage dealt to the capped target", () => {
+  // Player (a) uses magicStrong against enemy (b) which uses attack.
+  // With maxPp=999 and no charge, magic cost = ceil(999*0.4)=400,
+  // raw damage = 400*5 - 0/2 = 2000. Capped to 499.
+  const a = makePlayer("a");
+  a.stats = { ...a.stats, maxPp: 999, pp: 999 };
+  a.currentPp = 999;
+  const b = makePlayer("b");
+  b.stats = { ...b.stats, maxHp: 9999, defense: 0 };
+  b.currentHp = 9999;
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicStrong", b: "attack" },
+    rng: () => 0.99,
+    damageCaps: { b: 499 },
+  });
+  const dmgEvent = result.damageEvents.find((e) => e.to === "b" && !e.avoided);
+  assert.ok(dmgEvent, "damage event should exist");
+  assert.equal(dmgEvent!.amount, 499, "damage to b should be capped at 499");
+  assert.ok(result.nextStates.b.currentHp > 0, "b should survive");
+});
+
+test("damageCaps: without cap, same setup deals uncapped damage", () => {
+  const a = makePlayer("a");
+  a.stats = { ...a.stats, maxPp: 999, pp: 999 };
+  a.currentPp = 999;
+  const b = makePlayer("b");
+  b.stats = { ...b.stats, maxHp: 9999, defense: 0 };
+  b.currentHp = 9999;
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicStrong", b: "attack" },
+    rng: () => 0.99,
+  });
+  const dmgEvent = result.damageEvents.find((e) => e.to === "b" && !e.avoided);
+  assert.ok(dmgEvent && dmgEvent.amount > 499, "uncapped damage should exceed 499");
+});
+
+test("damageCaps: barrier reflection with cap – player survives (floor-20 scenario)", () => {
+  // Simulates: player (pp=999, defense=999) uses magicStrong; boss uses barrier.
+  // reflectionDamage = Math.round(ceil(999*0.4)*5*1 - 999/2) = Math.round(2000 - 499.5) = 1501
+  // scaledAmount (turn=1, multiplier=1) = 1501. Capped to 999 → player survives with hp > 0.
+  // Player needs maxHp > 999 to survive the capped 999 damage.
+  const player = makePlayer("player");
+  player.stats = {
+    ...player.stats,
+    maxHp: 2000,
+    hp: 2000,
+    maxPp: 999,
+    pp: 999,
+    defense: 999,
+  };
+  player.currentHp = 2000;
+  player.currentPp = 999;
+
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 9999, defense: 999 };
+  boss.currentHp = 9999;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "magicStrong", boss: "barrier" },
+    rng: () => 0.99,
+    damageCaps: { player: 999, boss: 499 },
+  });
+
+  const reflectEvent = result.damageEvents.find((e) => e.to === "player" && e.reason === "バリア反射" && !e.avoided);
+  assert.ok(reflectEvent, "reflection damage event should exist");
+  assert.equal(reflectEvent!.amount, 999, "reflected damage must be capped at 999");
+  assert.ok(result.nextStates.player.currentHp > 0, "player must not be defeated in one hit");
+});
+
+test("damageCaps: without cap, floor-20 reflection would one-shot the player", () => {
+  // Verify the cap is actually needed: uncapped reflection exceeds player HP.
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, maxHp: 999, hp: 999, maxPp: 999, pp: 999, defense: 999 };
+  player.currentHp = 999;
+  player.currentPp = 999;
+
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 9999, defense: 999 };
+  boss.currentHp = 9999;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "magicStrong", boss: "barrier" },
+    rng: () => 0.99,
+    // no damageCaps
+  });
+
+  const reflectEvent = result.damageEvents.find((e) => e.to === "player" && e.reason === "バリア反射" && !e.avoided);
+  assert.ok(reflectEvent && reflectEvent.amount > 999, "uncapped reflection damage should exceed player HP");
+  assert.equal(result.nextStates.player.currentHp, 0, "player is one-shot without cap");
+});
+
+test("damageCaps: damage events record the capped (applied) value", () => {
+  const a = makePlayer("a");
+  a.stats = { ...a.stats, maxPp: 100, pp: 100 };
+  a.currentPp = 100;
+  const b = makePlayer("b");
+  b.stats = { ...b.stats, maxHp: 9999, defense: 0 };
+  b.currentHp = 9999;
+  // magicCost(magicStrong) = ceil(100*0.4)=40; raw = 40*5-0=200. Cap = 50.
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "magicStrong", b: "attack" },
+    rng: () => 0.99,
+    damageCaps: { b: 50 },
+  });
+  const dmgEvent = result.damageEvents.find((e) => e.to === "b" && !e.avoided);
+  assert.ok(dmgEvent, "damage event should exist");
+  assert.equal(dmgEvent!.amount, 50, "damage event amount should reflect the capped value");
+  assert.equal(result.nextStates.b.currentHp, 9999 - 50, "HP should reflect capped damage");
+});

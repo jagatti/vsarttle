@@ -128,6 +128,12 @@ export function resolveTurn(params: {
   rng?: () => number;
   /** When true, voidmination trigger is suppressed (e.g. single-play mode). */
   disableVoidmination?: boolean;
+  /**
+   * Optional per-character damage caps. When specified, the damage dealt to a
+   * character is clamped to the given value before being applied to their HP.
+   * Existing callers that do not pass this argument are unaffected.
+   */
+  damageCaps?: Record<string, number>;
 }): TurnResult {
   const rng = params.rng ?? Math.random;
   const ids = Object.keys(params.players);
@@ -167,8 +173,10 @@ export function resolveTurn(params: {
 
   const applyDamage = (from: PlayerBattleState, to: PlayerBattleState, amount: number, reason: string, phaseHint?: "counter") => {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
+    const cap = params.damageCaps?.[to.id];
+    const cappedAmount = cap !== undefined ? Math.min(scaledAmount, cap) : scaledAmount;
     const voidActive = !!(left.voidminationActive || right.voidminationActive);
-    const actual = maybeAvoid(scaledAmount, to.stats.evasion, rng, voidActive);
+    const actual = maybeAvoid(cappedAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
       damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, phaseHint });
