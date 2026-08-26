@@ -24,6 +24,8 @@ import {
   type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
+import { healPlayerFully } from "@/lib/roguelikeTransition";
+import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   buildWeakMagicTooltip,
@@ -108,6 +110,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [runResult, setRunResult] = useState<RunResultSummary | null>(null);
   const [preparingFloor, setPreparingFloor] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [roguelikeBossTransforming, setRoguelikeBossTransforming] = useState(false);
+  const [roguelikeLimitBreaking, setRoguelikeLimitBreaking] = useState(false);
+  const [roguelikeBossSpeechBubble, setRoguelikeBossSpeechBubble] = useState(false);
+  const [roguelikeTransitionBossUrl, setRoguelikeTransitionBossUrl] = useState<string | null>(null);
 
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
   const turnRef = useRef(1);
@@ -118,6 +124,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const turnTimerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const postTurnTimerRef = useRef<number | null>(null);
+  const transitionTimerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<ActionType | null>(null);
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
   const enemyBattleIdRef = useRef<string | null>(null);
@@ -158,9 +165,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     turnTimerRef.current = null;
     countdownIntervalRef.current = null;
     postTurnTimerRef.current = null;
+    transitionTimerRef.current = null;
   }, []);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
@@ -445,6 +454,64 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState) {
     clearTimers();
+
+    if (nextFloor === 19) {
+      // 18→19: show 変身 overlay, then heal player and start floor 19
+      setRoguelikeBossTransforming(true);
+      transitionTimerRef.current = window.setTimeout(() => {
+        setRoguelikeBossTransforming(false);
+        const healedPlayer = healPlayerFully(currentPlayer);
+        const nextEnemy = buildRoguelikeBossState(19);
+        const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [nextEnemy.id]: nextEnemy };
+        enemyBattleIdRef.current = nextEnemy.id;
+        battleStateRef.current = nextBattle;
+        setBattleState(nextBattle);
+        setBattleFinish(null);
+        setTurnResult(null);
+        setTurn(1);
+        turnRef.current = 1;
+        setFloor(19);
+        floorRef.current = 19;
+        pendingActionRef.current = null;
+        setRlStage("battle");
+        startCountdown(TURN_SECONDS);
+        scheduleAutoAction(1, nextBattle, PLAYER_BATTLE_ID, nextEnemy.id);
+      }, 2500);
+      return;
+    }
+
+    if (nextFloor === 20) {
+      // 19→20: show リミットブレイク overlay, then speech bubble, then heal and start floor 20
+      const boss20 = buildRoguelikeBossState(20);
+      setRoguelikeTransitionBossUrl(boss20.imageDataUrl);
+      setRoguelikeLimitBreaking(true);
+      transitionTimerRef.current = window.setTimeout(() => {
+        setRoguelikeLimitBreaking(false);
+        setRoguelikeBossSpeechBubble(true);
+        transitionTimerRef.current = window.setTimeout(() => {
+          setRoguelikeBossSpeechBubble(false);
+          setRoguelikeTransitionBossUrl(null);
+          const healedPlayer = healPlayerFully(currentPlayer);
+          const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [boss20.id]: boss20 };
+          enemyBattleIdRef.current = boss20.id;
+          battleStateRef.current = nextBattle;
+          setBattleState(nextBattle);
+          setBattleFinish(null);
+          setTurnResult(null);
+          setTurn(1);
+          turnRef.current = 1;
+          setFloor(20);
+          floorRef.current = 20;
+          pendingActionRef.current = null;
+          setRlStage("battle");
+          startCountdown(TURN_SECONDS);
+          scheduleAutoAction(1, nextBattle, PLAYER_BATTLE_ID, boss20.id);
+        }, 2500);
+      }, 2500);
+      return;
+    }
+
+    // Generic seamless transition (currently unused, kept as fallback)
     const nextEnemy = buildRoguelikeBossState(nextFloor);
     const cleanedPlayer: PlayerBattleState = {
       ...currentPlayer,
@@ -584,6 +651,153 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     fontSize: "clamp(13px, 1.1vw, 16px)",
     cursor: "pointer",
   };
+
+  // ── Boss transformation overlay (18→19) ────────────────────────────────────
+  if (roguelikeBossTransforming) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "70vh",
+          gap: 24,
+        }}
+      >
+        <div
+          style={{
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: "900",
+            background:
+              "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
+            backgroundSize: "300% 100%",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            animation: "rainbowShift 0.5s linear infinite",
+          }}
+        >
+          ✨ 変身 ✨
+        </div>
+        <div style={{ color: "#fde68a", fontSize: 18, fontWeight: "bold" }}>
+          ボスの姿が変化していく…
+        </div>
+      </div>
+    );
+  }
+
+  // ── Limit break overlay (19→20) ─────────────────────────────────────────────
+  if (roguelikeLimitBreaking) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "70vh",
+          gap: 24,
+          background: "rgba(80,0,0,0.5)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: "900",
+            color: "#ff2222",
+            textShadow: "0 0 16px #ff0000, 0 0 32px #ff6600",
+            animation: "rainbowShift 0.3s linear infinite",
+            background:
+              "linear-gradient(90deg, #f00, #f80, #f00, #f80, #f00)",
+            backgroundSize: "300% 100%",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          💥 リミットブレイク 💥
+        </div>
+        <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
+          ステータスが激変した
+        </div>
+      </div>
+    );
+  }
+
+  // ── Boss speech bubble overlay (20層登場) ────────────────────────────────────
+  if (roguelikeBossSpeechBubble) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "70vh",
+          gap: 16,
+          background: "rgba(80,0,0,0.5)",
+        }}
+      >
+        {roguelikeTransitionBossUrl && (
+          <div
+            style={{
+              position: "relative",
+              width: 240,
+              height: 240,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: -16,
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
+                backgroundSize: "300% 300%",
+                animation: "rainbowShift 0.7s linear infinite",
+                filter: "blur(18px)",
+                opacity: 0.95,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: -4,
+                borderRadius: 28,
+                background:
+                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
+                backgroundSize: "300% 300%",
+                animation: "rainbowShift 0.7s linear infinite",
+                boxShadow: "0 0 36px rgba(255,255,255,0.35)",
+              }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={roguelikeTransitionBossUrl}
+              alt="第20層のボス"
+              style={{
+                position: "relative",
+                width: 220,
+                height: 220,
+                objectFit: "contain",
+                borderRadius: 24,
+                background: "rgba(0,0,0,0.35)",
+                boxShadow: "0 0 30px rgba(255,255,255,0.25)",
+              }}
+            />
+          </div>
+        )}
+        <div style={{ marginTop: 8 }}>
+          <BossSpeechBubble text="正々堂々闘おう" />
+        </div>
+      </div>
+    );
+  }
 
   if (preparingFloor) {
     return (
