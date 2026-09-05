@@ -32,6 +32,13 @@ import {
   pickRoguelikeWeakFloorUpgradeSlots,
   type RoguelikeUpgradeRarity,
 } from "@/lib/roguelikeUpgrades";
+import {
+  ROGUELIKE_DEBUG_DEFAULT_CONFIG,
+  ROGUELIKE_DEBUG_WEAK_MAGIC_OPTIONS,
+  buildRoguelikeDebugRunInit,
+  isRoguelikeDebugQueryEnabled,
+  type RoguelikeDebugConfig,
+} from "@/lib/roguelikeDebug";
 import type {
   ActionType,
   CharacterStats,
@@ -48,7 +55,7 @@ const PARALYSIS_TURN_SECONDS = 3;
 const POST_TURN_DELAY_MS = 4200;
 const PLAYER_BATTLE_ID = "rl-player";
 
-type RlStage = "drawing" | "vs" | "battle" | "win" | "upgrade" | "result";
+type RlStage = "drawing" | "debug-setup" | "vs" | "battle" | "win" | "upgrade" | "result";
 
 type UpgradeChoice =
   | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
@@ -116,6 +123,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [roguelikeTransitionBossUrl, setRoguelikeTransitionBossUrl] = useState<string | null>(null);
   const [roguelikeLimitBreakStatusLines, setRoguelikeLimitBreakStatusLines] = useState<string[]>([]);
   const [visibleRoguelikeLimitBreakStatCount, setVisibleRoguelikeLimitBreakStatCount] = useState(0);
+  const [rlDebugEnabled, setRlDebugEnabled] = useState(false);
+  const [debugConfig, setDebugConfig] = useState<RoguelikeDebugConfig>(ROGUELIKE_DEBUG_DEFAULT_CONFIG);
 
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
   const turnRef = useRef(1);
@@ -134,6 +143,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const submittedMatchRef = useRef(false);
   const retryActionRef = useRef<(() => void) | null>(null);
   const acquiredWeakMagicKindsRef = useRef<WeakMagicEffectKind[]>([]);
+  const isDebugRunRef = useRef(false);
+
+  useEffect(() => {
+    setRlDebugEnabled(isRoguelikeDebugQueryEnabled(window.location.search));
+  }, []);
 
   useEffect(() => {
     battleStateRef.current = battleState;
@@ -177,7 +191,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   useEffect(() => () => clearTimers(), [clearTimers]);
 
   useEffect(() => {
-    const bgmStage = rlStage === "vs" ? null : rlStage;
+    const bgmStage = rlStage === "vs" || rlStage === "debug-setup" ? null : rlStage;
     const bgm = currentEnemyState?.limitBreakActive
       ? LIMIT_BREAK_BGM_PATH
       : bgmStage
@@ -584,6 +598,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       return;
     }
     soundManager.playSe("/sounds/se/button.mp3");
+    isDebugRunRef.current = false;
     submittedMatchRef.current = false;
     setRunResult(null);
     setAcquiredWeakMagicKinds([]);
@@ -592,6 +607,28 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     playerStatsRef.current = ROGUELIKE_PLAYER_INITIAL_STATS;
     void prepareFloor(1, ROGUELIKE_PLAYER_INITIAL_STATS);
   }
+
+  // Hidden dev-only entry point (see ROGUELIKE_DEBUG_QUERY_PARAM): skips the drawing part
+  // entirely and jumps straight into a battle with the chosen floor/stats/weak-magic kinds.
+  // The resulting run behaves exactly like a normal run from that point on, except its
+  // result is never submitted to the match record (see submitMatchRecord effect below).
+  function handleDebugStart() {
+    soundManager.playSe("/sounds/se/button.mp3");
+    const init = buildRoguelikeDebugRunInit(debugConfig);
+    isDebugRunRef.current = true;
+    submittedMatchRef.current = false;
+    setRunResult(null);
+    setAcquiredWeakMagicKinds(init.acquiredWeakMagicKinds);
+    acquiredWeakMagicKindsRef.current = init.acquiredWeakMagicKinds;
+    setPlayerCharacterType(init.playerCharacterType);
+    playerCharacterTypeRef.current = init.playerCharacterType;
+    setPlayerDrawingDataUrl(init.playerDrawingDataUrl);
+    playerDrawingRef.current = init.playerDrawingDataUrl;
+    setPlayerStats(init.playerStats);
+    playerStatsRef.current = init.playerStats;
+    void prepareFloor(init.floor, init.playerStats);
+  }
+
 
   function handleActionSelect(action: ActionType) {
     if (pendingActionRef.current) return;
@@ -625,6 +662,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   useEffect(() => {
     if (!runResult || submittedMatchRef.current) return;
     submittedMatchRef.current = true;
+    // Debug-started runs are intentionally excluded from match records/profile stats.
+    if (isDebugRunRef.current) return;
 
     void (async () => {
       try {
@@ -949,8 +988,136 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           >
             タイトルへ戻る
           </button>
+          {rlDebugEnabled ? (
+            <button
+              onClick={() => {
+                soundManager.playSe("/sounds/se/button.mp3");
+                setRlStage("debug-setup");
+              }}
+              style={{
+                padding: "4px 8px",
+                borderRadius: 6,
+                border: "1px solid #4b5563",
+                background: "transparent",
+                color: "#6b7280",
+                fontSize: 10,
+                fontWeight: "normal",
+                cursor: "pointer",
+                opacity: 0.6,
+              }}
+            >
+              デバッグ開始
+            </button>
+          ) : null}
         </div>
       </div>
+    );
+  }
+
+  if (rlStage === "debug-setup") {
+    const statFieldStyle: CSSProperties = {
+      width: "100%",
+      padding: "6px 8px",
+      borderRadius: 6,
+      border: "1px solid #4b5563",
+      background: "rgba(0,0,0,0.35)",
+      color: "#e5e7eb",
+    };
+    const statFields: { key: keyof RoguelikeDebugConfig; label: string; max?: number }[] = [
+      { key: "hp", label: "HP" },
+      { key: "pp", label: "PP" },
+      { key: "attack", label: "攻撃" },
+      { key: "defense", label: "防御" },
+      { key: "speed", label: "速度" },
+      { key: "evasionPercent", label: "回避(%)", max: 95 },
+    ];
+    return (
+      <section className="rounded-lg border border-slate-500/40 bg-slate-900/60 p-6 text-slate-100">
+        <div className="text-sm text-slate-300">開発者用デバッグ開始（お絵描きをスキップ）</div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#d1d5db" }}>開始する層 (1〜{ROGUELIKE_TOTAL_FLOORS})</label>
+            <input
+              type="number"
+              min={1}
+              max={ROGUELIKE_TOTAL_FLOORS}
+              value={debugConfig.floor}
+              onChange={(e) => setDebugConfig((prev) => ({ ...prev, floor: Number(e.target.value) }))}
+              style={statFieldStyle}
+            />
+          </div>
+          {statFields.map((field) => (
+            <div key={field.key}>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#d1d5db" }}>{field.label}</label>
+              <input
+                type="number"
+                min={0}
+                max={field.max}
+                value={debugConfig[field.key] as number}
+                onChange={(e) =>
+                  setDebugConfig((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))
+                }
+                style={statFieldStyle}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6">
+          <div style={{ fontSize: 13, color: "#d1d5db", marginBottom: 8 }}>習得済み弱まほう効果</div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            {ROGUELIKE_DEBUG_WEAK_MAGIC_OPTIONS.map((option) => (
+              <label key={option.kind} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
+                <input
+                  type="checkbox"
+                  checked={debugConfig.acquiredWeakMagicKinds.includes(option.kind)}
+                  onChange={(e) => {
+                    setDebugConfig((prev) => ({
+                      ...prev,
+                      acquiredWeakMagicKinds: e.target.checked
+                        ? [...prev.acquiredWeakMagicKinds, option.kind]
+                        : prev.acquiredWeakMagicKinds.filter((kind) => kind !== option.kind),
+                    }));
+                  }}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={handleDebugStart}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "2px solid #22c55e",
+              background: "rgba(6,60,20,0.9)",
+              color: "#86efac",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            この設定で開始
+          </button>
+          <button
+            onClick={() => {
+              soundManager.playSe("/sounds/se/button.mp3");
+              setRlStage("drawing");
+            }}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "2px solid #6b7280",
+              background: "rgba(30,30,30,0.9)",
+              color: "#d1d5db",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            戻る
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -1143,6 +1310,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
               recentOwnerIdsRef.current = [];
               pendingActionRef.current = null;
               submittedMatchRef.current = false;
+              isDebugRunRef.current = false;
             }}
             style={{
               ...finishButtonStyle,
