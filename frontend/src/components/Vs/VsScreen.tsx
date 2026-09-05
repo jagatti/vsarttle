@@ -112,7 +112,7 @@ function VsPortrait({ player, side }: { player: PlayerBattleState; side: "left" 
             maxHeight: "min(46vw, 420px)",
             objectFit: "contain",
             filter:
-              "drop-shadow(0 12px 24px rgba(0,0,0,0.5)) drop-shadow(0 0 18px rgba(255,255,255,0.18))",
+              "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95)) drop-shadow(0 12px 24px rgba(0,0,0,0.5))",
           }}
         />
       </div>

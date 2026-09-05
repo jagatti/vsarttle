@@ -10,6 +10,17 @@
   --text-primary: #e5e7eb;
   --text-muted: #9ca3af;
   --accent: #818cf8;
+  /* ラクガキ（手描き）トーン: ノート/マーカー/クレヨンの色。
+     ゲーム全体の「ラクガキなのに戦う」トーンを支える共通トークン。 */
+  --ink: #14161f;
+  --ink-soft: rgba(20, 22, 31, 0.55);
+  --paper: #f5efe2;
+  --marker-red: #ff5a5a;
+  --marker-blue: #4aa8ff;
+  --marker-yellow: #ffd23f;
+  --marker-green: #4ade80;
+  --font-doodle: "Hiragino Maru Gothic ProN", "Yu Gothic", "YuGothic", "Zen Maru Gothic",
+    "Rounded Mplus 1c", "Segoe UI", system-ui, sans-serif;
 }
 
 html {
@@ -20,7 +31,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-doodle);
   /* Unified dark background: a deep navy/indigo radial glow over a near-black
      base, plus a very subtle diagonal hairline pattern so large empty areas
      don't look flat/cheap. This replaces the plain light-gray page background
@@ -409,4 +420,191 @@ input {
   font-size: clamp(11px, 1.2vw, 14px);
   font-weight: 700;
   margin-bottom: 4px;
+}
+
+/* ============================================================
+   ラクガキ（doodle）デザインシステム
+   「手描き感 × ポップ × ゲームらしい気持ちよさ」を担当する共通パーツ。
+   UIが主役にならないよう、装飾は線・紙・マーカーの質感に限定する。
+   ============================================================ */
+
+/* 手描きの枠。四隅の角丸を不揃いにしてフリーハンドの線に見せる。 */
+.doodle-frame {
+  border-radius: 255px 14px 225px 15px / 15px 225px 15px 255px;
+}
+
+.doodle-frame-alt {
+  border-radius: 14px 235px 18px 225px / 225px 15px 240px 15px;
+}
+
+/* 手描き風ボタン: 少し傾き、ホバーでぷるっと揺れ、押すと沈む。 */
+.doodle-btn {
+  position: relative;
+  font-family: var(--font-doodle);
+  font-weight: 800;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 255px 14px 225px 15px / 15px 225px 15px 255px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  transform: rotate(var(--doodle-tilt, -0.6deg));
+}
+
+.doodle-btn:hover:not(:disabled) {
+  animation: doodleWobble 0.5s ease-in-out infinite;
+  filter: brightness(1.12);
+}
+
+.doodle-btn:active:not(:disabled) {
+  transform: translateY(3px) rotate(var(--doodle-tilt, -0.6deg)) scale(0.98);
+}
+
+/* ステッカー風の文字（縁取り）。ダメージ数値・見出しなどに使用。 */
+.sticker-text {
+  paint-order: stroke fill;
+  -webkit-text-stroke: 4px var(--ink);
+  text-shadow: 0 3px 0 var(--ink);
+}
+
+@keyframes doodleWobble {
+  0%, 100% { transform: rotate(calc(var(--doodle-tilt, -0.6deg) - 1.2deg)) scale(1.03); }
+  50% { transform: rotate(calc(var(--doodle-tilt, -0.6deg) + 1.2deg)) scale(1.03); }
+}
+
+/* ラクガキが戦場でふわふわ待機している感じ（アイドルモーション） */
+@keyframes doodleIdleFloat {
+  0%, 100% { transform: translateY(0) rotate(-0.8deg); }
+  50% { transform: translateY(-7px) rotate(0.8deg); }
+}
+
+@keyframes doodleIdleFloatRight {
+  0%, 100% { transform: translateY(0) rotate(0.8deg); }
+  50% { transform: translateY(-7px) rotate(-0.8deg); }
+}
+
+/* 接地影: 浮遊に合わせて伸縮し「そこに立っている」感を出す */
+@keyframes groundShadowBreath {
+  0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.5; }
+  50% { transform: translateX(-50%) scaleX(0.86); opacity: 0.32; }
+}
+
+/* ダメージ数値のポップ（ドンッと出て、跳ねて消える） */
+@keyframes damageStickerPop {
+  0% { transform: translateX(-50%) scale(0.2) rotate(-14deg); opacity: 0; }
+  22% { transform: translateX(-50%) scale(1.35) rotate(6deg); opacity: 1; }
+  38% { transform: translateX(-50%) scale(1) rotate(-3deg); }
+  70% { transform: translateX(-50%) translateY(-26px) scale(1) rotate(-3deg); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-64px) scale(0.9) rotate(-3deg); opacity: 0; }
+}
+
+/* コミック風のヒットバースト（ギザギザの爆発） */
+@keyframes comicBurstPop {
+  0% { transform: translate(-50%, -50%) scale(0.2) rotate(-18deg); opacity: 0; }
+  25% { transform: translate(-50%, -50%) scale(1.15) rotate(6deg); opacity: 1; }
+  60% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.25) rotate(4deg); opacity: 0; }
+}
+
+.comic-burst {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  z-index: 9;
+  width: clamp(78px, 11vw, 132px);
+  aspect-ratio: 1;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  clip-path: polygon(
+    50% 0%, 60% 22%, 82% 12%, 76% 34%, 100% 42%, 79% 55%,
+    94% 76%, 69% 72%, 68% 96%, 50% 80%, 32% 96%, 31% 72%,
+    6% 76%, 21% 55%, 0% 42%, 24% 34%, 18% 12%, 40% 22%
+  );
+  background: radial-gradient(circle at 50% 45%, #fff 0%, var(--marker-yellow) 45%, #ff8f3f 100%);
+  animation: comicBurstPop 0.42s ease-out forwards;
+}
+
+.comic-burst-charged {
+  background: radial-gradient(circle at 50% 45%, #fff 0%, #ff9f4a 40%, var(--marker-red) 100%);
+  width: clamp(96px, 13vw, 158px);
+}
+
+.comic-burst span {
+  font-family: var(--font-doodle);
+  font-weight: 900;
+  font-size: clamp(13px, 1.5vw, 20px);
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  transform: rotate(-8deg);
+}
+
+/* ノックバック: 被弾側のラクガキが押し戻される */
+@keyframes doodleKnockbackLeft {
+  0% { transform: translateX(0) rotate(0deg); }
+  30% { transform: translateX(-16px) rotate(-7deg); }
+  60% { transform: translateX(6px) rotate(3deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+@keyframes doodleKnockbackRight {
+  0% { transform: translateX(0) rotate(0deg); }
+  30% { transform: translateX(16px) rotate(7deg); }
+  60% { transform: translateX(-6px) rotate(-3deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+/* 行動公開バナー（何を選んで、なぜダメージが入ったのかを見せる） */
+@keyframes matchupBannerSlam {
+  0% { transform: translate(-50%, -50%) scale(1.8) rotate(-6deg); opacity: 0; }
+  35% { transform: translate(-50%, -50%) scale(0.94) rotate(1.5deg); opacity: 1; }
+  55% { transform: translate(-50%, -50%) scale(1.02) rotate(-1deg); opacity: 1; }
+  85% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 0; }
+}
+
+/* タイトル背景のラクガキが、ゆっくり呼吸する */
+@keyframes titleDoodleDrift {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-14px) rotate(1.5deg); }
+}
+
+/* ラクガキの線が描かれていくアニメーション（タイトル背景用） */
+@keyframes doodleDraw {
+  from { stroke-dashoffset: var(--dash-length, 900); }
+  to { stroke-dashoffset: 0; }
+}
+
+.title-doodle-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.title-doodle-layer svg {
+  position: absolute;
+  animation: titleDoodleDrift var(--drift-duration, 9s) ease-in-out infinite;
+}
+
+.title-doodle-layer path,
+.title-doodle-layer circle,
+.title-doodle-layer line,
+.title-doodle-layer polyline {
+  stroke-dasharray: var(--dash-length, 900);
+  animation: doodleDraw 2.4s ease-out forwards;
+}
+
+/* HPが減った分を遅れて追いかける「削れバー」 */
+.hp-ghost-bar {
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.35s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doodle-btn:hover:not(:disabled),
+  .title-doodle-layer svg,
+  .comic-burst {
+    animation: none;
+  }
 }

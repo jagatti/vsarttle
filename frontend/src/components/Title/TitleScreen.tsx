@@ -2,7 +2,19 @@
 
 import { useState } from "react";
 import { OptionsPanel } from "@/components/Options/OptionsPanel";
+import { TitleDoodleBackdrop, TitleHowItWorksStrip } from "@/components/Title/TitleDoodles";
 import { soundManager } from "@/lib/soundManager";
+
+interface TitleMenuItem {
+  key: string;
+  icon: string;
+  label: string;
+  sub: string;
+  color: string;
+  textColor: string;
+  tilt: number;
+  onClick: () => void;
+}
 
 export function TitleScreen(props: {
   onSinglePlay: () => void;
@@ -12,204 +24,171 @@ export function TitleScreen(props: {
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
 
-  const handleSinglePlay = () => {
+  const withClickSe = (handler: () => void) => () => {
     soundManager.playSe("/sounds/se/button.mp3");
-    props.onSinglePlay();
+    handler();
   };
 
-  const handleMultiPlay = () => {
-    soundManager.playSe("/sounds/se/button.mp3");
-    props.onMultiPlay();
-  };
-
-  const handleProfile = () => {
-    soundManager.playSe("/sounds/se/button.mp3");
-    props.onProfile();
-  };
-
-  const handleGhostMatch = () => {
-    soundManager.playSe("/sounds/se/button.mp3");
-    props.onGhostMatch();
-  };
-
-  const handleOpenOptions = () => {
-    soundManager.playSe("/sounds/se/button.mp3");
-    setOptionsOpen(true);
-  };
-
-  const optionButtonStyle = {
-    padding: "18px 32px",
-    borderRadius: 12,
-    fontWeight: "bold",
-    fontSize: "clamp(16px, 2vw, 22px)",
-    cursor: "pointer",
-    letterSpacing: "0.05em",
-    transition: "all 0.2s ease",
-  } as const;
+  const menuItems: TitleMenuItem[] = [
+    {
+      key: "single",
+      icon: "🎮",
+      label: "シングルプレイ",
+      sub: "ひとりでボスに挑む",
+      color: "#fbbf24",
+      textColor: "#fff7db",
+      tilt: -0.8,
+      onClick: withClickSe(props.onSinglePlay),
+    },
+    {
+      key: "multi",
+      icon: "👥",
+      label: "マルチプレイ",
+      sub: "友だちとラクガキ対戦",
+      color: "#60a5fa",
+      textColor: "#e0f2fe",
+      tilt: 0.7,
+      onClick: withClickSe(props.onMultiPlay),
+    },
+    {
+      key: "ghost",
+      icon: "👻",
+      label: "ゴーストマッチ",
+      sub: "誰かのラクガキと戦う",
+      color: "#c084fc",
+      textColor: "#f3e8ff",
+      tilt: -0.5,
+      onClick: withClickSe(props.onGhostMatch),
+    },
+    {
+      key: "profile",
+      icon: "📜",
+      label: "プロフィール",
+      sub: "戦績とラクガキ帳",
+      color: "#2dd4bf",
+      textColor: "#ccfbf1",
+      tilt: 0.6,
+      onClick: withClickSe(props.onProfile),
+    },
+    {
+      key: "options",
+      icon: "⚙️",
+      label: "オプション",
+      sub: "音量などの設定",
+      color: "#94a3b8",
+      textColor: "#e2e8f0",
+      tilt: -0.4,
+      onClick: withClickSe(() => setOptionsOpen(true)),
+    },
+  ];
 
   return (
     <>
       <div
         style={{
+          position: "relative",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "80vh",
-          gap: 40,
+          minHeight: "88vh",
+          gap: 22,
+          overflow: "hidden",
         }}
       >
+        <TitleDoodleBackdrop />
+
+        {/* ロゴ（既存の方向性を尊重しつつ、手描きのマーカー下線を足す） */}
+        <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+          <div
+            style={{
+              fontSize: "clamp(56px, 10vw, 120px)",
+              fontWeight: "900",
+              letterSpacing: "0.05em",
+              lineHeight: 1,
+              background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 40%, #8b5cf6 80%, #3b82f6 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              textShadow: "none",
+              filter: "drop-shadow(0 4px 24px rgba(239,68,68,0.4))",
+              animation: "titlePulse 3s ease-in-out infinite",
+            }}
+          >
+            arttle
+          </div>
+          <svg
+            viewBox="0 0 300 18"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            style={{ display: "block", width: "min(74vw, 420px)", height: 14, margin: "2px auto 0" }}
+          >
+            <path
+              d="M6 12c48-7 96-9 144-5 46 4 92 1 146-4"
+              stroke="#fbbf24"
+              strokeWidth="5"
+              strokeLinecap="round"
+              fill="none"
+              opacity="0.85"
+            />
+          </svg>
+        </div>
+
+        {/* キャッチコピー：このゲームが何なのかを一行で伝える */}
         <div
           style={{
-            fontSize: "clamp(56px, 10vw, 120px)",
-            fontWeight: "900",
-            letterSpacing: "0.05em",
-            background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 40%, #8b5cf6 80%, #3b82f6 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            textShadow: "none",
-            filter: "drop-shadow(0 4px 24px rgba(239,68,68,0.4))",
-            animation: "titlePulse 3s ease-in-out infinite",
+            position: "relative",
+            zIndex: 1,
+            color: "#f8fafc",
+            fontSize: "clamp(15px, 2.2vw, 26px)",
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textShadow: "0 2px 0 rgba(0,0,0,0.6), 0 0 18px rgba(148,163,184,0.35)",
           }}
         >
-          arttle
+          描いたラクガキが、戦う。
         </div>
+
+        <TitleHowItWorksStrip />
 
         <div
           style={{
-            color: "#d1d5db",
-            fontSize: "clamp(13px, 1.5vw, 18px)",
-            fontWeight: "bold",
-            letterSpacing: "0.1em",
-            marginTop: -20,
-          }}
-        >
-          ラクガキ対戦
-        </div>
-
-        <div
-          style={{
+            position: "relative",
+            zIndex: 1,
             display: "flex",
             flexDirection: "column",
-            gap: 20,
+            gap: 12,
             width: "100%",
-            maxWidth: 320,
-            marginTop: 20,
+            maxWidth: 360,
+            marginTop: 6,
           }}
         >
-          <button
-            onClick={handleSinglePlay}
-            style={{
-              ...optionButtonStyle,
-              border: "2px solid #f59e0b",
-              background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.2))",
-              color: "#fde68a",
-              boxShadow: "0 0 20px rgba(245,158,11,0.3)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(245,158,11,0.4), rgba(239,68,68,0.4))";
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.2))";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            🎮 シングルプレイ
-          </button>
-
-          <button
-            onClick={handleMultiPlay}
-            style={{
-              ...optionButtonStyle,
-              border: "2px solid #6366f1",
-              background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(59,130,246,0.2))",
-              color: "#c7d2fe",
-              boxShadow: "0 0 20px rgba(99,102,241,0.3)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(99,102,241,0.4), rgba(59,130,246,0.4))";
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(59,130,246,0.2))";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            👥 マルチプレイ
-          </button>
-
-          <button
-            onClick={handleGhostMatch}
-            style={{
-              ...optionButtonStyle,
-              border: "2px solid #a855f7",
-              background: "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(79,70,229,0.2))",
-              color: "#e9d5ff",
-              boxShadow: "0 0 20px rgba(168,85,247,0.3)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.4), rgba(79,70,229,0.4))";
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(79,70,229,0.2))";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            👻 ゴーストマッチ
-          </button>
-
-          <button
-            onClick={handleProfile}
-            style={{
-              ...optionButtonStyle,
-              border: "2px solid #14b8a6",
-              background: "linear-gradient(135deg, rgba(20,184,166,0.2), rgba(59,130,246,0.18))",
-              color: "#99f6e4",
-              boxShadow: "0 0 20px rgba(20,184,166,0.25)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(20,184,166,0.4), rgba(59,130,246,0.34))";
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(20,184,166,0.2), rgba(59,130,246,0.18))";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            📜 プロフィール
-          </button>
-
-          <button
-            onClick={handleOpenOptions}
-            style={{
-              ...optionButtonStyle,
-              border: "2px solid #4b5563",
-              background: "linear-gradient(135deg, rgba(75,85,99,0.24), rgba(31,41,55,0.24))",
-              color: "#e5e7eb",
-              boxShadow: "0 0 20px rgba(75,85,99,0.25)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(75,85,99,0.4), rgba(31,41,55,0.4))";
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(75,85,99,0.24), rgba(31,41,55,0.24))";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            ⚙️ オプション
-          </button>
+          {menuItems.map((item) => (
+            <button
+              key={item.key}
+              className="doodle-btn"
+              onClick={item.onClick}
+              style={{
+                ["--doodle-tilt" as string]: `${item.tilt}deg`,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 18px",
+                textAlign: "left",
+                borderColor: item.color,
+                background: "rgba(9,11,20,0.72)",
+                color: item.textColor,
+                boxShadow: `0 4px 0 ${item.color}66, 0 10px 22px rgba(0,0,0,0.45)`,
+              }}
+            >
+              <span style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{item.icon}</span>
+              <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
+                <span style={{ fontSize: "clamp(15px, 1.8vw, 20px)", letterSpacing: "0.04em" }}>{item.label}</span>
+                <span style={{ fontSize: "clamp(10px, 1.05vw, 13px)", color: "#94a3b8", fontWeight: 700 }}>{item.sub}</span>
+              </span>
+            </button>
+          ))}
         </div>
-
-        <style>{`
-          @keyframes titlePulse {
-            0%, 100% { filter: drop-shadow(0 4px 24px rgba(239,68,68,0.4)); }
-            50% { filter: drop-shadow(0 4px 40px rgba(139,92,246,0.6)); }
-          }
-        `}</style>
       </div>
       <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
     </>
