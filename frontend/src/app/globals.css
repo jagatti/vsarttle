@@ -55,6 +55,12 @@ input {
   100% { transform: translateX(-50%) translateY(-56px); opacity: 0; }
 }
 
+@keyframes chargedFloatUp {
+  0% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  18% { transform: translateX(-50%) scale(1.35); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-72px) scale(1); opacity: 0; }
+}
+
 @keyframes battleFlash {
   0% { opacity: 0.8; }
   100% { opacity: 0; }
@@ -120,6 +126,59 @@ input {
   0%, 100% { filter: brightness(1); }
   25%, 75% { filter: brightness(2.2) saturate(0.4); }
   50% { filter: brightness(0.6); }
+}
+
+@keyframes hitFlash {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(2.6) saturate(0.5) sepia(0.15); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-3px, 2px); }
+  50% { transform: translate(3px, -2px); }
+  75% { transform: translate(-2px, 1px); }
+}
+
+@keyframes screenShakeCharged {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-5px, 3px); }
+  40% { transform: translate(5px, -3px); }
+  60% { transform: translate(-4px, 2px); }
+  80% { transform: translate(3px, -1px); }
+}
+
+@keyframes impactParticle {
+  0% { transform: rotate(var(--particle-angle)) translateX(4px) scale(1); opacity: 1; }
+  100% { transform: rotate(var(--particle-angle)) translateX(42px) scale(0); opacity: 0; }
+}
+
+.impactParticles {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  z-index: 8;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.impactParticles i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fef3c7;
+  box-shadow: 0 0 8px 2px #fbbf24;
+  animation: impactParticle 0.52s ease-out forwards;
+}
+
+.impactParticlesCharged i {
+  width: 8px;
+  height: 8px;
+  background: #fff7ed;
+  box-shadow: 0 0 12px 3px #f97316;
 }
 
 @keyframes chargeGlow {

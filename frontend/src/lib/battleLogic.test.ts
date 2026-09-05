@@ -50,6 +50,14 @@ test("resolveTurn applies attack vs attack formula with defense mitigation", () 
   assert.equal(result.nextStates.b.currentHp, 100 - expectedDamage);
 });
 
+test("resolveTurn records the attacker's charge multiplier on damage events", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  a.chargeMultiplier = 1.5;
+  const result = resolveTurn({ turn: 1, players: { a, b }, actions: { a: "attack", b: "paralysis" }, rng: () => 0.99 });
+  assert.equal(result.damageEvents[0]?.chargeMultiplier, 1.5);
+});
+
 test("resolveTurn applies custom weak-magic selection effects instead of the legacy default pool", () => {
   const a = makePlayer("a");
   const b = makePlayer("b");
