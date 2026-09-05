@@ -91,9 +91,10 @@ export function pickRoguelikeWeakFloorUpgradeSlots(
   const statKeys = pickRandomUpgradeSlots(floor, count, random);
   let statIndex = 0;
   const slots: RoguelikeWeakFloorUpgradeSlot[] = [];
+  const offeredWeakMagicKinds: WeakMagicEffectKind[] = [];
 
   for (let i = 0; i < count; i += 1) {
-    const weakEffect = pickRandomAvailableWeakMagicEffect(acquiredKinds, random);
+    const weakEffect = pickRandomAvailableWeakMagicEffect([...acquiredKinds, ...offeredWeakMagicKinds], random);
     const rarity = rollRoguelikeUpgradeRarity(!!weakEffect, random);
     if (rarity === 3 && weakEffect) {
       slots.push({
@@ -102,6 +103,7 @@ export function pickRoguelikeWeakFloorUpgradeSlots(
         effectKind: weakEffect.kind,
         effectName: weakEffect.name,
       });
+      offeredWeakMagicKinds.push(weakEffect.kind);
       continue;
     }
 

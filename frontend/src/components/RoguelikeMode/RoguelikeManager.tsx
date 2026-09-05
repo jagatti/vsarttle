@@ -26,7 +26,7 @@ import {
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { healPlayerFully } from "@/lib/roguelikeTransition";
 import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
-import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
+import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   buildWeakMagicTooltip,
   pickRoguelikeWeakFloorUpgradeSlots,
@@ -358,6 +358,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       ? "paralysis"
       : pickGhostCpuAction(enemy, turnNumber, {
           chargeAllowedHpRatio: floorRef.current === 5 ? FLOOR5_BOSS_CHARGE_HP_THRESHOLD : undefined,
+          weights: getGhostCpuActionWeights(enemy.characterType),
         });
 
     const weakMagicPool = acquiredWeakMagicKindsRef.current;

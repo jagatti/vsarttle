@@ -28,7 +28,7 @@ import {
   type FloorRecord,
   type ScoreRank,
 } from "@/lib/scoreRank";
-import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, pickGhostCpuAction } from "@/lib/ghostCpuAction";
+import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import { compareScoreRank } from "@/lib/persistenceTypes";
 import { RoguelikeManager } from "@/components/RoguelikeMode/RoguelikeManager";
 import type {
@@ -946,6 +946,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         ? "paralysis"
         : pickGhostCpuAction(currentBattle[enemyIdParam], turnNumber, {
             chargeAllowedHpRatio: isFloor5Boss ? FLOOR5_BOSS_CHARGE_HP_THRESHOLD : undefined,
+            weights: getGhostCpuActionWeights(currentBattle[enemyIdParam].characterType),
           });
 
       const result = resolveTurn({

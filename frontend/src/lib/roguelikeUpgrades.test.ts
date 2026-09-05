@@ -38,3 +38,10 @@ test("pickRoguelikeWeakFloorUpgradeSlots never returns ★3 once all effects are
   assert.ok(slots.every((slot) => slot.kind === "stat"));
   assert.ok(slots.every((slot) => slot.rarity === 2));
 });
+
+test("pickRoguelikeWeakFloorUpgradeSlots does not duplicate ★3 effects in one offer", () => {
+  const slots = pickRoguelikeWeakFloorUpgradeSlots(1, [], 3, () => 0.99);
+  const weakMagicSlots = slots.filter((slot) => slot.kind === "weak-magic");
+  assert.equal(weakMagicSlots.length, 3);
+  assert.equal(new Set(weakMagicSlots.map((slot) => slot.effectKind)).size, 3);
+});
