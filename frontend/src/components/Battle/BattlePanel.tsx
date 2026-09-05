@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
@@ -63,6 +63,11 @@ const TYPE_LABELS: Record<CharacterType, string> = {
 };
 
 export const VOIDMINATION_CUT_IN_DURATION_MS = 3900;
+export const HEAVY_DAMAGE_HP_RATIO = 0.33;
+export const HIT_FLASH_DURATION_MS = 180;
+export const IMPACT_EFFECT_DURATION_MS = 520;
+const SCREEN_SHAKE_DURATION_MS = 220;
+const CHARGED_SCREEN_SHAKE_DURATION_MS = 360;
 
 export function getVoidminationCutInOverlayStyle() {
   return {
@@ -140,6 +145,12 @@ interface DamageFloater {
   avoided: boolean;
   toMe: boolean;
   type: "damage" | "hpRecover" | "ppRecover";
+  chargeMultiplier?: number;
+}
+
+interface ImpactEffect {
+  id: number;
+  charged: boolean;
 }
 
 function NameHpBox({ player, align, title }: { player: PlayerBattleState; align: "left" | "right"; title?: string }) {
@@ -182,6 +193,7 @@ function NameHpBox({ player, align, title }: { player: PlayerBattleState; align:
 function PortraitBlock({
   player,
   floaters,
+  impactEffects,
   voidminationActive,
   isActing,
   isLoser,
@@ -193,10 +205,12 @@ function PortraitBlock({
   motionType,
   targetMotionType,
   sourceActionType,
+  isHit,
   side,
 }: {
   player: PlayerBattleState;
   floaters: DamageFloater[];
+  impactEffects: ImpactEffect[];
   voidminationActive?: boolean;
   isActing?: boolean;
   isLoser?: boolean;
@@ -208,6 +222,7 @@ function PortraitBlock({
   motionType?: MoveMotionType;
   targetMotionType?: MoveMotionType;
   sourceActionType?: ActionType;
+  isHit?: boolean;
   side: "left" | "right";
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
@@ -223,7 +238,8 @@ function PortraitBlock({
   // わざモーションアニメーション（isActing中に適用）
   const portraitMotionAnim = getPortraitAnimation(motionType ?? "none", side, !!isActing);
   const imgAnimations = [
-    isShaking ? "hitShake 0.5s ease-in-out, hitBlink 0.5s ease-in-out" : "",
+    isShaking ? "hitShake 0.22s ease-in-out" : "",
+    isHit ? "hitFlash 0.18s ease-out" : "",
     isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "",
     portraitMotionAnim,
   ]
@@ -242,12 +258,15 @@ function PortraitBlock({
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ position: "relative" }}>
         {floaters.map((f, idx) => {
-          const big = !f.avoided && f.amount > 100;
+          const big = !f.avoided && (f.amount > 100 || (f.chargeMultiplier ?? 1) > 1);
+          const charged = f.type === "damage" && (f.chargeMultiplier ?? 1) > 1;
           const color =
             f.type === "hpRecover"
               ? big ? "#15803d" : "#22c55e"
               : f.type === "ppRecover"
               ? big ? "#1d4ed8" : "#3b82f6"
+              : charged
+              ? "#fbbf24"
               : f.avoided
               ? "#60a5fa"
               : big ? "#dc2626" : "#f87171";
@@ -256,10 +275,14 @@ function PortraitBlock({
               ? big ? "#15803d" : "#22c55e"
               : f.type === "ppRecover"
               ? big ? "#1d4ed8" : "#3b82f6"
+              : charged
+              ? "#fbbf24"
               : f.avoided
               ? "#60a5fa"
               : big ? "#dc2626" : "#f87171";
-          const fontSize = big
+          const fontSize = charged
+            ? "clamp(24px, 2.8vw, 40px)"
+            : big
             ? "clamp(20px, 2.2vw, 32px)"
             : "clamp(17px, 1.85vw, 27px)";
           const textShadow = `0 0 8px ${glowColor}`;
@@ -281,15 +304,22 @@ function PortraitBlock({
                 fontWeight: "bold",
                 fontSize,
                 textShadow,
-                animation: "floatUp 1.4s ease-out forwards",
+                animation: `${charged ? "chargedFloatUp" : "floatUp"} 1.4s ease-out forwards`,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
               }}
             >
-              {f.type === "hpRecover" ? `+${f.amount}` : f.type === "ppRecover" ? `+${f.amount}` : f.avoided ? "かいひ！" : `-${f.amount}`}
+              {f.type === "hpRecover" ? `+${f.amount}` : f.type === "ppRecover" ? `+${f.amount}` : f.avoided ? "MISS" : `-${f.amount}`}
             </div>
           );
         })}
+        {impactEffects.map((effect) => (
+          <div key={effect.id} className={`impactParticles${effect.charged ? " impactParticlesCharged" : ""}`} aria-hidden="true">
+            {Array.from({ length: effect.charged ? 8 : 6 }, (_, index) => (
+              <i key={index} style={{ "--particle-angle": `${index * (360 / (effect.charged ? 8 : 6))}deg` } as CSSProperties} />
+            ))}
+          </div>
+        ))}
         {revealedAction && (
           <div
             style={{
@@ -675,12 +705,15 @@ export function BattlePanel(props: {
 }) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [floaters, setFloaters] = useState<DamageFloater[]>([]);
+  const [impactEffects, setImpactEffects] = useState<Record<string, ImpactEffect[]>>({});
   const [showFlash, setShowFlash] = useState(false);
   const [actingPlayerId, setActingPlayerId] = useState<string | null>(null);
   const [showFinishButtons, setShowFinishButtons] = useState(false);
   const [revealedActions, setRevealedActions] = useState<Record<string, ActionType> | null>(null);
   const [showMatchupModal, setShowMatchupModal] = useState(false);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
+  const [hitIds, setHitIds] = useState<Set<string>>(new Set());
+  const [screenShake, setScreenShake] = useState<"normal" | "charged" | null>(null);
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
   const [voidminationActive, setVoidminationActive] = useState(
     () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
@@ -740,12 +773,15 @@ export function BattlePanel(props: {
     prevTurnRef.current = null;
     setSelectedAction(null);
     setFloaters([]);
+    setImpactEffects({});
     setShowFlash(false);
     setActingPlayerId(null);
     setShowFinishButtons(false);
     setRevealedActions(null);
     setShowMatchupModal(false);
     setShakingIds(new Set());
+    setHitIds(new Set());
+    setScreenShake(null);
     setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
     setVoidminationActive(false);
     setShowVoidminationCutIn(false);
@@ -834,8 +870,18 @@ export function BattlePanel(props: {
           avoided: event.avoided,
           toMe: event.to === props.me.id,
           type: "damage" as const,
+          chargeMultiplier: event.chargeMultiplier,
         }));
-
+        const successfulHits = phase.damageEvents.filter((event) => !event.avoided && event.amount > 0);
+        const heavyHits = successfulHits.filter((event) => {
+          const target = playersById[event.to];
+          return target && event.amount / target.stats.maxHp >= HEAVY_DAMAGE_HP_RATIO;
+        });
+        const chargedHit = successfulHits.some((event) => event.chargeMultiplier > 1);
+        const phaseImpacts = successfulHits.map((event) => ({
+          id: floaterIdRef.current++,
+          charged: event.chargeMultiplier > 1,
+        }));
         for (const chargeEvent of phase.chargeEvents) {
           const isMe = chargeEvent.playerId === props.me.id;
           if (chargeEvent.hpRecover > 0) {
@@ -866,10 +912,38 @@ export function BattlePanel(props: {
           }, 1500);
         }
 
-        const hitIds = new Set(phase.damageEvents.filter((event) => !event.avoided && event.amount > 0).map((event) => event.to));
-        if (hitIds.size > 0) {
-          setShakingIds(hitIds);
-          schedule(() => setShakingIds(new Set()), 550);
+        if (successfulHits.length > 0) {
+          const phaseHitIds = new Set(successfulHits.map((event) => event.to));
+          setHitIds(phaseHitIds);
+          schedule(() => setHitIds(new Set()), HIT_FLASH_DURATION_MS);
+          setImpactEffects((prev) => ({
+            ...prev,
+            ...Object.fromEntries(
+              successfulHits.map((event, index) => [
+                event.to,
+                [...(prev[event.to] ?? []), phaseImpacts[index]],
+              ]),
+            ),
+          }));
+          schedule(() => {
+            setImpactEffects((prev) => {
+              const next = { ...prev };
+              for (const event of successfulHits) next[event.to] = (next[event.to] ?? []).slice(1);
+              return next;
+            });
+          }, IMPACT_EFFECT_DURATION_MS);
+        }
+        if (heavyHits.length > 0) {
+          const phaseHeavyIds = new Set(heavyHits.map((event) => event.to));
+          setShakingIds(phaseHeavyIds);
+          schedule(() => setShakingIds(new Set()), chargedHit ? CHARGED_SCREEN_SHAKE_DURATION_MS : SCREEN_SHAKE_DURATION_MS);
+        }
+        if (chargedHit) {
+          setScreenShake("charged");
+          schedule(() => setScreenShake(null), CHARGED_SCREEN_SHAKE_DURATION_MS);
+        } else if (heavyHits.length > 0) {
+          setScreenShake("normal");
+          schedule(() => setScreenShake(null), SCREEN_SHAKE_DURATION_MS);
         }
       };
 
@@ -916,6 +990,9 @@ export function BattlePanel(props: {
         setRevealedActions(null);
         setShowFlash(false);
         setShakingIds(new Set());
+        setHitIds(new Set());
+        setImpactEffects({});
+        setScreenShake(null);
         setShowVoidminationCutIn(false);
         if (turnResult.voidminationTriggered) {
           setVoidminationActive(true);
@@ -1132,6 +1209,9 @@ export function BattlePanel(props: {
           border: "3px solid #92400e",
           boxShadow: "0 6px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(251,191,36,0.2)",
           overflow: "hidden",
+          animation: screenShake
+            ? `${screenShake === "charged" ? "screenShakeCharged" : "screenShake"} ${screenShake === "charged" ? "0.36s" : "0.22s"} ease-in-out`
+            : "none",
         }}
       >
         {/* Arena background wrapper */}
@@ -1233,10 +1313,12 @@ export function BattlePanel(props: {
           <PortraitBlock
             player={props.me}
             floaters={floaters.filter((f) => f.toMe)}
+            impactEffects={impactEffects[props.me.id] ?? []}
             voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.me.id}
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
+            isHit={hitIds.has(props.me.id)}
             revealedAction={revealedActions ? revealedActions[props.me.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.me.id)}
             enhancementSlot={props.me.enhancementSlot}
@@ -1289,10 +1371,12 @@ export function BattlePanel(props: {
           <PortraitBlock
             player={props.enemy}
             floaters={floaters.filter((f) => !f.toMe)}
+            impactEffects={impactEffects[props.enemy.id] ?? []}
             voidminationActive={voidminationActive}
             isActing={actingPlayerId === props.enemy.id}
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
+            isHit={hitIds.has(props.enemy.id)}
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.enemy.id)}
             enhancementSlot={props.enemy.enhancementSlot}

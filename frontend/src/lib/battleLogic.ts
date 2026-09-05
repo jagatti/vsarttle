@@ -179,9 +179,9 @@ export function resolveTurn(params: {
     const actual = maybeAvoid(cappedAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       to.currentHp = clamp(to.currentHp - actual, 0, to.stats.maxHp);
-      damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, phaseHint });
+      damageEvents.push({ from: from.id, to: to.id, amount: actual, avoided: false, reason, chargeMultiplier: from.chargeMultiplier, phaseHint });
     } else {
-      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: true, reason, phaseHint });
+      damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: true, reason, chargeMultiplier: from.chargeMultiplier, phaseHint });
     }
     return actual;
   };

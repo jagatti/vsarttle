@@ -131,6 +131,8 @@ export interface TurnDamageEvent {
   amount: number;
   avoided: boolean;
   reason: string;
+  /** The attacker's charge multiplier when this damage was dealt. */
+  chargeMultiplier: number;
   phaseHint?: "counter";
 }
 
