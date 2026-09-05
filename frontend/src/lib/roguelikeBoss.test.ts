@@ -62,6 +62,7 @@ test("buildRoguelikeBossState floor 20 has ALL999 stats and no forceMagicStrongA
   assert.equal(boss.limitBreakActive, true);
   assert.equal(boss.limitBreakUsed, true);
   assert.equal(boss.forceMagicStrongAction, false);
+  assert.equal(boss.halveDefenseOnCharge, true);
   assert.equal(boss.currentHp, LIMIT_BREAK_MAX_STAT);
   assert.equal(boss.currentPp, LIMIT_BREAK_MAX_STAT);
   assert.equal(boss.stats.maxHp, LIMIT_BREAK_MAX_STAT);

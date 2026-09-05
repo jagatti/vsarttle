@@ -58,6 +58,46 @@ test("resolveTurn records the attacker's charge multiplier on damage events", ()
   assert.equal(result.damageEvents[0]?.chargeMultiplier, 1.5);
 });
 
+test("resolveTurn halves defense on each flagged charge while retaining charge effects", () => {
+  const boss = makePlayer("boss");
+  const opponent = makePlayer("player");
+  boss.stats = { ...boss.stats, maxHp: 100, maxPp: 40, defense: 9 };
+  boss.currentHp = 10;
+  boss.currentPp = 0;
+  boss.halveDefenseOnCharge = true;
+
+  const first = resolveTurn({
+    turn: 2,
+    players: { boss, player: opponent },
+    actions: { boss: "charge", player: "paralysis" },
+    rng: () => 0.99,
+  });
+  assert.equal(first.nextStates.boss.stats.defense, 5);
+  assert.equal(first.nextStates.boss.currentHp, 35);
+  assert.equal(first.nextStates.boss.currentPp, 10);
+  assert.equal(first.nextStates.boss.chargeMultiplier, 1.5);
+  assert.ok(first.logs.some((log) => log.includes("防御力が下がった")));
+
+  const second = resolveTurn({
+    turn: 3,
+    players: first.nextStates,
+    actions: { boss: "charge", player: "paralysis" },
+    rng: () => 0.99,
+  });
+  assert.equal(second.nextStates.boss.stats.defense, 3);
+
+  const minimum = makePlayer("minimum");
+  minimum.stats = { ...minimum.stats, defense: 1 };
+  minimum.halveDefenseOnCharge = true;
+  const minimumResult = resolveTurn({
+    turn: 2,
+    players: { minimum, player: opponent },
+    actions: { minimum: "charge", player: "paralysis" },
+    rng: () => 0.99,
+  });
+  assert.equal(minimumResult.nextStates.minimum.stats.defense, 1);
+});
+
 test("resolveTurn applies custom weak-magic selection effects instead of the legacy default pool", () => {
   const a = makePlayer("a");
   const b = makePlayer("b");

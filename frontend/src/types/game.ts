@@ -119,6 +119,8 @@ export interface PlayerBattleState {
   limitBreakActive?: boolean;
   /** When true, this player's action is forced to magicStrong (used by the existing single-play final boss). Set to false for roguelike floor 20 where limitBreakActive is set but normal CPU AI should be used. */
   forceMagicStrongAction?: boolean;
+  /** When true, using チャージ permanently halves this player's defense, down to a minimum of 1. */
+  halveDefenseOnCharge?: boolean;
   /** When true, this player used チャージ on the previous turn; the 1.5x chargeMultiplier is active for this turn only and will be reset at the end of this turn regardless of what action is taken. */
   chargedPreviousTurn?: boolean;
   /** When true, the 空間支配（ヴォイドミネーション）is active; both players' evasion is treated as 0%. */

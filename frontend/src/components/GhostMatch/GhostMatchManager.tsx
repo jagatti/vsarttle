@@ -6,7 +6,7 @@ import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
-import { pickGhostCpuAction } from "@/lib/ghostCpuAction";
+import { getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
 import type { GhostRecord } from "@/lib/persistenceTypes";
@@ -127,7 +127,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
       ? "paralysis"
       : selectedAction ?? availableActions[Math.floor(Math.random() * availableActions.length)] ?? "attack";
     pendingActionRef.current = null;
-    const enemyAction = enemy.paralyzedNextTurn ? "paralysis" : pickGhostCpuAction(enemy, turnNumber);
+    const enemyAction = enemy.paralyzedNextTurn ? "paralysis" : pickGhostCpuAction(enemy, turnNumber, { weights: getGhostCpuActionWeights(enemy.characterType) });
 
     const result = resolveTurn({
       turn: turnNumber,

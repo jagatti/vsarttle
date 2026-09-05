@@ -35,3 +35,14 @@ test("pickGhostCpuAction falls back to paralysis when no action is available", (
   });
   assert.equal(pickGhostCpuAction(enemy, 3), "paralysis");
 });
+
+test("pickGhostCpuAction uses configured action weights", () => {
+  const enemy = makeEnemy({ lastActionCategory: "magic" });
+  assert.equal(
+    pickGhostCpuAction(enemy, 2, {
+      weights: { attack: 0, barrier: 1, charge: 0 },
+      random: () => 0.99,
+    }),
+    "barrier",
+  );
+});

@@ -207,6 +207,10 @@ export function resolveTurn(params: {
     player.currentHp = clamp(player.currentHp + hpRecover, 0, player.stats.maxHp);
     player.currentPp = clamp(player.currentPp + ppRecover, 0, player.stats.maxPp);
     player.chargeMultiplier = 1.5;
+    if (player.halveDefenseOnCharge) {
+      player.stats.defense = Math.max(1, Math.round(player.stats.defense / 2));
+      logs.push(`${player.nickname} の防御力が下がった！`);
+    }
     player.chargedPreviousTurn = true;
     player.lastChargeHpRecover = hpRecover;
     player.lastChargePpRecover = ppRecover;

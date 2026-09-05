@@ -52,6 +52,7 @@ export function buildRoguelikeBossState(floor: number): PlayerBattleState {
       limitBreakUsed: true,
       limitBreakActive: true,
       forceMagicStrongAction: false,
+      halveDefenseOnCharge: true,
     };
   }
 
