@@ -1307,7 +1307,7 @@ export function BattlePanel(props: {
           {isWin ? (
             <div
               style={{
-                fontSize: "clamp(30px, 4.2vw, 60px)",
+                fontSize: "clamp(34px, 5vw, 72px)",
                 fontWeight: "900",
                 background: "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
                 backgroundSize: "300% 100%",
@@ -1316,17 +1316,20 @@ export function BattlePanel(props: {
                 backgroundClip: "text",
                 animation: "rainbowShift 1.2s linear infinite, youWinPulse 1.6s ease-in-out infinite",
                 letterSpacing: "0.08em",
+                filter: "drop-shadow(0 4px 0 #14161f)",
               }}
             >
               YOU WIN!
             </div>
           ) : (
             <div
+              className="sticker-text"
               style={{
-                fontSize: "clamp(30px, 4.2vw, 60px)",
+                fontSize: "clamp(34px, 5vw, 72px)",
                 fontWeight: "900",
-                color: "#3b82f6",
-                textShadow: "0 0 24px #3b82f6aa, 0 2px 8px #000",
+                color: "#60a5fa",
+                WebkitTextStroke: "5px #14161f",
+                textShadow: "0 4px 0 #14161f, 0 0 24px #3b82f6aa",
                 animation: "fadeInScale 0.5s ease-out, youLoseShake 0.6s ease-in-out 0.5s",
                 letterSpacing: "0.08em",
               }}
@@ -1364,30 +1367,28 @@ export function BattlePanel(props: {
                     <>
                       <button
                         onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchSame(); }}
+                        className="doodle-btn"
                         style={{
                           padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                          borderRadius: 8,
-                          border: "2px solid #22c55e",
+                          borderColor: "#22c55e",
                           background: "rgba(6,60,20,0.9)",
                           color: "#86efac",
-                          fontWeight: "bold",
                           fontSize: "clamp(12px, 1.1vw, 15px)",
-                          cursor: "pointer",
+                          boxShadow: "0 4px 0 rgba(34,197,94,0.5)",
                         }}
                       >
                         再戦（絵を引き継ぐ）
                       </button>
                       <button
                         onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onRematchRedraw(); }}
+                        className="doodle-btn"
                         style={{
                           padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                          borderRadius: 8,
-                          border: "2px solid #fbbf24",
+                          borderColor: "#fbbf24",
                           background: "rgba(120,60,0,0.9)",
                           color: "#fbbf24",
-                          fontWeight: "bold",
                           fontSize: "clamp(12px, 1.1vw, 15px)",
-                          cursor: "pointer",
+                          boxShadow: "0 4px 0 rgba(251,191,36,0.5)",
                         }}
                       >
                         描きなおしてもう１戦
@@ -1401,15 +1402,14 @@ export function BattlePanel(props: {
                 {props.onReturnToTitle && (
                   <button
                     onClick={props.onReturnToTitle}
+                    className="doodle-btn"
                     style={{
                       padding: "clamp(8px, 1vw, 12px) clamp(14px, 1.8vw, 22px)",
-                      borderRadius: 8,
-                      border: "2px solid #6b7280",
-                      background: "rgba(30,30,30,0.9)",
-                      color: "#9ca3af",
-                      fontWeight: "bold",
+                      borderColor: "#94a3b8",
+                      background: "rgba(20,24,34,0.9)",
+                      color: "#cbd5e1",
                       fontSize: "clamp(12px, 1.1vw, 15px)",
-                      cursor: "pointer",
+                      boxShadow: "0 4px 0 rgba(148,163,184,0.4)",
                     }}
                   >
                     タイトルへ戻る
@@ -1692,9 +1692,9 @@ export function BattlePanel(props: {
           <div
             style={{
               margin: "10px clamp(12px, 1.6vw, 18px) 6px",
-              background: "rgba(0,0,0,0.65)",
-              borderRadius: 8,
-              border: "1px solid #92400e",
+              background: "rgba(6,8,16,0.72)",
+              borderRadius: 12,
+              border: "3px solid rgba(248,250,252,0.8)",
               padding: "8px 14px",
               animation: "slideInFromBottom 0.4s ease-out",
             }}
@@ -1711,8 +1711,8 @@ export function BattlePanel(props: {
                   }}
                 >
                   {event.avoided
-                    ? `${event.to === props.me.id ? "あなた" : "あいて"} が回避！`
-                    : `${event.to === props.me.id ? "あなた" : "あいて"} に ${event.amount} ダメージ（${event.reason}）`}
+                    ? `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} が回避！`
+                    : `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} に ${event.amount} ダメージ（${event.reason}）`}
                 </li>
               ))}
             </ul>
@@ -1723,6 +1723,19 @@ export function BattlePanel(props: {
         {!battleEnded && (
           <div style={{ padding: "10px clamp(12px, 1.6vw, 18px) 16px", display: "flex", justifyContent: "space-between", gap: 12 }}>
             <div style={{ flex: 1 }}>
+              {/* どちらの手なのかを明示。視聴者が「何を選んだか」を追えるようにする。 */}
+              <div
+                style={{
+                  color: "#fde68a",
+                  fontWeight: 900,
+                  fontSize: "clamp(10px, 0.9vw, 13px)",
+                  textAlign: "center",
+                  marginBottom: 6,
+                  letterSpacing: "0.06em",
+                }}
+              >
+                ▼ {props.me.nickname} の手をえらぶ
+              </div>
               {resolvingPhase ? (
                 /* Placeholder shown while the action is being resolved (animation playing,
                    turn being finalized, or next-turn countdown not yet reset). Structurally
@@ -1757,6 +1770,18 @@ export function BattlePanel(props: {
               )}
             </div>
             <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  color: "#94a3b8",
+                  fontWeight: 800,
+                  fontSize: "clamp(9px, 0.8vw, 12px)",
+                  textAlign: "center",
+                  marginBottom: 6,
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {props.enemy.nickname} がえらべる手
+              </div>
               <ActionButtonsRow actions={enemyAvailableActions} player={props.enemy} readOnly />
             </div>
           </div>
