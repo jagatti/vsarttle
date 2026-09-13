@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFENSE_SCALE } from "@/lib/battleLogic";
-import { analyzeDrawing, BASE_STATS, calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { analyzeDrawing, BASE_STATS, calculateStatsFromDrawing, detectCharacterType, STAT_VARIANCE } from "@/lib/statCalculator";
 import type { DrawingData, FillSpan, Point, Stroke } from "@/types/game";
 
 type ImageDataLike = Parameters<typeof detectCharacterType>[0];
@@ -221,6 +221,30 @@ test("analyzeDrawing keeps pure red filled art close to the attack preset", () =
   assert.ok(analysis.stats.evasion >= 0 && analysis.stats.evasion <= 0.05);
 });
 
+test("analyzeDrawing reports expected pure, mixed, and empty weight distributions", () => {
+  const empty = analyzeDrawing(makeDrawing([]), makeImageData(CANVAS_SIZE, CANVAS_SIZE, () => [0, 0, 0, 0]));
+  assert.deepEqual(empty.weights, { attack: 0, magic: 0, defense: 0 });
+
+  const pureAttack = analyzeDrawing(
+    makeDrawing([]),
+    makeFilledRectImage({ left: 8, top: 8, right: 23, bottom: 23, color: [255, 0, 0, 255] }),
+  );
+  assert.equal(pureAttack.weights.attack, 1);
+  assert.equal(pureAttack.weights.magic, 0);
+  assert.equal(pureAttack.weights.defense, 0);
+
+  const mixed = analyzeDrawing(
+    makeDrawing([]),
+    makeImageData(CANVAS_SIZE, CANVAS_SIZE, (x, y) => {
+      if (y < 8 || y > 23 || x < 8 || x > 23) return [0, 0, 0, 0];
+      return x < 16 ? [255, 0, 0, 255] : [0, 0, 255, 255];
+    }),
+  );
+  assert.ok(Math.abs(mixed.weights.attack - 0.5) < 0.01);
+  assert.ok(Math.abs(mixed.weights.magic - 0.5) < 0.01);
+  assert.ok(Math.abs(mixed.weights.defense) < 0.01);
+});
+
 test("stat calculation stays mostly size-independent for the same simple shape", () => {
   const smallImage = makeFilledCircleImage({ cx: 5, cy: 5, radius: 3, color: [0, 0, 0, 255] });
   const largeImage = makeFilledCircleImage({ cx: 16, cy: 16, radius: 9, color: [0, 0, 0, 255] });
@@ -313,9 +337,9 @@ test("random synthetic drawings stay inside the configured stat ranges", () => {
     const { drawing, imageData } = makeRandomSyntheticCase(index);
     const analysis = analyzeDrawing(drawing, imageData);
 
-    assert.ok(Math.abs(analysis.stats.attack - analysis.base.attack) / analysis.base.attack <= 0.15 + 1 / analysis.base.attack);
-    assert.ok(Math.abs(analysis.stats.pp - analysis.base.pp) / analysis.base.pp <= 0.15 + 1 / analysis.base.pp);
-    assert.ok(Math.abs(analysis.stats.defense - analysis.base.defense) / analysis.base.defense <= 0.15 + 1 / analysis.base.defense);
+    assert.ok(Math.abs(analysis.stats.attack - analysis.base.attack) / analysis.base.attack <= STAT_VARIANCE.attackPp + 1 / analysis.base.attack);
+    assert.ok(Math.abs(analysis.stats.pp - analysis.base.pp) / analysis.base.pp <= STAT_VARIANCE.attackPp + 1 / analysis.base.pp);
+    assert.ok(Math.abs(analysis.stats.defense - analysis.base.defense) / analysis.base.defense <= STAT_VARIANCE.defense + 1 / analysis.base.defense);
     assert.ok(Math.abs(analysis.stats.speed - Math.round(analysis.base.speed)) <= 1);
     assert.ok(analysis.stats.evasion >= 0 && analysis.stats.evasion <= 0.05);
   }
