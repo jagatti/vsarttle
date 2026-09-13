@@ -16,13 +16,13 @@ function findPair(left: string, right: string, pairs: ReturnType<typeof simulate
   return pair;
 }
 
-test("battle balance stays within the Step 2 win-rate bands", () => {
+test("battle balance stays within the Step 2 win-rate bands and runs mirrors only once", () => {
   const baseProfiles = CHARACTER_TYPES.map((type) => createBaseProfile(type));
   const result = simulateBalanceMatrix(baseProfiles, { matchesPerOrder: MATCHES_PER_ORDER });
 
   for (const pair of result.pairResults) {
     if (pair.left === pair.right) {
-      assert.equal(pair.totalGames, MATCHES_PER_ORDER, `${pair.left} mirror matches should avoid duplicate swapped runs`);
+      assert.equal(pair.totalGames, MATCHES_PER_ORDER, `${pair.left} mirror matches should run a single side order`);
       continue;
     }
 

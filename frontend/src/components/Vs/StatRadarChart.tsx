@@ -157,8 +157,12 @@ export function StatRadarChart({
                   textAnchor={textAnchor}
                   dominantBaseline="central"
                   fontSize={10}
-                  fontWeight={800}
+                  fontWeight={900}
+                  fontStyle={vertex.delta < 0 ? "italic" : "normal"}
                   fill={vertex.delta > 0 ? "#fde68a" : "#cbd5e1"}
+                  stroke="rgba(15,23,42,0.82)"
+                  strokeWidth={2}
+                  paintOrder="stroke"
                 >
                   {deltaLabel}
                 </text>
