@@ -13,8 +13,13 @@ import type {
 import { checkVoidminationTrigger } from "@/lib/voidmination";
 
 const MIN_DAMAGE = 1;
+export const DEFENSE_SCALE = 300;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+/** 防御による逓減軽減: raw × DEFENSE_SCALE / (DEFENSE_SCALE + defense) */
+export const applyDefense = (raw: number, defense: number) =>
+  Math.max(MIN_DAMAGE, Math.round(raw * DEFENSE_SCALE / (DEFENSE_SCALE + Math.max(0, defense))));
 
 export function actionCategory(action: ActionType): ActionCategory {
   if (action === "magicWeak" || action === "magicStrong") return "magic";
@@ -97,19 +102,19 @@ const matchupWinner = (left: ActionCategory, right: ActionCategory): ActionCateg
 };
 
 const attackDamage = (attacker: PlayerBattleState, target: PlayerBattleState) =>
-  Math.max(MIN_DAMAGE, Math.round(attacker.stats.attack * attacker.chargeMultiplier - target.stats.defense / 2));
+  applyDefense(attacker.stats.attack * attacker.chargeMultiplier, target.stats.defense);
 
 const magicDamage = (action: ActionType, attacker: PlayerBattleState, target: PlayerBattleState) =>
-  Math.max(MIN_DAMAGE, Math.round(magicCost(action, attacker.stats) * 5 * attacker.chargeMultiplier - target.stats.defense / 2));
+  applyDefense(magicCost(action, attacker.stats) * 5 * attacker.chargeMultiplier, target.stats.defense);
 
 const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattleState) =>
-  Math.max(MIN_DAMAGE, Math.round(attacker.stats.defense * attacker.chargeMultiplier - target.stats.defense / 2));
+  applyDefense(attacker.stats.defense * attacker.chargeMultiplier, target.stats.defense);
 
 const reflectionDamage = (magicAction: ActionType, magicUser: PlayerBattleState, targetDefense: number) =>
-  Math.max(MIN_DAMAGE, Math.round(magicCost(magicAction, magicUser.stats) * 5 * magicUser.chargeMultiplier - targetDefense / 2));
+  applyDefense(magicCost(magicAction, magicUser.stats) * 5 * magicUser.chargeMultiplier, targetDefense);
 
 // 相手がチャージ/まひ状態で自身がバリアを選んだ際に発生する追加ダメージ。
-// 計算式: [自身の防御値 × チャージ倍率 - 相手の防御値 ÷ 2]
+// 計算式: [自身の防御値 × チャージ倍率] に防御軽減 [raw × 300 / (300 + 相手の防御値)] を適用
 
 const maybeAvoid = (damage: number, evasion: number, rng: () => number, voidminationActive?: boolean) =>
   voidminationActive || rng() >= evasion ? damage : 0;

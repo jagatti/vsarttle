@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateStatsFromDrawing } from "@/lib/statCalculator";
+import { BASE_STATS, calculateStatsFromDrawing } from "@/lib/statCalculator";
 import type { DrawingData } from "@/types/game";
 
 const mediumStrokeDrawing: DrawingData = {
@@ -70,8 +70,8 @@ function attackMultiColorImage() {
 test("calculateStatsFromDrawing - attack type uses new base max stats", () => {
   const stats = calculateStatsFromDrawing(mediumStrokeDrawing, solidImage(255, 0, 0));
   assert.deepEqual(stats, {
-    hp: 300,
-    maxHp: 300,
+    hp: 290,
+    maxHp: 290,
     pp: 50,
     maxPp: 50,
     attack: 199,
@@ -84,12 +84,12 @@ test("calculateStatsFromDrawing - attack type uses new base max stats", () => {
 test("calculateStatsFromDrawing - defense type uses new base max stats", () => {
   const stats = calculateStatsFromDrawing(mediumStrokeDrawing, solidImage(50, 50, 50));
   assert.deepEqual(stats, {
-    hp: 360,
-    maxHp: 360,
+    hp: 310,
+    maxHp: 310,
     pp: 50,
     maxPp: 50,
-    attack: 80,
-    defense: 160,
+    attack: 85,
+    defense: 150,
     speed: 5,
     evasion: 0.01,
   });
@@ -98,8 +98,8 @@ test("calculateStatsFromDrawing - defense type uses new base max stats", () => {
 test("calculateStatsFromDrawing - magic type uses new base max stats", () => {
   const stats = calculateStatsFromDrawing(mediumStrokeDrawing, solidImage(0, 0, 255));
   assert.deepEqual(stats, {
-    hp: 280,
-    maxHp: 280,
+    hp: 290,
+    maxHp: 290,
     pp: 90,
     maxPp: 90,
     attack: 100,
@@ -112,21 +112,30 @@ test("calculateStatsFromDrawing - magic type uses new base max stats", () => {
 test("calculateStatsFromDrawing - balanced type uses new base max stats", () => {
   const stats = calculateStatsFromDrawing(mediumStrokeDrawing, solidImage(0, 0, 0, 0));
   assert.deepEqual(stats, {
-    hp: 250,
-    maxHp: 250,
-    pp: 50,
-    maxPp: 50,
-    attack: 100,
-    defense: 100,
+    hp: 300,
+    maxHp: 300,
+    pp: 65,
+    maxPp: 65,
+    attack: 120,
+    defense: 110,
     speed: 6,
     evasion: 0.01,
+  });
+});
+
+test("BASE_STATS exports the updated Step 1 presets", () => {
+  assert.deepEqual(BASE_STATS, {
+    balanced: { hp: 300, pp: 65, attack: 120, defense: 110, speed: 6, evasion: 0.01 },
+    attack: { hp: 290, pp: 50, attack: 199, defense: 100, speed: 6, evasion: 0.01 },
+    magic: { hp: 290, pp: 90, attack: 100, defense: 100, speed: 7, evasion: 0.01 },
+    defense: { hp: 310, pp: 50, attack: 85, defense: 150, speed: 5, evasion: 0.01 },
   });
 });
 
 test("calculateStatsFromDrawing - thick lines increase HP max up to +10%", () => {
   const thickDrawing = makeDrawingWithStrokeSize(10, 4);
   const stats = calculateStatsFromDrawing(thickDrawing, solidImage(255, 0, 0));
-  assert.equal(stats.maxHp, 330);
+  assert.equal(stats.maxHp, 319);
   assert.equal(stats.maxPp, 50);
 });
 

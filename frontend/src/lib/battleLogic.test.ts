@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getAvailableActions, getDamageMultiplier, resolveTurn } from "@/lib/battleLogic";
+import { applyDefense, DEFENSE_SCALE, getAvailableActions, getDamageMultiplier, resolveTurn } from "@/lib/battleLogic";
 import type { ActionType, PlayerBattleState, WeakMagicEffectSelection } from "@/types/game";
 
 const makePlayer = (id: string): PlayerBattleState => ({
@@ -45,9 +45,18 @@ test("resolveTurn applies attack vs attack formula with defense mitigation", () 
   const b = makePlayer("b");
   const actions: Record<string, ActionType> = { a: "attack", b: "attack" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
-  const expectedDamage = 100 - 80 / 2;
+  const expectedDamage = 79;
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
   assert.equal(result.nextStates.b.currentHp, 100 - expectedDamage);
+});
+
+test("applyDefense matches the new diminishing-returns expectations", () => {
+  assert.equal(DEFENSE_SCALE, 300);
+  assert.equal(applyDefense(199, 100), 149);
+  assert.equal(applyDefense(199, 150), 133);
+  assert.equal(applyDefense(85, 150), 57);
+  assert.equal(applyDefense(150, 100), 113);
+  assert.equal(applyDefense(180, 150), 120);
 });
 
 test("resolveTurn records the attacker's charge multiplier on damage events", () => {
@@ -240,7 +249,7 @@ test("resolveTurn: paralyzed player deals no damage while opponent's action stil
   const b = makePlayer("b");
   const actions: Record<string, ActionType> = { a: "paralysis", b: "attack" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
-  const expectedDamage = 100 - 80 / 2;
+  const expectedDamage = 79;
   // Attacker b takes no damage back since paralyzed a cannot act.
   assert.equal(result.nextStates.b.currentHp, 100);
   assert.equal(result.nextStates.a.currentHp, 100 - expectedDamage);
@@ -258,7 +267,7 @@ test("resolveTurn: tie-ban suppresses the affected player's own same-category ac
     actions: { a: "attack", b: "attack" },
     rng: () => 0.99,
   });
-  assert.equal(result.nextStates.a.currentHp, 40);
+  assert.equal(result.nextStates.a.currentHp, 21);
   assert.equal(result.nextStates.b.currentHp, 100);
   assert.equal(result.damageEvents.length, 1);
   assert.deepEqual(result.suppressedByTieBanIds, ["a"]);
@@ -278,35 +287,35 @@ test("resolveTurn applies global damage multiplier on long turns", () => {
   const actions: Record<string, ActionType> = { a: "paralysis", b: "attack" };
 
   const turn16 = resolveTurn({ turn: 16, players: { a, b }, actions, rng: () => 0.99 });
-  assert.equal(turn16.damageEvents[0].amount, 120);
+  assert.equal(turn16.damageEvents[0].amount, 158);
 
   const turn21 = resolveTurn({ turn: 21, players: { a, b }, actions, rng: () => 0.99 });
-  assert.equal(turn21.damageEvents[0].amount, 180);
+  assert.equal(turn21.damageEvents[0].amount, 237);
 });
 
-test("resolveTurn: barrier vs paralyzed gives counter damage [defense - opponent.defense/2]", () => {
+test("resolveTurn: barrier vs paralyzed gives counter damage with the shared defense scaling", () => {
   const a = makePlayer("a"); // uses barrier
   const b = makePlayer("b"); // paralyzed
   b.paralyzedNextTurn = true;
-  // a.defense=80, b.defense=80 → expected = max(1, round(80 - 80/2)) = 40
+  // a.defense=80, b.defense=80 → expected = round(80 * 300 / (300 + 80)) = 63
   const actions: Record<string, ActionType> = { a: "barrier", b: "paralysis" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
   assert.equal(result.damageEvents[0]?.reason, "こうげき");
   assert.equal(result.damageEvents[0]?.phaseHint, "counter");
-  assert.equal(result.nextStates.b.currentHp, 100 - 40);
+  assert.equal(result.nextStates.b.currentHp, 37);
   assert.equal(result.nextStates.a.currentHp, 100); // barrier user takes no damage
 });
 
-test("resolveTurn: barrier vs charge uses [attacker.defense*chargeMultiplier - target.defense/2] formula", () => {
+test("resolveTurn: barrier vs charge uses the same diminishing-returns defense scaling", () => {
   const a = makePlayer("a"); // uses barrier
   const b = makePlayer("b"); // uses charge
-  // a.defense=80, b.defense=80 → counter damage = max(1, round(80*1 - 80/2)) = 40
-  // b was already at maxHp so charge HP recovery has no effect; b takes 40 counter damage
+  // a.defense=80, b.defense=80 → counter damage = round(80 * 300 / (300 + 80)) = 63
+  // b was already at maxHp so charge HP recovery has no effect; b takes 63 counter damage
   const actions: Record<string, ActionType> = { a: "barrier", b: "charge" };
   const result = resolveTurn({ turn: 1, players: { a, b }, actions, rng: () => 0.99 });
   assert.equal(result.damageEvents[0]?.reason, "こうげき");
   assert.equal(result.damageEvents[0]?.phaseHint, "counter");
-  assert.equal(result.nextStates.b.currentHp, 60); // 100 - 40 (counter)
+  assert.equal(result.nextStates.b.currentHp, 37); // 100 - 63 (counter)
   // barrier user (a) takes no counter damage
   assert.equal(result.nextStates.a.currentHp, 100);
 });
@@ -375,10 +384,10 @@ test("resolveTurn: chargeMultiplier applies to damage on the turn immediately af
     actions: { a: "attack", b: "barrier" },
     rng: () => 0.99,
   });
-  // a.attack=100, chargeMultiplier=1.5, b.defense=80 → 100*1.5 - 80/2 = 110
+  // a.attack=100, chargeMultiplier=1.5, b.defense=80 → round(150 * 300 / (300 + 80)) = 118
   const bDamageEvent = result2.damageEvents.find((e) => e.to === "b");
   assert.ok(bDamageEvent, "b should have received damage from a's charged attack");
-  assert.equal(bDamageEvent!.amount, 110);
+  assert.equal(bDamageEvent!.amount, 118);
   // chargeMultiplier should be reset after turn 2
   assert.equal(result2.nextStates.a.chargeMultiplier, 1);
 });
@@ -555,9 +564,8 @@ test("damageCaps: without cap, same setup deals uncapped damage", () => {
 
 test("damageCaps: barrier reflection with cap – player survives (floor-20 scenario)", () => {
   // Simulates: player (pp=999, defense=999) uses magicStrong; boss uses barrier.
-  // reflectionDamage = Math.round(ceil(999*0.4)*5*1 - 999/2) = Math.round(2000 - 499.5) = 1501
-  // scaledAmount (turn=1, multiplier=1) = 1501. Capped to 999 → player survives with hp > 0.
-  // Player needs maxHp > 999 to survive the capped 999 damage.
+  // reflectionDamage = round((ceil(999*0.4)*5) * 300 / (300 + 999)) = round(2000 * 300 / 1299) = 462
+  // That reflected damage is below the floor-20 cap, so the cap still preserves survival without changing the applied amount.
   const player = makePlayer("player");
   player.stats = {
     ...player.stats,
@@ -584,15 +592,15 @@ test("damageCaps: barrier reflection with cap – player survives (floor-20 scen
 
   const reflectEvent = result.damageEvents.find((e) => e.to === "player" && e.reason === "バリア反射" && !e.avoided);
   assert.ok(reflectEvent, "reflection damage event should exist");
-  assert.equal(reflectEvent!.amount, 999, "reflected damage must be capped at 999");
+  assert.equal(reflectEvent!.amount, 462, "reflected damage should follow the shared defense scaling");
   assert.ok(result.nextStates.player.currentHp > 0, "player must not be defeated in one hit");
 });
 
-test("damageCaps: without cap, floor-20 reflection would one-shot the player", () => {
-  // Verify the cap is actually needed: uncapped reflection exceeds player HP.
+test("damageCaps: without cap, floor-20 reflection still defeats a low-HP player", () => {
+  // Verify the uncapped reflected damage still matters under the new defense formula.
   const player = makePlayer("player");
-  player.stats = { ...player.stats, maxHp: 999, hp: 999, maxPp: 999, pp: 999, defense: 999 };
-  player.currentHp = 999;
+  player.stats = { ...player.stats, maxHp: 400, hp: 400, maxPp: 999, pp: 999, defense: 999 };
+  player.currentHp = 400;
   player.currentPp = 999;
 
   const boss = makePlayer("boss");
@@ -608,7 +616,7 @@ test("damageCaps: without cap, floor-20 reflection would one-shot the player", (
   });
 
   const reflectEvent = result.damageEvents.find((e) => e.to === "player" && e.reason === "バリア反射" && !e.avoided);
-  assert.ok(reflectEvent && reflectEvent.amount > 999, "uncapped reflection damage should exceed player HP");
+  assert.ok(reflectEvent && reflectEvent.amount > 400, "uncapped reflection damage should exceed player HP");
   assert.equal(result.nextStates.player.currentHp, 0, "player is one-shot without cap");
 });
 
