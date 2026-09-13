@@ -452,7 +452,7 @@ export function deriveStatsFromBase(base: BaseStatProfile, axes: DrawingAxes): C
   const attackFactor = 1 + STAT_VARIANCE.attackPp * clamp(axes.sA, -1, 1);
   const defenseFactor = 1 + STAT_VARIANCE.defense * clamp(axes.sB, -1, 1);
   const defense = Math.max(1, Math.round(base.defense * defenseFactor));
-  const targetEffectiveHp = base.hp * (DEFENSE_SCALE + base.defense) / DEFENSE_SCALE;
+  const targetEffectiveHp = base.hp * (DEFENSE_SCALE + Math.round(base.defense)) / DEFENSE_SCALE;
   const hp = Math.max(1, Math.round(targetEffectiveHp * DEFENSE_SCALE / (DEFENSE_SCALE + defense)));
   const pp = Math.max(1, Math.round(base.pp * (1 - STAT_VARIANCE.attackPp * clamp(axes.sA, -1, 1))));
   const attack = Math.max(1, Math.round(base.attack * attackFactor));

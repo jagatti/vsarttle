@@ -18,8 +18,7 @@ console.table(
     const overall = result.overallResults.find((entry) => entry.name === type)!;
     return {
       type,
-      wins: overall.wins,
-      games: overall.games,
+      matchups: overall.matchupCount,
       winRate: `${(overall.winRate * 100).toFixed(1)}%`,
     };
   }),
