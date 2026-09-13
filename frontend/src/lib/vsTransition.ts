@@ -1,7 +1,7 @@
 import { LIMIT_BREAK_BGM_PATH } from "@/lib/singlePlayLimitBreak";
 import type { Stage } from "@/types/game";
 
-export const VS_SCREEN_DURATION_MS = 2500;
+export const VS_SCREEN_DURATION_MS = 3600;
 export const VS_SCREEN_FADE_OUT_MS = 450;
 
 export type SinglePlayBgmStage =

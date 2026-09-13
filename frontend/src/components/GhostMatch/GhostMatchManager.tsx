@@ -5,13 +5,14 @@ import type { CSSProperties } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
+import { buildDrawingTags } from "@/lib/drawingTags";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { analyzeDrawing, calculateStatsFromDrawing } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, PlayerBattleState, TurnResult, WireDrawingData } from "@/types/game";
 
@@ -177,6 +178,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
       imageDataUrl: selectedGhost.drawingThumbnail,
       characterType: selectedGhost.characterType,
       stats: selectedGhost.stats,
+      drawingTags: selectedGhost.drawingTags,
       currentHp: selectedGhost.stats.maxHp,
       currentPp: selectedGhost.stats.maxPp,
       chargeMultiplier: 1,
@@ -204,16 +206,16 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     if (!ghost) return;
     const wireDrawing = prepareDrawingForWire(payload.drawing);
     previousDrawingRef.current = wireDrawing;
-    const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
-    const characterType = detectCharacterType(payload.imageData);
+    const analysis = analyzeDrawing(payload.drawing, payload.imageData);
     const playerState: PlayerBattleState = {
       id: playerBattleIdRef.current,
       nickname: props.playerProfile.nickname,
       imageDataUrl: drawingToDataUrl(wireDrawing),
-      characterType,
-      stats,
-      currentHp: stats.maxHp,
-      currentPp: stats.maxPp,
+      characterType: analysis.trend,
+      stats: analysis.stats,
+      drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+      currentHp: analysis.stats.maxHp,
+      currentPp: analysis.stats.maxPp,
       chargeMultiplier: 1,
       lastActionCategory: null,
     };
@@ -243,6 +245,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
             characterType: meState.characterType,
             stats: meState.stats,
             drawingSource: meState.imageDataUrl,
+            drawingTags: meState.drawingTags,
           }),
           createMatchPlayerRecord({
             playerId: ghost.ownerPlayerId,
@@ -250,6 +253,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
             characterType: enemyState.characterType,
             stats: enemyState.stats,
             drawingSource: enemyState.imageDataUrl,
+            drawingTags: enemyState.drawingTags,
           }),
         ]);
 

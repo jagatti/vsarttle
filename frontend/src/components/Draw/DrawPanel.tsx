@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { CharacterStats, DrawingData, Stroke, WireDrawingData } from "@/types/game";
-import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import type { DrawingData, Stroke, WireDrawingData } from "@/types/game";
 import { wireDrawingToStrokes } from "@/lib/drawingWire";
 import { soundManager } from "@/lib/soundManager";
 import { createThumbnail, loadSlots, persistSlots, SLOT_COUNT } from "@/lib/drawingSlots";
@@ -29,20 +28,6 @@ const CANVAS_SIZE = 400;
 
 const SIZE_PRESETS = [3, 8, 14, 22, 32];
 const SIZE_SWATCH_BOX = 36;
-
-const TYPE_LABELS: Record<string, string> = {
-  attack: "こうげき型",
-  magic: "まほう型",
-  defense: "バリア型",
-  balanced: "バランス型",
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  attack: "#ef4444",
-  magic: "#8b5cf6",
-  defense: "#f59e0b",
-  balanced: "#6b7280",
-};
 
 function floodFillMask(imageData: { data: Uint8ClampedArray; width: number; height: number }, startX: number, startY: number, tolerance = 32): Uint8Array {
   const { width, height, data } = imageData;
@@ -227,9 +212,6 @@ export function DrawPanel(props: {
     [strokes],
   );
 
-  const [liveStats, setLiveStats] = useState<CharacterStats | null>(null);
-  const [liveType, setLiveType] = useState<string>("balanced");
-
   // ── Save Slots ────────────────────────────────────────────────────────────
   const [slots, setSlots] = useState<(DrawingSlot | null)[]>(() => loadSlots());
 
@@ -312,16 +294,6 @@ export function DrawPanel(props: {
       ctx.restore();
     }
 
-    // Calculate live stats from a transparent-background render of the same
-    // strokes (see renderStrokesForStats for why we don't reuse the visible
-    // canvas's white-background ImageData here).
-    const statsImageData = renderStrokesForStats(allStrokes);
-    if (statsImageData) {
-      const stats = calculateStatsFromDrawing(drawingData, statsImageData);
-      const type = detectCharacterType(statsImageData);
-      setLiveStats(stats);
-      setLiveType(type);
-    }
   }, [strokes, drawingStroke, drawingData]);
 
   const startStroke = (x: number, y: number) => {
@@ -397,10 +369,9 @@ export function DrawPanel(props: {
     submittedRef.current = true;
     setSubmitted(true);
     // Use the transparent-background stats render (not the visible white
-    // canvas) so the final HP/type calculation is consistent with the live
-    // preview and isn't skewed by the white background — see
-    // renderStrokesForStats for details. Fall back to the visible canvas's
-    // ImageData only if the offscreen render is unavailable for some reason.
+    // canvas) so the final stat calculation isn't skewed by the white
+    // background — see renderStrokesForStats for details. Fall back to the
+    // visible canvas's ImageData only if the offscreen render is unavailable.
     props.onComplete(state);
   }, [captureState, props]);
 
@@ -522,43 +493,26 @@ export function DrawPanel(props: {
         ))}
         <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={submitted} />
       </div>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
-          className="w-full max-w-[400px] touch-none rounded border bg-white"
-          style={{ pointerEvents: submitted ? "none" : "auto", opacity: submitted ? 0.7 : 1 }}
-          onPointerDown={(e) => {
-            if (submitted) return;
-            const p = pointerPos(e);
-            startStroke(p.x, p.y);
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerMove={(e) => {
-            if (submitted || !drawingStroke) return;
-            const p = pointerPos(e);
-            appendPoint(p.x, p.y);
-          }}
-          onPointerUp={endStroke}
-          onPointerCancel={endStroke}
-        />
-        <div className="w-full max-w-[240px] rounded border bg-gray-50 p-3 text-sm text-gray-900">
-          <div className="mb-1 font-bold" style={{ color: TYPE_COLORS[liveType] }}>
-            タイプ: {liveStats ? TYPE_LABELS[liveType] : "-"}
-          </div>
-          {liveStats && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-900">
-              <span>HP: {liveStats.hp}</span>
-              <span>PP: {liveStats.pp}</span>
-              <span>攻撃: {liveStats.attack}</span>
-              <span>防御: {liveStats.defense}</span>
-              <span>速度: {liveStats.speed}</span>
-              <span>回避: {Math.round(liveStats.evasion * 100)}%</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_SIZE}
+        height={CANVAS_SIZE}
+        className="w-full max-w-[400px] touch-none rounded border bg-white"
+        style={{ pointerEvents: submitted ? "none" : "auto", opacity: submitted ? 0.7 : 1 }}
+        onPointerDown={(e) => {
+          if (submitted) return;
+          const p = pointerPos(e);
+          startStroke(p.x, p.y);
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (submitted || !drawingStroke) return;
+          const p = pointerPos(e);
+          appendPoint(p.x, p.y);
+        }}
+        onPointerUp={endStroke}
+        onPointerCancel={endStroke}
+      />
       {/* ── Save Slots ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-3">
         {Array.from({ length: SLOT_COUNT }, (_, i) => {

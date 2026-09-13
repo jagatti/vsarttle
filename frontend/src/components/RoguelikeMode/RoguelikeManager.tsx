@@ -292,6 +292,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           imageDataUrl: ghost.drawingThumbnail,
           characterType: ghost.characterType,
           stats: enemyStats,
+          drawingTags: ghost.drawingTags,
           currentHp: enemyStats.maxHp,
           currentPp: enemyStats.maxPp,
           chargeMultiplier: 1,
@@ -675,6 +676,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             characterType: runResult.playerState.characterType,
             stats: runResult.playerState.stats,
             drawingSource: runResult.playerState.imageDataUrl,
+            drawingTags: runResult.playerState.drawingTags,
           }),
           createMatchPlayerRecord({
             playerId: null,
@@ -682,6 +684,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             characterType: runResult.enemyState.characterType,
             stats: runResult.enemyState.stats,
             drawingSource: runResult.enemyState.imageDataUrl,
+            drawingTags: runResult.enemyState.drawingTags,
           }),
         ]);
 

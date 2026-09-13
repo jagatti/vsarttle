@@ -8,6 +8,7 @@ export async function createMatchPlayerRecord(input: {
   characterType: PlayerBattleState["characterType"];
   stats: PlayerBattleState["stats"];
   drawingSource: string;
+  drawingTags?: string[];
 }): Promise<MatchPlayerRecord> {
   return {
     playerId: input.playerId,
@@ -15,6 +16,7 @@ export async function createMatchPlayerRecord(input: {
     characterType: input.characterType,
     stats: input.stats,
     drawingThumbnail: await createThumbnailFromImageSource(input.drawingSource),
+    drawingTags: input.drawingTags,
   };
 }
 

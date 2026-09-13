@@ -18,6 +18,7 @@ export function listArchiveGhosts(matches: MatchRecord[], excludePlayerId?: stri
         characterType: player.characterType,
         stats: player.stats,
         drawingThumbnail: player.drawingThumbnail,
+        drawingTags: player.drawingTags,
       });
     }
   }
@@ -62,6 +63,7 @@ export function pickRandomGhostFromPool(
       characterType: entry.characterType as GhostRecord["characterType"],
       stats: entry.stats,
       drawingThumbnail: entry.drawingThumbnail,
+      drawingTags: entry.drawingTags,
     };
   }
   return SEED_GHOSTS[Math.floor(random() * SEED_GHOSTS.length)] ?? SEED_GHOSTS[0];

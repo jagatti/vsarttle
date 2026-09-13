@@ -14,6 +14,7 @@ export interface MatchPlayerRecord {
   characterType: CharacterType;
   stats: CharacterStats;
   drawingThumbnail: string;
+  drawingTags?: string[];
 }
 
 export interface SinglePlayResultRecord {
@@ -78,6 +79,7 @@ export interface GhostRecord {
   characterType: CharacterType;
   stats: CharacterStats;
   drawingThumbnail: string;
+  drawingTags?: string[];
 }
 
 export interface PlayerProfileResponse {

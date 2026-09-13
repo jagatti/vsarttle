@@ -8,8 +8,8 @@ import {
   VS_SCREEN_DURATION_MS,
 } from "@/lib/vsTransition";
 
-test("vs screen duration stays at 2500ms", () => {
-  assert.equal(VS_SCREEN_DURATION_MS, 2500);
+test("vs screen duration stays at 3600ms", () => {
+  assert.equal(VS_SCREEN_DURATION_MS, 3600);
 });
 
 test("multiplayer vs stage keeps bgm silent until battle", () => {

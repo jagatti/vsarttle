@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       characterType: player.characterType,
       stats: player.stats,
       drawingThumbnail: player.drawingThumbnail,
+      drawingTags: player.drawingTags,
     });
   }
 

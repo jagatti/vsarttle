@@ -31,6 +31,7 @@ export interface GhostPoolEntry {
   characterType: string;
   stats: MatchRecord["players"][0]["stats"];
   drawingThumbnail: string;
+  drawingTags?: string[];
 }
 
 // ---- KV configured check & warning ----
@@ -246,6 +247,7 @@ export function ghostPoolEntryToGhostRecord(entry: GhostPoolEntry): GhostRecord 
     characterType: entry.characterType as GhostRecord["characterType"],
     stats: entry.stats,
     drawingThumbnail: entry.drawingThumbnail,
+    drawingTags: entry.drawingTags,
   };
 }
 
