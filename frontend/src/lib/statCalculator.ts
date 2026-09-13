@@ -174,7 +174,7 @@ const emptyBaseStats = (): BaseStatProfile => ({
   evasion: 0,
 });
 
-function detectTrend(imageData: ImageDataLike): TrendInfo {
+function detectTrend(imageData: ImageDataLike, balancedOnTie = false): TrendInfo {
   let filledPixels = 0;
   let attackCount = 0;
   let magicCount = 0;
@@ -260,11 +260,14 @@ function detectTrend(imageData: ImageDataLike): TrendInfo {
     (left, right) => right.count - left.count,
   )[1]?.count ?? 0;
   const trendRatio = clamp((dominant - second) / filledPixels, 0, 1);
+  const dominantCount = [attackCount, magicCount, defenseCount].filter((count) => count === dominant).length;
 
   let trend: ColorTrend = "balanced";
-  if (dominant === attackCount) trend = "attack";
-  if (dominant === magicCount) trend = "magic";
-  if (dominant === defenseCount) trend = "defense";
+  if (!balancedOnTie || dominantCount === 1) {
+    if (dominant === attackCount) trend = "attack";
+    if (dominant === magicCount) trend = "magic";
+    if (dominant === defenseCount) trend = "defense";
+  }
 
   return {
     trend,
@@ -473,7 +476,7 @@ export function deriveStatsFromBase(base: BaseStatProfile, axes: DrawingAxes): C
 }
 
 export function analyzeDrawing(drawing: DrawingData, imageData: ImageDataLike): DrawingAnalysis {
-  const trendInfo = detectTrend(imageData);
+  const trendInfo = detectTrend(imageData, true);
   const { base, weights, purity } = blendBaseStats(trendInfo);
 
   if (trendInfo.filledPixels === 0) {

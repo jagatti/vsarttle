@@ -151,10 +151,14 @@ export function simulateBalanceMatrix(
       const rightProfile = profiles[rightIndex];
       const totals = { leftWins: 0, rightWins: 0, draws: 0 };
 
-      for (const [firstProfile, secondProfile, swapped] of [
-        [leftProfile, rightProfile, false],
-        [rightProfile, leftProfile, true],
-      ] as const) {
+      const orders = leftProfile === rightProfile
+        ? [[leftProfile, rightProfile, false]] as const
+        : [
+            [leftProfile, rightProfile, false],
+            [rightProfile, leftProfile, true],
+          ] as const;
+
+      for (const [firstProfile, secondProfile, swapped] of orders) {
         for (let match = 0; match < matchesPerOrder; match += 1) {
           const winner = simulateBattle(firstProfile, secondProfile, seed, maxTurns);
           seed += 1;
