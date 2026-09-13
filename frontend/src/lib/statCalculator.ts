@@ -165,6 +165,15 @@ const NEUTRAL_FEATURES: DrawingFeatures = {
 const trendKeys = ["attack", "magic", "defense"] as const satisfies readonly Exclude<ColorTrend, "balanced">[];
 const statKeys = ["hp", "pp", "attack", "defense", "speed", "evasion"] as const satisfies readonly (keyof BaseStatProfile)[];
 
+const emptyBaseStats = (): BaseStatProfile => ({
+  hp: 0,
+  pp: 0,
+  attack: 0,
+  defense: 0,
+  speed: 0,
+  evasion: 0,
+});
+
 function detectTrend(imageData: ImageDataLike): TrendInfo {
   let filledPixels = 0;
   let attackCount = 0;
@@ -391,16 +400,15 @@ function blendBaseStats(trendInfo: TrendInfo): { base: BaseStatProfile; weights:
   };
   const purity = trendInfo.trendRatio;
   const blendAmount = 0.5 + 0.5 * purity;
-  const blended = Object.fromEntries(
-    statKeys.map((stat) => [
-      stat,
-      trendKeys.reduce((sum, trend) => sum + weights[trend] * BASE_STATS[trend][stat], 0),
-    ]),
-  ) as BaseStatProfile;
+  const blended = statKeys.reduce((stats, stat) => {
+    stats[stat] = trendKeys.reduce((sum, trend) => sum + weights[trend] * BASE_STATS[trend][stat], 0);
+    return stats;
+  }, emptyBaseStats());
 
-  const base = Object.fromEntries(
-    statKeys.map((stat) => [stat, lerp(BASE_STATS.balanced[stat], blended[stat], blendAmount)]),
-  ) as BaseStatProfile;
+  const base = statKeys.reduce((stats, stat) => {
+    stats[stat] = lerp(BASE_STATS.balanced[stat], blended[stat], blendAmount);
+    return stats;
+  }, emptyBaseStats());
 
   return { base, weights, purity };
 }
