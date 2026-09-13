@@ -51,3 +51,13 @@ test("axis-extreme profiles stay near 50-50 against their own base profile", () 
     }
   }
 });
+
+test("mirror-only matrices avoid duplicate swapped runs", () => {
+  const result = simulateBalanceMatrix([createBaseProfile("attack")], { matchesPerOrder: MATCHES_PER_ORDER });
+  const pair = findPair("attack", "attack", result.pairResults);
+  const overall = result.overallResults.find((entry) => entry.name === "attack");
+
+  assert.equal(pair.totalGames, MATCHES_PER_ORDER);
+  assert.ok(overall);
+  assert.equal(overall.games, MATCHES_PER_ORDER * 2);
+});

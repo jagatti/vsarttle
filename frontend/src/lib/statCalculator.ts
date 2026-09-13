@@ -276,6 +276,8 @@ function detectTrend(imageData: ImageDataLike, balancedOnTie = false): TrendInfo
     attackCount,
     magicCount,
     defenseCount,
+    // Intentionally normalize by the occupied bounding box so shape compactness
+    // changes stats but absolute canvas coverage does not.
     density: clamp(filledPixels / bboxArea, 0, 1),
     aspect: clamp(Math.log2(bboxWidth / bboxHeight), -1, 1),
     offCenter: clamp(
