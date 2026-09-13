@@ -108,7 +108,7 @@ function calculateStrokeMetrics(drawing: DrawingData): { thickStrokeTravel: numb
   };
 }
 
-const BASE_STATS: Record<ColorTrend, {
+export const BASE_STATS: Record<ColorTrend, {
   hp: number;
   pp: number;
   attack: number;
@@ -116,10 +116,10 @@ const BASE_STATS: Record<ColorTrend, {
   speed: number;
   evasion: number;
 }> = {
-  balanced: { hp: 250, pp: 50, attack: 100, defense: 100, speed: 6, evasion: 0.01 },
-  attack:   { hp: 300, pp: 50, attack: 199, defense: 100, speed: 6, evasion: 0.01 },
-  magic:    { hp: 280, pp: 90, attack: 100, defense: 100, speed: 7, evasion: 0.01 },
-  defense:  { hp: 360, pp: 50, attack: 80, defense: 160, speed: 5, evasion: 0.01 },
+  balanced: { hp: 300, pp: 65, attack: 120, defense: 110, speed: 6, evasion: 0.01 },
+  attack:   { hp: 290, pp: 50, attack: 199, defense: 100, speed: 6, evasion: 0.01 },
+  magic:    { hp: 290, pp: 90, attack: 100, defense: 100, speed: 7, evasion: 0.01 },
+  defense:  { hp: 310, pp: 50, attack: 85, defense: 150, speed: 5, evasion: 0.01 },
 };
 
 function calculateHpPpBonusRates(
