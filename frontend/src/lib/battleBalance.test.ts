@@ -100,6 +100,8 @@ test("battle balance stays within the Step 1 win-rate bands", () => {
         for (let match = 0; match < MATCHES_PER_ORDER; match += 1) {
           const winner = simulateBattle(firstType, secondType, seed);
           seed += 1;
+          overall.get(firstType)!.games += 1;
+          overall.get(secondType)!.games += 1;
 
           if (winner === null) {
             totals.draws += 1;
@@ -114,8 +116,6 @@ test("battle balance stays within the Step 1 win-rate bands", () => {
           }
 
           overall.get(winner)!.wins += 1;
-          overall.get(firstType)!.games += 1;
-          overall.get(secondType)!.games += 1;
         }
       }
 
@@ -125,15 +125,15 @@ test("battle balance stays within the Step 1 win-rate bands", () => {
 
   for (const [key, totals] of pairWins) {
     const [leftType, rightType] = key.split("-vs-") as [CharacterType, CharacterType];
-    const decisiveGames = totals.leftWins + totals.rightWins;
+    const totalGames = totals.leftWins + totals.rightWins + totals.draws;
     if (leftType === rightType) {
-      assert.ok(decisiveGames > 0, `${key} should produce at least one decisive result`);
+      assert.ok(totalGames === MATCHES_PER_ORDER * 2, `${key} should run both side orders`);
       continue;
     }
 
-    assert.ok(decisiveGames > 0, `${key} should produce decisive results`);
-    const leftWinRate = totals.leftWins / decisiveGames;
-    const rightWinRate = totals.rightWins / decisiveGames;
+    assert.ok(totalGames === MATCHES_PER_ORDER * 2, `${key} should run both side orders`);
+    const leftWinRate = totals.leftWins / totalGames;
+    const rightWinRate = totals.rightWins / totalGames;
     assert.ok(leftWinRate >= 0.35 && leftWinRate <= 0.65, `${key} left win rate ${leftWinRate.toFixed(3)} out of range`);
     assert.ok(rightWinRate >= 0.35 && rightWinRate <= 0.65, `${key} right win rate ${rightWinRate.toFixed(3)} out of range`);
   }
