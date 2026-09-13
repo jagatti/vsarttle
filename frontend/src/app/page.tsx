@@ -18,7 +18,7 @@ import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
 import { GhostMatchManager } from "@/components/GhostMatch/GhostMatchManager";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import { analyzeDrawing, calculateStatsFromDrawing } from "@/lib/statCalculator";
+import { analyzeDrawing } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
 import { getMultiplayerStageBgm } from "@/lib/vsTransition";
@@ -31,6 +31,7 @@ import type {
   Stage,
   TurnResult,
   WeakMagicEffectSelection,
+  DrawingData,
   WireDrawingData,
 } from "@/types/game";
 
@@ -826,7 +827,7 @@ export default function Home() {
     }
   }, [stage]);
 
-  const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
+  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
     const analysis = analyzeDrawing(payload.drawing, payload.imageData);
     setPendingCharacterBase({
       drawing: prepareDrawingForWire(payload.drawing),

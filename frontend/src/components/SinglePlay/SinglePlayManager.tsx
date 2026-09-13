@@ -8,7 +8,7 @@ import { buildDrawingTags } from "@/lib/drawingTags";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { fetchPlayerProfile, submitMatchRecord } from "@/lib/profileApi";
-import { analyzeDrawing, calculateStatsFromDrawing } from "@/lib/statCalculator";
+import { analyzeDrawing } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
   applySinglePlayLimitBreak,

@@ -12,9 +12,9 @@ import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import { analyzeDrawing, calculateStatsFromDrawing } from "@/lib/statCalculator";
+import { analyzeDrawing } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
-import type { ActionType, PlayerBattleState, TurnResult, WireDrawingData } from "@/types/game";
+import type { ActionType, DrawingData, PlayerBattleState, TurnResult, WireDrawingData } from "@/types/game";
 
 type GhostMatchStage = "loading" | "drawing" | "vs" | "battle" | "error";
 
@@ -202,7 +202,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     setStage("vs");
   };
 
-  const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
+  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
     if (!ghost) return;
     const wireDrawing = prepareDrawingForWire(payload.drawing);
     previousDrawingRef.current = wireDrawing;
