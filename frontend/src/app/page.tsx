@@ -9,6 +9,7 @@ import { ProfileScreen } from "@/components/Profile/ProfileScreen";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
 import { createMatchPlayerRecord, calculateFinalHpRatio, remapTurnResultsToPersistentIds } from "@/lib/matchBuilders";
+import { buildDrawingTags } from "@/lib/drawingTags";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
 import { ensurePlayerIdentity, persistPlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
 import { submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
@@ -17,7 +18,7 @@ import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
 import { GhostMatchManager } from "@/components/GhostMatch/GhostMatchManager";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { analyzeDrawing } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
 import { getMultiplayerStageBgm } from "@/lib/vsTransition";
@@ -30,6 +31,7 @@ import type {
   Stage,
   TurnResult,
   WeakMagicEffectSelection,
+  DrawingData,
   WireDrawingData,
 } from "@/types/game";
 
@@ -50,6 +52,7 @@ interface PeerCharacter {
   drawing: WireDrawingData;
   stats: PlayerBattleState["stats"];
   characterType: CharacterType;
+  drawingTags?: string[];
   enhancementSlot: EnhancementSlot | null;
   battleMode: BattleMode;
   weakMagicSelection?: WeakMagicEffectSelection;
@@ -129,6 +132,7 @@ export default function Home() {
     drawing: WireDrawingData;
     stats: PlayerBattleState["stats"];
     characterType: CharacterType;
+    drawingTags: string[];
   } | null>(null);
   const [pendingReadyCharacter, setPendingReadyCharacter] = useState<PeerCharacter | null>(null);
   /** Cumulative win/loss record against the current opponent (resets on room change). */
@@ -262,6 +266,7 @@ export default function Home() {
       imageDataUrl: drawingToDataUrl(local.drawing),
       stats: local.stats,
       characterType: local.characterType,
+      drawingTags: local.drawingTags,
       enhancementSlot: local.enhancementSlot,
       currentHp: local.stats.maxHp,
       currentPp: local.stats.maxPp,
@@ -274,6 +279,7 @@ export default function Home() {
       imageDataUrl: drawingToDataUrl(remote.drawing),
       stats: remote.stats,
       characterType: remote.characterType,
+      drawingTags: remote.drawingTags,
       enhancementSlot: remote.enhancementSlot,
       currentHp: remote.stats.maxHp,
       currentPp: remote.stats.maxPp,
@@ -422,6 +428,7 @@ export default function Home() {
             characterType: myBattleState.characterType,
             stats: myBattleState.stats,
             drawingSource: myBattleState.imageDataUrl,
+            drawingTags: myBattleState.drawingTags,
           }),
           createMatchPlayerRecord({
             playerId: remote.persistentPlayerId,
@@ -429,6 +436,7 @@ export default function Home() {
             characterType: enemyBattleState.characterType,
             stats: enemyBattleState.stats,
             drawingSource: enemyBattleState.imageDataUrl,
+            drawingTags: enemyBattleState.drawingTags,
           }),
         ]);
 
@@ -819,13 +827,13 @@ export default function Home() {
     }
   }, [stage]);
 
-  const onDrawingComplete = (payload: { drawing: Parameters<typeof calculateStatsFromDrawing>[0]; imageData: ImageData }) => {
-    const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
-    const characterType = detectCharacterType(payload.imageData);
+  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
+    const analysis = analyzeDrawing(payload.drawing, payload.imageData);
     setPendingCharacterBase({
       drawing: prepareDrawingForWire(payload.drawing),
-      stats,
-      characterType,
+      stats: analysis.stats,
+      characterType: analysis.trend,
+      drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
     });
     setStatus("強化スロットを1つ選択してください。");
   };
@@ -839,6 +847,7 @@ export default function Home() {
       drawing: pendingCharacterBase.drawing,
       stats: applyEnhancementSlot(pendingCharacterBase.stats, slot),
       characterType: pendingCharacterBase.characterType,
+      drawingTags: pendingCharacterBase.drawingTags,
       enhancementSlot: slot,
       battleMode: battleModeRef.current,
     };

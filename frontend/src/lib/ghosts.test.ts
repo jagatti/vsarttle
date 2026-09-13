@@ -17,6 +17,7 @@ function makeMatch(playerId: string, nickname: string): MatchRecord {
         characterType: "attack",
         stats: { hp: 100, maxHp: 100, pp: 20, maxPp: 20, attack: 10, defense: 10, speed: 5, evasion: 0.1 },
         drawingThumbnail: "data:image/png;base64,aaa",
+        drawingTags: ["まるい"],
       },
     ],
     winnerId: playerId,
@@ -36,6 +37,7 @@ function makePoolEntry(ownerPlayerId: string, matchId: string): GhostPoolEntry {
     characterType: "attack",
     stats: { hp: 100, maxHp: 100, pp: 20, maxPp: 20, attack: 10, defense: 10, speed: 5, evasion: 0.1 },
     drawingThumbnail: "data:image/png;base64,aaa",
+    drawingTags: ["まるい"],
   };
 }
 
@@ -43,6 +45,7 @@ test("listArchiveGhosts excludes the specified player", () => {
   const ghosts = listArchiveGhosts([makeMatch("me", "Me"), makeMatch("other", "Other")], "me");
   assert.equal(ghosts.length, 1);
   assert.equal(ghosts[0]?.ownerPlayerId, "other");
+  assert.deepEqual(ghosts[0]?.drawingTags, ["まるい"]);
 });
 
 test("pickRandomGhost falls back to seed ghosts when archive is sparse", () => {
@@ -76,5 +79,4 @@ test("pickRandomGhostFromPool excludes specified player", () => {
   const ghost = pickRandomGhostFromPool(pool, { excludePlayerId: "me", random: () => 0 });
   assert.notEqual(ghost.ownerPlayerId, "me");
 });
-
 

@@ -94,6 +94,7 @@ export interface PlayerBattleState {
   imageDataUrl: string;
   stats: CharacterStats;
   characterType: CharacterType;
+  drawingTags?: string[];
   enhancementSlot?: EnhancementSlot | null;
   currentHp: number;
   currentPp: number;

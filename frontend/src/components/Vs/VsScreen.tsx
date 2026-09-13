@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { TYPE_BORDER_COLORS } from "@/components/Battle/BattlePanel";
+import { StatRadarChart } from "@/components/Vs/StatRadarChart";
 import { safeImageUrl } from "@/lib/imageUrl";
+import { getDrawingTagByLabel } from "@/lib/drawingTags";
+import { BASE_STATS } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
 import { VS_SCREEN_DURATION_MS, VS_SCREEN_FADE_OUT_MS } from "@/lib/vsTransition";
 import type { PlayerBattleState } from "@/types/game";
@@ -11,11 +15,11 @@ function withAlpha(hex: string, alphaHex: string) {
   return `${hex}${alphaHex}`;
 }
 
-// The center seam is expressed entirely in percentages of the container so the
-// diagonal crack overlay always lines up exactly with the two background halves,
-// regardless of the container's actual pixel size or aspect ratio.
 const VS_SEAM_TOP_PERCENT = 58;
 const VS_SEAM_BOTTOM_PERCENT = 42;
+const PORTRAIT_SLIDE_MS = 420;
+const TAG_FADE_DELAY_MS = PORTRAIT_SLIDE_MS + 80;
+const RADAR_FADE_DELAY_MS = PORTRAIT_SLIDE_MS + 260;
 
 function buildVsSeamCrackPolygon() {
   const yStops = [0, 5, 13, 21, 29, 37, 45, 55, 63, 71, 79, 87, 95, 100];
@@ -50,26 +54,98 @@ interface VsScreenProps {
   onComplete: () => void;
 }
 
-function VsPortrait({ player, side }: { player: PlayerBattleState; side: "left" | "right" }) {
+function useMediaMatch(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
+
+function FadeInBlock({
+  delayMs,
+  children,
+  align,
+}: {
+  delayMs: number;
+  children: ReactNode;
+  align: "left" | "right";
+}) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        justifyContent: align === "left" ? "flex-start" : "flex-end",
+        animation: `slideInFromBottom 280ms ease-out ${delayMs}ms both`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TagChip({ label, color }: { label: string; color: string }) {
+  const title = getDrawingTagByLabel(label)?.effectText;
+  return (
+    <span
+      title={title}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: `1.5px solid ${color}`,
+        background: "rgba(0,0,0,0.62)",
+        color: "#fff7ed",
+        fontSize: 12,
+        fontWeight: 800,
+        letterSpacing: "0.03em",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.28)",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function VsPortrait({
+  player,
+  side,
+  compact,
+}: {
+  player: PlayerBattleState;
+  side: "left" | "right";
+  compact: boolean;
+}) {
+  const color = TYPE_BORDER_COLORS[player.characterType];
+  const tags = (player.drawingTags ?? []).slice(0, compact ? 1 : 2);
+
   return (
     <div
       style={{
         position: "relative",
         zIndex: 2,
-        width: "min(38vw, 420px)",
+        width: compact ? "min(42vw, 240px)" : "min(38vw, 420px)",
         maxWidth: "100%",
         display: "flex",
         flexDirection: "column",
         alignItems: side === "left" ? "flex-start" : "flex-end",
         gap: 16,
-        animation: `${side === "left" ? "slideInFromLeft" : "slideInFromRight"} 420ms ease-out both`,
+        animation: `${side === "left" ? "slideInFromLeft" : "slideInFromRight"} ${PORTRAIT_SLIDE_MS}ms ease-out both`,
       }}
     >
       <div
         style={{
           padding: "10px 18px",
           borderRadius: 999,
-          border: `2px solid ${TYPE_BORDER_COLORS[player.characterType]}`,
+          border: `2px solid ${color}`,
           background: "rgba(0,0,0,0.62)",
           color: "#fff7ed",
           fontWeight: 900,
@@ -81,11 +157,27 @@ function VsPortrait({ player, side }: { player: PlayerBattleState; side: "left" 
       >
         {player.nickname}
       </div>
+      {tags.length > 0 ? (
+        <FadeInBlock delayMs={TAG_FADE_DELAY_MS} align={side}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              justifyContent: side === "left" ? "flex-start" : "flex-end",
+            }}
+          >
+            {tags.map((tag) => (
+              <TagChip key={tag} label={tag} color={color} />
+            ))}
+          </div>
+        </FadeInBlock>
+      ) : null}
       <div
         style={{
           position: "relative",
           width: "100%",
-          minHeight: "min(46vw, 420px)",
+          minHeight: compact ? "min(42vw, 220px)" : "min(46vw, 420px)",
           display: "flex",
           alignItems: "center",
           justifyContent: side === "left" ? "flex-start" : "flex-end",
@@ -96,7 +188,7 @@ function VsPortrait({ player, side }: { player: PlayerBattleState; side: "left" 
             position: "absolute",
             inset: side === "left" ? "12% 18% 8% 0" : "12% 0 8% 18%",
             borderRadius: 28,
-            background: `linear-gradient(180deg, ${withAlpha(TYPE_BORDER_COLORS[player.characterType], "55")} 0%, rgba(0,0,0,0.08) 100%)`,
+            background: `linear-gradient(180deg, ${withAlpha(color, "55")} 0%, rgba(0,0,0,0.08) 100%)`,
             filter: "blur(10px)",
           }}
         />
@@ -108,20 +200,34 @@ function VsPortrait({ player, side }: { player: PlayerBattleState; side: "left" 
             position: "relative",
             zIndex: 1,
             width: "100%",
-            maxWidth: 360,
-            maxHeight: "min(46vw, 420px)",
+            maxWidth: compact ? 220 : 360,
+            maxHeight: compact ? "min(42vw, 220px)" : "min(46vw, 420px)",
             objectFit: "contain",
             filter:
               "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95)) drop-shadow(0 12px 24px rgba(0,0,0,0.5))",
           }}
         />
       </div>
+      <FadeInBlock delayMs={RADAR_FADE_DELAY_MS} align={side}>
+        <StatRadarChart
+          stats={player.stats}
+          base={BASE_STATS[player.characterType]}
+          color={color}
+          size={compact ? 150 : 220}
+          animate
+          side={side}
+        />
+      </FadeInBlock>
     </div>
   );
 }
 
 export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const compact = useMediaMatch("(max-width: 720px)");
+  const contentGap = compact ? 12 : 24;
+  const contentPadding = compact ? 20 : 48;
+  const vsWidth = compact ? "min(28vw, 130px)" : "min(34vw, 260px)";
 
   useEffect(() => {
     soundManager.stopBgm();
@@ -190,12 +296,12 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 24,
-          padding: "clamp(24px, 4vw, 48px)",
+          gap: contentGap,
+          padding: `clamp(20px, 4vw, ${contentPadding}px)`,
         }}
       >
-        <VsPortrait player={me} side="left" />
-        <VsPortrait player={enemy} side="right" />
+        <VsPortrait player={me} side="left" compact={compact} />
+        <VsPortrait player={enemy} side="right" compact={compact} />
       </div>
       <div
         style={{
@@ -212,7 +318,7 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
           role="img"
           aria-label="VS"
           style={{
-            width: "min(34vw, 260px)",
+            width: vsWidth,
             overflow: "visible",
             filter: "drop-shadow(0 10px 16px rgba(0,0,0,0.5))",
             animation: "fadeInScale 360ms ease-out",

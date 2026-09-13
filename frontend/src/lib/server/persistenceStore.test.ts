@@ -41,6 +41,7 @@ function makeMatch(matchId: string, playerId: string) {
         characterType: "attack" as const,
         stats: { hp: 100, maxHp: 100, pp: 20, maxPp: 20, attack: 10, defense: 10, speed: 5, evasion: 0.1 },
         drawingThumbnail: "data:image/png;base64,aaa",
+        drawingTags: ["まるい"],
       },
     ],
     winnerId: playerId,
@@ -120,6 +121,7 @@ test("upsertGhostPool keeps at most 2 entries per player", async () => {
       characterType: "attack",
       stats,
       drawingThumbnail: "data:image/png;base64,x",
+      drawingTags: ["まるい"],
     });
   }
   const pool = await loadGhostPool();
@@ -131,11 +133,11 @@ test("ghostPoolEntryToGhostRecord maps source=archive", () => {
   const stats = { hp: 100, maxHp: 100, pp: 20, maxPp: 20, attack: 10, defense: 10, speed: 5, evasion: 0.1 };
   const entry = {
     ownerPlayerId: "p1", matchId: "m1", nickname: "X",
-    characterType: "magic", stats, drawingThumbnail: "data:image/png;base64,z",
+    characterType: "magic", stats, drawingThumbnail: "data:image/png;base64,z", drawingTags: ["カラフル"],
   };
   const record = ghostPoolEntryToGhostRecord(entry);
   assert.equal(record.source, "archive");
   assert.equal(record.ownerPlayerId, "p1");
   assert.equal(record.characterType, "magic");
+  assert.deepEqual(record.drawingTags, ["カラフル"]);
 });
-

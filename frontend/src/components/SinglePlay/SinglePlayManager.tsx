@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
+import { buildDrawingTags } from "@/lib/drawingTags";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { fetchPlayerProfile, submitMatchRecord } from "@/lib/profileApi";
-import { calculateStatsFromDrawing, detectCharacterType } from "@/lib/statCalculator";
+import { analyzeDrawing } from "@/lib/statCalculator";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import {
   applySinglePlayLimitBreak,
@@ -60,6 +61,7 @@ interface SpCharacter {
   imageDataUrl: string;
   stats: CharacterStats;
   characterType: CharacterType;
+  drawingTags?: string[];
   currentHp: number;
   currentPp: number;
 }
@@ -86,6 +88,7 @@ function toPlayerState(char: SpCharacter): PlayerBattleState {
     imageDataUrl: char.imageDataUrl,
     stats: char.stats,
     characterType: char.characterType,
+    drawingTags: char.drawingTags,
     currentHp: char.currentHp,
     currentPp: char.currentPp,
     chargeMultiplier: 1,
@@ -852,6 +855,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             characterType: playerState.characterType,
             stats: playerState.stats,
             drawingSource: playerState.imageDataUrl,
+            drawingTags: playerState.drawingTags,
           }),
           createMatchPlayerRecord({
             playerId: null,
@@ -859,6 +863,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             characterType: enemyState.characterType,
             stats: enemyState.stats,
             drawingSource: enemyState.imageDataUrl,
+            drawingTags: enemyState.drawingTags,
           }),
         ]);
         await submitMatchRecord({
@@ -1206,8 +1211,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       }
 
       soundManager.playSe("/sounds/se/button.mp3");
-      const stats = calculateStatsFromDrawing(payload.drawing, payload.imageData);
-      const characterType = detectCharacterType(payload.imageData);
+      const analysis = analyzeDrawing(payload.drawing, payload.imageData);
       const imageDataUrl = drawingToDataUrl(payload.drawing);
 
       const newChar: SpCharacter = {
@@ -1215,10 +1219,11 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         id: `player-${nextIndex}`,
         nickname: `キャラ${nextIndex + 1}`,
         imageDataUrl,
-        stats,
-        characterType,
-        currentHp: stats.maxHp,
-        currentPp: stats.maxPp,
+        stats: analysis.stats,
+        characterType: analysis.trend,
+        drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+        currentHp: analysis.stats.maxHp,
+        currentPp: analysis.stats.maxPp,
       };
 
       const updated = chars.map((c, i) =>

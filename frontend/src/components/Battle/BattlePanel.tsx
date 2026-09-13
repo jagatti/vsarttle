@@ -181,6 +181,7 @@ interface ImpactEffect {
 function NameHpBox({ player, align, title }: { player: PlayerBattleState; align: "left" | "right"; title?: string }) {
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   const hpPct = Math.max(0, Math.round((player.currentHp / player.stats.maxHp) * 100));
+  const typeTitle = [title, "防御はバリアの威力にもなります"].filter(Boolean).join(" / ");
   return (
     <div
       title={title}
@@ -219,6 +220,7 @@ function NameHpBox({ player, align, title }: { player: PlayerBattleState; align:
           {player.nickname}
         </span>
         <span
+          title={typeTitle}
           style={{
             color: borderColor,
             border: `2px solid ${borderColor}`,
@@ -232,6 +234,21 @@ function NameHpBox({ player, align, title }: { player: PlayerBattleState; align:
         >
           {TYPE_LABELS[player.characterType]}
         </span>
+        {player.drawingTags?.[0] ? (
+          <span
+            style={{
+              color: "#e2e8f0",
+              fontWeight: 800,
+              fontSize: "clamp(9px, 0.78vw, 11px)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "clamp(48px, 7vw, 92px)",
+            }}
+          >
+            {player.drawingTags[0]}
+          </span>
+        ) : null}
       </div>
       <div
         style={{
