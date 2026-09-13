@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test --import tsx \"src/**/*.test.ts\"",
+    "balance": "tsx scripts/simulateBalance.ts",
     "cleanup:blank-thumbnails": "tsx scripts/cleanup-blank-thumbnails.ts"
   },
   "dependencies": {
