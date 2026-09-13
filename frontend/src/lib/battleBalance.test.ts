@@ -22,7 +22,7 @@ test("battle balance stays within the Step 2 win-rate bands", () => {
 
   for (const pair of result.pairResults) {
     if (pair.left === pair.right) {
-      assert.equal(pair.totalGames, MATCHES_PER_ORDER * 2, `${pair.left} mirror matches should run both side orders`);
+      assert.equal(pair.totalGames, MATCHES_PER_ORDER, `${pair.left} mirror matches should avoid duplicate swapped runs`);
       continue;
     }
 
