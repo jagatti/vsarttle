@@ -28,8 +28,7 @@ export interface PairBalanceResult {
 export interface OverallBalanceResult {
   name: string;
   characterType: CharacterType;
-  wins: number;
-  games: number;
+  matchupCount: number;
   winRate: number;
 }
 
@@ -141,9 +140,6 @@ export function simulateBalanceMatrix(
   const maxTurns = options?.maxTurns ?? DEFAULT_MAX_TURNS;
   let seed = options?.seedStart ?? 1;
   const pairResults: PairBalanceResult[] = [];
-  const overall = new Map(
-    profiles.map((profile) => [profile.name, { name: profile.name, characterType: profile.characterType, wins: 0, games: 0 }]),
-  );
 
   for (let leftIndex = 0; leftIndex < profiles.length; leftIndex += 1) {
     for (let rightIndex = leftIndex; rightIndex < profiles.length; rightIndex += 1) {
@@ -162,8 +158,6 @@ export function simulateBalanceMatrix(
         for (let match = 0; match < matchesPerOrder; match += 1) {
           const winner = simulateBattle(firstProfile, secondProfile, seed, maxTurns);
           seed += 1;
-          overall.get(firstProfile.name)!.games += 1;
-          overall.get(secondProfile.name)!.games += 1;
 
           if (winner === null) {
             totals.draws += 1;
@@ -173,10 +167,8 @@ export function simulateBalanceMatrix(
           const originalLeftWon = swapped ? winner === "right" : winner === "left";
           if (originalLeftWon) {
             totals.leftWins += 1;
-            overall.get(leftProfile.name)!.wins += 1;
           } else {
             totals.rightWins += 1;
-            overall.get(rightProfile.name)!.wins += 1;
           }
         }
       }
@@ -196,11 +188,22 @@ export function simulateBalanceMatrix(
     }
   }
 
+  const overallResults = profiles.map((profile) => {
+    const matchupRates = pairResults.flatMap((pair) => {
+      if (pair.left === profile.name) return [pair.leftWinRate];
+      if (pair.right === profile.name) return [pair.rightWinRate];
+      return [];
+    });
+    return {
+      name: profile.name,
+      characterType: profile.characterType,
+      matchupCount: matchupRates.length,
+      winRate: matchupRates.reduce((sum, rate) => sum + rate, 0) / Math.max(1, matchupRates.length),
+    };
+  });
+
   return {
     pairResults,
-    overallResults: [...overall.values()].map((result) => ({
-      ...result,
-      winRate: result.games === 0 ? 0 : result.wins / result.games,
-    })),
+    overallResults,
   };
 }

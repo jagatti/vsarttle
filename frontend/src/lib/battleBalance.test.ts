@@ -59,5 +59,6 @@ test("mirror-only matrices avoid duplicate swapped runs", () => {
 
   assert.equal(pair.totalGames, MATCHES_PER_ORDER);
   assert.ok(overall);
-  assert.equal(overall.games, MATCHES_PER_ORDER * 2);
+  assert.equal(overall.matchupCount, 1);
+  assert.ok(overall.winRate >= 0.45 && overall.winRate <= 0.55);
 });
