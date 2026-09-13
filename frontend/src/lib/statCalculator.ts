@@ -133,7 +133,7 @@ export const AXIS_WEIGHTS = {
     fillRatio: -0.3,
     density: -0.2,
   },
-  speedVsEvasion: {
+  evasionVsSpeed: {
     curvature: 0.5,
     offCenter: 0.4,
     density: -0.3,
@@ -141,7 +141,7 @@ export const AXIS_WEIGHTS = {
   },
 } as const;
 
-const AXIS_VARIANCE = {
+export const STAT_VARIANCE = {
   attackPp: 0.12,
   defense: 0.12,
   evasionUp: 0.04,
@@ -436,10 +436,10 @@ function computeAxes(features: DrawingFeatures): DrawingAxes {
       1,
     ),
     sC: clamp(
-      AXIS_WEIGHTS.speedVsEvasion.curvature * features.curvature +
-        AXIS_WEIGHTS.speedVsEvasion.offCenter * (features.offCenter * 2 - 1) +
-        AXIS_WEIGHTS.speedVsEvasion.density * features.density +
-        AXIS_WEIGHTS.speedVsEvasion.lightness * features.lightness,
+      AXIS_WEIGHTS.evasionVsSpeed.curvature * features.curvature +
+        AXIS_WEIGHTS.evasionVsSpeed.offCenter * (features.offCenter * 2 - 1) +
+        AXIS_WEIGHTS.evasionVsSpeed.density * features.density +
+        AXIS_WEIGHTS.evasionVsSpeed.lightness * features.lightness,
       -1,
       1,
     ),
@@ -447,18 +447,18 @@ function computeAxes(features: DrawingFeatures): DrawingAxes {
 }
 
 export function deriveStatsFromBase(base: BaseStatProfile, axes: DrawingAxes): CharacterStats {
-  const attackFactor = 1 + AXIS_VARIANCE.attackPp * clamp(axes.sA, -1, 1);
-  const defenseFactor = 1 + AXIS_VARIANCE.defense * clamp(axes.sB, -1, 1);
+  const attackFactor = 1 + STAT_VARIANCE.attackPp * clamp(axes.sA, -1, 1);
+  const defenseFactor = 1 + STAT_VARIANCE.defense * clamp(axes.sB, -1, 1);
   const defense = Math.max(1, Math.round(base.defense * defenseFactor));
   const targetEffectiveHp = base.hp * (DEFENSE_SCALE + base.defense) / DEFENSE_SCALE;
   const hp = Math.max(1, Math.round(targetEffectiveHp * DEFENSE_SCALE / (DEFENSE_SCALE + defense)));
-  const pp = Math.max(1, Math.round(base.pp * (1 - AXIS_VARIANCE.attackPp * clamp(axes.sA, -1, 1))));
+  const pp = Math.max(1, Math.round(base.pp * (1 - STAT_VARIANCE.attackPp * clamp(axes.sA, -1, 1))));
   const attack = Math.max(1, Math.round(base.attack * attackFactor));
   const speed = Math.max(1, Math.round(base.speed - Math.round(clamp(axes.sC, -1, 1))));
   const evasion = clamp(
     base.evasion +
-      AXIS_VARIANCE.evasionUp * Math.max(0, axes.sC) -
-      AXIS_VARIANCE.evasionDown * Math.max(0, -axes.sC),
+      STAT_VARIANCE.evasionUp * Math.max(0, axes.sC) -
+      STAT_VARIANCE.evasionDown * Math.max(0, -axes.sC),
     0,
     0.05,
   );
