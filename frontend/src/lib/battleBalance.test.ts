@@ -62,3 +62,13 @@ test("mirror-only matrices avoid duplicate swapped runs", () => {
   assert.equal(overall.matchupCount, 1);
   assert.ok(overall.winRate >= 0.45 && overall.winRate <= 0.55);
 });
+
+test("mirror profiles with matching identity still run only one side order", () => {
+  const result = simulateBalanceMatrix(
+    [createBaseProfile("attack", "same"), createBaseProfile("attack", "same")],
+    { matchesPerOrder: MATCHES_PER_ORDER },
+  );
+  const pair = findPair("same", "same", result.pairResults);
+
+  assert.equal(pair.totalGames, MATCHES_PER_ORDER);
+});

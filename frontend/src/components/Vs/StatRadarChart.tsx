@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   BASE_RADIUS,
   buildBaseRadarVertices,
@@ -32,6 +32,14 @@ function formatDelta(key: keyof RadarBaseStats, delta: number) {
   return `${delta > 0 ? "▲" : "▼"}${delta > 0 ? "+" : ""}${delta}`;
 }
 
+function formatAccessibleDelta(key: keyof RadarBaseStats, delta: number) {
+  if (key === "evasion") {
+    const pct = Math.round(delta * 100);
+    return pct === 0 ? "差分なし" : pct > 0 ? `${pct}%高い` : `${Math.abs(pct)}%低い`;
+  }
+  return delta === 0 ? "差分なし" : delta > 0 ? `${delta}高い` : `${Math.abs(delta)}低い`;
+}
+
 export function StatRadarChart({
   stats,
   base,
@@ -45,6 +53,8 @@ export function StatRadarChart({
   const padding = 42;
   const outerRadius = Math.max(28, size / 2 - padding);
   const center = size / 2;
+  const titleId = useId();
+  const descId = useId();
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -75,15 +85,24 @@ export function StatRadarChart({
   const highlightKey = useMemo(() => getMostDivergentRadarStatKey(stats, base), [base, stats]);
   const polygonPoints = useMemo(() => buildRadarPolygonPoints(vertices), [vertices]);
   const basePolygonPoints = useMemo(() => buildRadarPolygonPoints(baseVertices), [baseVertices]);
+  const accessibleSummary = useMemo(
+    () =>
+      vertices
+        .map((vertex) => `${vertex.label} ${vertex.value}（基準 ${vertex.baseValue}、${formatAccessibleDelta(vertex.key, vertex.delta)}）`)
+        .join("、"),
+    [vertices],
+  );
 
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
       role="img"
-      aria-label="ステータス比較レーダーチャート"
+      aria-labelledby={`${titleId} ${descId}`}
       data-side={side}
       style={{ width: size, height: size, overflow: "visible" }}
     >
+      <title id={titleId}>ステータス比較レーダーチャート</title>
+      <desc id={descId}>{accessibleSummary}</desc>
       {GRID_RADII.map((radius, index) => {
         const ringVertices = buildBaseRadarVertices(outerRadius, center, center, radius);
         return (

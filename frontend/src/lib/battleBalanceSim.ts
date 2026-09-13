@@ -37,6 +37,10 @@ export interface BalanceMatrixResult {
   overallResults: OverallBalanceResult[];
 }
 
+function isMirrorProfile(left: SimulationProfile, right: SimulationProfile) {
+  return left.name === right.name && left.characterType === right.characterType;
+}
+
 export function mulberry32(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -147,7 +151,7 @@ export function simulateBalanceMatrix(
       const rightProfile = profiles[rightIndex];
       const totals = { leftWins: 0, rightWins: 0, draws: 0 };
 
-      const orders = leftProfile === rightProfile
+      const orders = isMirrorProfile(leftProfile, rightProfile)
         ? [[leftProfile, rightProfile, false]] as const
         : [
             [leftProfile, rightProfile, false],
