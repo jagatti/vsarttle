@@ -1,6 +1,6 @@
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { BASE_STATS, deriveStatsFromBase } from "@/lib/statCalculator";
-import type { DrawingAxes } from "@/lib/statCalculator";
+import type { BaseStatProfile, DrawingAxes } from "@/lib/statCalculator";
 import type { ActionType, CharacterStats, CharacterType, PlayerBattleState } from "@/types/game";
 
 export const CHARACTER_TYPES = ["balanced", "attack", "magic", "defense"] as const satisfies CharacterType[];
@@ -51,7 +51,7 @@ export function mulberry32(seed: number) {
   };
 }
 
-export function toCharacterStats(base: CharacterStats | (typeof BASE_STATS)[CharacterType]): CharacterStats {
+export function toCharacterStats(base: CharacterStats | BaseStatProfile): CharacterStats {
   return {
     hp: base.hp,
     maxHp: "maxHp" in base ? base.maxHp : base.hp,
