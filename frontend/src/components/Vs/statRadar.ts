@@ -1,37 +1,17 @@
 import type { CharacterStats } from "@/types/game";
 
 export type RadarStatKey = "hp" | "pp" | "attack" | "defense" | "speed" | "evasion";
-
-export interface RadarBaseStats {
-  hp: number;
-  pp: number;
-  attack: number;
-  defense: number;
-  speed: number;
-  evasion: number;
-}
+export type RadarAdvantage = "up" | "down" | "even";
 
 export interface RadarVertex {
   key: RadarStatKey;
   label: string;
   angle: number;
-  ratio: number;
   radius: number;
   x: number;
   y: number;
   value: number;
-  baseValue: number;
-  delta: number;
 }
-
-const RATIO_MIN = 0.88;
-const RATIO_MAX = 1.12;
-const RADIUS_MIN = 0.35;
-const RADIUS_MAX = 1;
-const SPEED_RATIO_PER_POINT = 0.12;
-const EVASION_RATIO_PER_POINT = 0.12 / 0.04;
-
-export const BASE_RADIUS = 0.675;
 
 export const RADAR_STAT_ORDER: readonly RadarStatKey[] = ["hp", "pp", "attack", "defense", "speed", "evasion"];
 
@@ -44,54 +24,48 @@ export const RADAR_STAT_LABELS: Record<RadarStatKey, string> = {
   evasion: "回避",
 };
 
+export const RADAR_ABSOLUTE_RANGE: Record<RadarStatKey, { min: number; max: number }> = {
+  hp: { min: 240, max: 360 },
+  pp: { min: 40, max: 105 },
+  attack: { min: 60, max: 230 },
+  defense: { min: 80, max: 175 },
+  speed: { min: 3, max: 10 },
+  evasion: { min: 0, max: 0.1 },
+};
+
+export const RADIUS_MIN = 0.18;
+export const RADIUS_MAX = 1;
+export const ADVANTAGE_THRESHOLD = 0.06;
+
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-export function getRadarComparableRatio(key: RadarStatKey, stats: CharacterStats, base: RadarBaseStats): number {
-  if (key === "speed") {
-    return 1 + (stats.speed - base.speed) * SPEED_RATIO_PER_POINT;
+export function mapAbsoluteToRadius(key: RadarStatKey, value: number): number {
+  const range = RADAR_ABSOLUTE_RANGE[key];
+  const clamped = clamp(value, range.min, range.max);
+  if (range.max <= range.min) {
+    return RADIUS_MIN;
   }
-  if (key === "evasion") {
-    return 1 + (stats.evasion - base.evasion) * EVASION_RATIO_PER_POINT;
-  }
-  return stats[key] / Math.max(1, base[key]);
-}
-
-export function mapRadarRatioToRadius(ratio: number): number {
-  const clamped = clamp(ratio, RATIO_MIN, RATIO_MAX);
-  return RADIUS_MIN + ((clamped - RATIO_MIN) / (RATIO_MAX - RATIO_MIN)) * (RADIUS_MAX - RADIUS_MIN);
-}
-
-export function getMostDivergentRadarStatKey(stats: CharacterStats, base: RadarBaseStats): RadarStatKey {
-  return RADAR_STAT_ORDER.reduce((best, key) => {
-    const deviation = Math.abs(getRadarComparableRatio(key, stats, base) - 1);
-    const bestDeviation = Math.abs(getRadarComparableRatio(best, stats, base) - 1);
-    return deviation > bestDeviation ? key : best;
-  }, RADAR_STAT_ORDER[0]);
+  return RADIUS_MIN + ((clamped - range.min) / (range.max - range.min)) * (RADIUS_MAX - RADIUS_MIN);
 }
 
 export function buildRadarVertices(
   stats: CharacterStats,
-  base: RadarBaseStats,
   outerRadius: number,
   centerX = outerRadius,
   centerY = outerRadius,
 ): RadarVertex[] {
   return RADAR_STAT_ORDER.map((key, index) => {
     const angle = -Math.PI / 2 + (Math.PI * 2 * index) / RADAR_STAT_ORDER.length;
-    const ratio = getRadarComparableRatio(key, stats, base);
-    const radius = mapRadarRatioToRadius(ratio);
+    const radius = mapAbsoluteToRadius(key, stats[key]);
     const px = radius * outerRadius;
     return {
       key,
       label: RADAR_STAT_LABELS[key],
       angle,
-      ratio,
       radius,
       x: centerX + Math.cos(angle) * px,
       y: centerY + Math.sin(angle) * px,
       value: stats[key],
-      baseValue: base[key],
-      delta: stats[key] - base[key],
     };
   });
 }
@@ -100,18 +74,38 @@ export function buildRadarPolygonPoints(vertices: readonly Pick<RadarVertex, "x"
   return vertices.map((vertex) => `${vertex.x},${vertex.y}`).join(" ");
 }
 
-export function buildBaseRadarVertices(
-  outerRadius: number,
-  centerX = outerRadius,
-  centerY = outerRadius,
-  normalizedRadius = BASE_RADIUS,
-): { x: number; y: number }[] {
-  return RADAR_STAT_ORDER.map((_, index) => {
-    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / RADAR_STAT_ORDER.length;
-    const px = normalizedRadius * outerRadius;
-    return {
-      x: centerX + Math.cos(angle) * px,
-      y: centerY + Math.sin(angle) * px,
-    };
-  });
+export function compareRadarStats(
+  mine: CharacterStats,
+  theirs: CharacterStats,
+): Record<RadarStatKey, RadarAdvantage> {
+  const result: Record<RadarStatKey, RadarAdvantage> = {
+    hp: "even",
+    pp: "even",
+    attack: "even",
+    defense: "even",
+    speed: "even",
+    evasion: "even",
+  };
+
+  for (const key of RADAR_STAT_ORDER) {
+    const diff = mapAbsoluteToRadius(key, mine[key]) - mapAbsoluteToRadius(key, theirs[key]);
+    result[key] = diff >= ADVANTAGE_THRESHOLD ? "up" : diff <= -ADVANTAGE_THRESHOLD ? "down" : "even";
+  }
+
+  return result;
+}
+
+export function getStrongestAdvantageKey(mine: CharacterStats, theirs: CharacterStats): RadarStatKey | null {
+  let bestKey: RadarStatKey | null = null;
+  let bestDiff = ADVANTAGE_THRESHOLD;
+
+  for (const key of RADAR_STAT_ORDER) {
+    const diff = mapAbsoluteToRadius(key, mine[key]) - mapAbsoluteToRadius(key, theirs[key]);
+    if (diff > bestDiff) {
+      bestDiff = diff;
+      bestKey = key;
+    }
+  }
+
+  return bestKey;
 }

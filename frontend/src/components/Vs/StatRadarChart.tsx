@@ -2,48 +2,48 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import {
-  BASE_RADIUS,
-  buildBaseRadarVertices,
+  RADIUS_MAX,
+  RADIUS_MIN,
   buildRadarPolygonPoints,
   buildRadarVertices,
-  getMostDivergentRadarStatKey,
-  type RadarBaseStats,
+  type RadarAdvantage,
+  type RadarStatKey,
 } from "@/components/Vs/statRadar";
 import type { CharacterStats } from "@/types/game";
 
 interface StatRadarChartProps {
   stats: CharacterStats;
-  base: RadarBaseStats;
   color: string;
+  opponentStats?: CharacterStats;
+  opponentColor?: string;
+  emphasizeKey?: RadarStatKey | null;
+  advantages?: Record<RadarStatKey, RadarAdvantage>;
   size?: number;
   animate?: boolean;
   side?: "left" | "right";
 }
 
-const GRID_RADII = [0.35, BASE_RADIUS, 1];
+const GRID_RADII = [RADIUS_MIN, (RADIUS_MIN + RADIUS_MAX) / 2, RADIUS_MAX] as const;
+const RADAR_AXIS_COUNT = 6;
 
-function formatDelta(key: keyof RadarBaseStats, delta: number) {
-  if (key === "evasion") {
-    const pct = Math.round(delta * 100);
-    if (pct === 0) return null;
-    return `${pct > 0 ? "▲" : "▼"}${pct > 0 ? "+" : ""}${pct}%`;
-  }
-  if (delta === 0) return null;
-  return `${delta > 0 ? "▲" : "▼"}${delta > 0 ? "+" : ""}${delta}`;
-}
-
-function formatAccessibleDelta(key: keyof RadarBaseStats, delta: number) {
-  if (key === "evasion") {
-    const pct = Math.round(delta * 100);
-    return pct === 0 ? "差分なし" : pct > 0 ? `${pct}%高い` : `${Math.abs(pct)}%低い`;
-  }
-  return delta === 0 ? "差分なし" : delta > 0 ? `${delta}高い` : `${Math.abs(delta)}低い`;
+function buildGridVertices(outerRadius: number, centerX: number, centerY: number, normalizedRadius: number) {
+  return Array.from({ length: RADAR_AXIS_COUNT }, (_, index) => {
+    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / RADAR_AXIS_COUNT;
+    const px = normalizedRadius * outerRadius;
+    return {
+      x: centerX + Math.cos(angle) * px,
+      y: centerY + Math.sin(angle) * px,
+    };
+  });
 }
 
 export function StatRadarChart({
   stats,
-  base,
   color,
+  opponentStats,
+  opponentColor,
+  emphasizeKey = null,
+  advantages,
   size = 220,
   animate = true,
   side = "left",
@@ -72,24 +72,22 @@ export function StatRadarChart({
     setExpanded(false);
     const frame = window.requestAnimationFrame(() => setExpanded(true));
     return () => window.cancelAnimationFrame(frame);
-  }, [animate, reducedMotion, stats]);
+  }, [animate, reducedMotion, stats, opponentStats]);
 
-  const vertices = useMemo(
-    () => buildRadarVertices(stats, base, outerRadius, center, center),
-    [base, center, outerRadius, stats],
+  const vertices = useMemo(() => buildRadarVertices(stats, outerRadius, center, center), [center, outerRadius, stats]);
+  const opponentVertices = useMemo(
+    () => (opponentStats ? buildRadarVertices(opponentStats, outerRadius, center, center) : null),
+    [center, opponentStats, outerRadius],
   );
-  const baseVertices = useMemo(
-    () => buildBaseRadarVertices(outerRadius, center, center),
-    [center, outerRadius],
-  );
-  const highlightKey = useMemo(() => getMostDivergentRadarStatKey(stats, base), [base, stats]);
+
   const polygonPoints = useMemo(() => buildRadarPolygonPoints(vertices), [vertices]);
-  const basePolygonPoints = useMemo(() => buildRadarPolygonPoints(baseVertices), [baseVertices]);
+  const opponentPolygonPoints = useMemo(
+    () => (opponentVertices ? buildRadarPolygonPoints(opponentVertices) : null),
+    [opponentVertices],
+  );
+
   const accessibleSummary = useMemo(
-    () =>
-      vertices
-        .map((vertex) => `${vertex.label} ${vertex.value}（基準 ${vertex.baseValue}、${formatAccessibleDelta(vertex.key, vertex.delta)}）`)
-        .join("、"),
+    () => vertices.map((vertex) => `${vertex.label} ${vertex.value}`).join("、"),
     [vertices],
   );
 
@@ -104,7 +102,7 @@ export function StatRadarChart({
       <title id={titleId}>ステータス比較レーダーチャート</title>
       <desc id={descId}>{accessibleSummary}</desc>
       {GRID_RADII.map((radius, index) => {
-        const ringVertices = buildBaseRadarVertices(outerRadius, center, center, radius);
+        const ringVertices = buildGridVertices(outerRadius, center, center, radius);
         return (
           <polygon
             key={index}
@@ -126,13 +124,16 @@ export function StatRadarChart({
           strokeWidth={1}
         />
       ))}
-      <polygon
-        points={basePolygonPoints}
-        fill="none"
-        stroke="rgba(255,255,255,0.6)"
-        strokeWidth={1.5}
-        strokeDasharray="5 4"
-      />
+      {opponentPolygonPoints ? (
+        <polygon
+          points={opponentPolygonPoints}
+          fill="none"
+          stroke={opponentColor ?? "rgba(255,255,255,0.72)"}
+          strokeOpacity={0.55}
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+        />
+      ) : null}
       <g
         style={{
           transformOrigin: `${center}px ${center}px`,
@@ -148,44 +149,27 @@ export function StatRadarChart({
           style={{ filter: `drop-shadow(0 6px 14px ${color}55)` }}
         />
         {vertices.map((vertex) => {
-          const highlight = vertex.key === highlightKey;
-          const deltaLabel = formatDelta(vertex.key, vertex.delta);
-          const diffDistance = outerRadius * (vertex.radius + 0.16);
+          const highlight = vertex.key === emphasizeKey;
           const labelDistance = outerRadius + 26;
-          const diffX = center + Math.cos(vertex.angle) * diffDistance;
-          const diffY = center + Math.sin(vertex.angle) * diffDistance;
           const labelX = center + Math.cos(vertex.angle) * labelDistance;
           const labelY = center + Math.sin(vertex.angle) * labelDistance;
           const textAnchor =
             Math.abs(Math.cos(vertex.angle)) < 0.2 ? "middle" : Math.cos(vertex.angle) > 0 ? "start" : "end";
+          const advantage = advantages?.[vertex.key] ?? "even";
+          const marker = advantage === "up" ? "▲" : advantage === "down" ? "▼" : "";
+          const markerColor = advantage === "up" ? color : withAlpha(opponentColor ?? "#cbd5e1", "bb");
+          const label = highlight ? `${vertex.label} ◎` : vertex.label;
           return (
             <g key={vertex.key}>
               <circle
                 cx={vertex.x}
                 cy={vertex.y}
-                r={highlight ? 5 : 3.5}
+                r={highlight ? 5.6 : 3.5}
                 fill="#f8fafc"
                 stroke={color}
-                strokeWidth={highlight ? 3 : 2}
+                strokeWidth={highlight ? 3.4 : 2}
                 style={highlight ? { filter: `drop-shadow(0 0 8px ${color})` } : undefined}
               />
-              {deltaLabel ? (
-                <text
-                  x={diffX}
-                  y={diffY}
-                  textAnchor={textAnchor}
-                  dominantBaseline="central"
-                  fontSize={10}
-                  fontWeight={900}
-                  fontStyle={vertex.delta < 0 ? "italic" : "normal"}
-                  fill={vertex.delta > 0 ? "#fde68a" : "#cbd5e1"}
-                  stroke="rgba(15,23,42,0.82)"
-                  strokeWidth={2}
-                  paintOrder="stroke"
-                >
-                  {deltaLabel}
-                </text>
-              ) : null}
               <text
                 x={labelX}
                 y={labelY}
@@ -194,8 +178,12 @@ export function StatRadarChart({
                 fontSize={12}
                 fontWeight={highlight ? 900 : 700}
                 fill="#fff7ed"
+                style={highlight ? { filter: `drop-shadow(0 0 6px ${color})` } : undefined}
               >
-                {vertex.label}
+                {label}
+                {marker ? (
+                  <tspan fill={markerColor} fontWeight={900}>{` ${marker}`}</tspan>
+                ) : null}
               </text>
             </g>
           );
@@ -203,4 +191,14 @@ export function StatRadarChart({
       </g>
     </svg>
   );
+}
+
+function withAlpha(color: string, alphaHex: string) {
+  if (!color.startsWith("#")) {
+    return color;
+  }
+  if (color.length === 7) {
+    return `${color}${alphaHex}`;
+  }
+  return color;
 }
