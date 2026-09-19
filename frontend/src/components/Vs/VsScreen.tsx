@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { TYPE_BORDER_COLORS } from "@/components/Battle/BattlePanel";
 import { StatRadarChart } from "@/components/Vs/StatRadarChart";
+import {
+  compareRadarStats,
+  getStrongestAdvantageKey,
+  RADAR_STAT_LABELS,
+  type RadarStatKey,
+} from "@/components/Vs/statRadar";
 import { safeImageUrl } from "@/lib/imageUrl";
 import { getDrawingTagByLabel } from "@/lib/drawingTags";
-import { BASE_STATS } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
 import { VS_SCREEN_DURATION_MS, VS_SCREEN_FADE_OUT_MS } from "@/lib/vsTransition";
 import type { PlayerBattleState } from "@/types/game";
@@ -46,6 +51,10 @@ export function getVsScreenSideBackground(characterType: PlayerBattleState["char
   return side === "left"
     ? `linear-gradient(135deg, ${accent} 0%, ${soft} 58%, rgba(10,10,10,0.94) 100%), radial-gradient(circle at 18% 28%, ${withAlpha(color, "99")} 0%, transparent 48%), radial-gradient(circle at 76% 74%, ${dark} 0%, transparent 52%)`
     : `linear-gradient(315deg, ${accent} 0%, ${soft} 58%, rgba(10,10,10,0.94) 100%), radial-gradient(circle at 82% 28%, ${withAlpha(color, "99")} 0%, transparent 48%), radial-gradient(circle at 24% 74%, ${dark} 0%, transparent 52%)`;
+}
+
+export function buildRadarSummaryText(emphasizeKey: RadarStatKey | null): string {
+  return emphasizeKey ? `${RADAR_STAT_LABELS[emphasizeKey]} が高い！` : "バランスがいい";
 }
 
 interface VsScreenProps {
@@ -117,15 +126,23 @@ function TagChip({ label, color }: { label: string; color: string }) {
 
 function VsPortrait({
   player,
+  opponent,
   side,
   compact,
 }: {
   player: PlayerBattleState;
+  opponent: PlayerBattleState;
   side: "left" | "right";
   compact: boolean;
 }) {
   const color = TYPE_BORDER_COLORS[player.characterType];
+  const opponentColor = TYPE_BORDER_COLORS[opponent.characterType];
   const tags = (player.drawingTags ?? []).slice(0, compact ? 1 : 2);
+  const advantages = useMemo(() => compareRadarStats(player.stats, opponent.stats), [opponent.stats, player.stats]);
+  const emphasizeKey = useMemo(
+    () => getStrongestAdvantageKey(player.stats, opponent.stats),
+    [opponent.stats, player.stats],
+  );
 
   return (
     <div
@@ -209,14 +226,42 @@ function VsPortrait({
         />
       </div>
       <FadeInBlock delayMs={RADAR_FADE_DELAY_MS} align={side}>
-        <StatRadarChart
-          stats={player.stats}
-          base={BASE_STATS[player.characterType]}
-          color={color}
-          size={compact ? 150 : 220}
-          animate
-          side={side}
-        />
+        <div
+          style={{
+            display: "inline-flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <div
+            style={{
+              padding: "3px 10px",
+              borderRadius: 999,
+              border: `1.5px solid ${withAlpha(color, "cc")}`,
+              background: "rgba(0,0,0,0.6)",
+              color,
+              fontSize: "clamp(12px, 1.2vw, 16px)",
+              fontWeight: 900,
+              lineHeight: 1.2,
+              letterSpacing: "0.02em",
+              textShadow: "0 2px 6px rgba(0,0,0,0.45)",
+            }}
+          >
+            {buildRadarSummaryText(emphasizeKey)}
+          </div>
+          <StatRadarChart
+            stats={player.stats}
+            color={color}
+            opponentStats={opponent.stats}
+            opponentColor={opponentColor}
+            advantages={advantages}
+            emphasizeKey={emphasizeKey}
+            size={compact ? 150 : 220}
+            animate
+            side={side}
+          />
+        </div>
       </FadeInBlock>
     </div>
   );
@@ -300,8 +345,8 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
           padding: `clamp(20px, 4vw, ${contentPadding}px)`,
         }}
       >
-        <VsPortrait player={me} side="left" compact={compact} />
-        <VsPortrait player={enemy} side="right" compact={compact} />
+        <VsPortrait player={me} opponent={enemy} side="left" compact={compact} />
+        <VsPortrait player={enemy} opponent={me} side="right" compact={compact} />
       </div>
       <div
         style={{
