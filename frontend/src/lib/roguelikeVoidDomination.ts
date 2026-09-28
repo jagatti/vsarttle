@@ -200,6 +200,21 @@ export function applyVoidminationBossForm(baseStats: CharacterStats, form: Voidm
   return { ...baseStats, defense: Math.ceil(baseStats.defense * 1.25) };
 }
 
+export function mergeVoidminationBossFormStats(
+  currentStats: CharacterStats,
+  baseStats: CharacterStats,
+  form: VoidminationBossForm,
+): CharacterStats {
+  const formStats = applyVoidminationBossForm(baseStats, form);
+  return {
+    ...currentStats,
+    attack: formStats.attack,
+    defense: formStats.defense,
+    pp: formStats.pp,
+    maxPp: formStats.maxPp,
+  };
+}
+
 export function getVoidminationFormLabel(form: VoidminationBossForm): string {
   if (form === "attack") return "こうげき型";
   if (form === "magic") return "まほう型";
@@ -220,9 +235,9 @@ export function applyColorDrain(player: PlayerBattleState, boss: PlayerBattleSta
     ...player,
     stats: {
       ...player.stats,
-      hp: nextPlayerMaxHp,
+      hp: Math.min(player.stats.hp, nextPlayerMaxHp),
       maxHp: nextPlayerMaxHp,
-      pp: nextPlayerMaxPp,
+      pp: Math.min(player.stats.pp, nextPlayerMaxPp),
       maxPp: nextPlayerMaxPp,
     },
     currentHp: Math.min(player.currentHp, nextPlayerMaxHp),

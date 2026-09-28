@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import { getEffectiveStats } from "@/lib/characterStats";
@@ -883,6 +883,7 @@ export function BattlePanel(props: {
   );
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
   const [showVoidminationBadgeTooltip, setShowVoidminationBadgeTooltip] = useState(false);
+  const voidminationTooltipId = useId();
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
     me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
@@ -1659,6 +1660,9 @@ export function BattlePanel(props: {
                 onMouseEnter={() => setShowVoidminationBadgeTooltip(true)}
                 onMouseLeave={() => setShowVoidminationBadgeTooltip(false)}
                 onClick={() => setShowVoidminationBadgeTooltip((visible) => !visible)}
+                aria-expanded={showVoidminationBadgeTooltip}
+                aria-controls={voidminationTooltipId}
+                aria-describedby={showVoidminationBadgeTooltip ? voidminationTooltipId : undefined}
                 style={{
                   color: "#ede9fe",
                   fontWeight: "bold",
@@ -1677,6 +1681,8 @@ export function BattlePanel(props: {
               </button>
               {showVoidminationBadgeTooltip && (
                 <div
+                  id={voidminationTooltipId}
+                  role="tooltip"
                   style={{
                     position: "absolute",
                     top: "calc(100% + 8px)",

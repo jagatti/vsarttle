@@ -10,6 +10,7 @@ import {
   getPainShareDamage,
   getRoguelikeVoidDominationSourceFloor,
   getVoidminationThreshold,
+  mergeVoidminationBossFormStats,
   pickActionOrderBySpeed,
   pickNextVoidminationForm,
   resolveVoidminationDamage,
@@ -103,6 +104,21 @@ test("type change reapplies form bonuses from base stats without stacking", () =
   assert.equal(attack.attack, 100);
   assert.equal(magic.maxPp, 48);
   assert.equal(barrier.defense, 88);
+});
+
+test("type change merge preserves unrelated current stat mutations", () => {
+  const current = {
+    ...makePlayer("boss").stats,
+    maxHp: 1234,
+    hp: 1234,
+    pp: 41,
+    maxPp: 41,
+  };
+  const base = makePlayer("boss").stats;
+  const merged = mergeVoidminationBossFormStats(current, base, "magic");
+  assert.equal(merged.maxHp, 1234);
+  assert.equal(merged.maxPp, 48);
+  assert.equal(merged.attack, 80);
 });
 
 test("next type-change form never repeats the previous form", () => {

@@ -14,12 +14,12 @@ import { checkVoidminationTrigger } from "@/lib/voidmination";
 import {
   applyBossMagicDamper,
   applyColorDrain,
-  applyVoidminationBossForm,
   getOverchargeChargeRecovery,
   getOverchargeMagicCostRatio,
   getPainShareDamage,
   getRoguelikeVoidDominationSourceFloor,
   getVoidminationFormLabel,
+  mergeVoidminationBossFormStats,
   pickActionOrderBySpeed,
   pickNextVoidminationForm,
   resolveVoidminationDamage,
@@ -244,7 +244,7 @@ export function resolveTurn(params: {
       bossState.voidminationBaseStats = structuredClone(baseStats);
       bossState.voidminationForm = form;
       bossState.voidminationFormTurnsRemaining = 3;
-      const nextStats = applyVoidminationBossForm(baseStats, form);
+      const nextStats = mergeVoidminationBossFormStats(bossState.stats, baseStats, form);
       bossState.stats = nextStats;
       bossState.currentPp = Math.min(bossState.currentPp, nextStats.maxPp);
       const label = getVoidminationFormLabel(form);
@@ -518,7 +518,7 @@ export function resolveTurn(params: {
     if (remaining <= 0) {
       const nextForm = pickNextVoidminationForm(rng, bossState.voidminationForm);
       const baseStats = bossState.voidminationBaseStats ?? structuredClone(bossState.stats);
-      const nextStats = applyVoidminationBossForm(baseStats, nextForm);
+      const nextStats = mergeVoidminationBossFormStats(bossState.stats, baseStats, nextForm);
       bossState.voidminationBaseStats = structuredClone(baseStats);
       bossState.voidminationForm = nextForm;
       bossState.voidminationFormTurnsRemaining = 3;
