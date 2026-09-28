@@ -663,6 +663,7 @@ test("roguelike void-domination floor 19 makes the boss's remaining action unavo
     result.damageEvents.some((event) => event.to === "player" && event.amount > 0 && !event.avoided),
     "boss attack should hit through 100% evasion after inevitable zone activates",
   );
+  assert.equal(result.nextStates.player.voidminationActive, true);
 });
 
 test("roguelike void-domination floor 16 overcharge lets the boss store PP above max and spends boosted costs", () => {

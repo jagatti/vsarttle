@@ -248,6 +248,9 @@ export function resolveTurn(params: {
     voidminationTriggered = true;
     bossState.voidminationActive = true;
     bossState.voidminationUsed = true;
+    if (voidFloor === 19) {
+      playerState.voidminationActive = true;
+    }
     if (voidFloor === 17) {
       const form = pickNextVoidminationForm(rng, bossState.voidminationForm);
       const baseStats = bossState.voidminationBaseStats ?? structuredClone(bossState.stats);
@@ -349,6 +352,8 @@ export function resolveTurn(params: {
       if (damageResolution.triggered) {
         activateBossVoidmination();
       }
+      // Floor 10's pain share is explicitly bidirectional: whichever side takes
+      // damage reflects 20% of that damage back once the aura is active.
       if (voidFloor === 10 && bossVoidActive()) {
         applyPainShare(to, from, damageResolution.damageTaken);
       }
