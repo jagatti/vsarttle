@@ -376,7 +376,23 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       },
       disableVoidmination: true,
       ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
+      roguelikeBossBattle: !isWeakFloor(floorRef.current)
+        ? {
+            floor: floorRef.current,
+            bossId: enemyId,
+            playerId,
+          }
+        : undefined,
     });
+
+    const resolvedPlayer = result.nextStates[playerId];
+    if (resolvedPlayer && (
+      resolvedPlayer.stats.maxHp !== playerStatsRef.current.maxHp
+      || resolvedPlayer.stats.maxPp !== playerStatsRef.current.maxPp
+    )) {
+      setPlayerStats(resolvedPlayer.stats);
+      playerStatsRef.current = resolvedPlayer.stats;
+    }
 
     battleStateRef.current = result.nextStates;
     setBattleState(result.nextStates);
@@ -407,7 +423,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
         // Floors 18 and 19 transition seamlessly to the next boss (no YOU WIN, no upgrade)
         if (floorRef.current === 18 || floorRef.current === 19) {
-          startSeamlessNextBoss(floorRef.current + 1, nextPlayer);
+          startSeamlessNextBoss(floorRef.current + 1, nextPlayer, nextEnemy);
           return;
         }
 
@@ -489,7 +505,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     }, delaySeconds * 1000);
   }
 
-  function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState) {
+  function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState, currentEnemy?: PlayerBattleState) {
     clearTimers();
 
     if (nextFloor === 19) {
@@ -521,6 +537,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       // 19→20: show limit-break stat-reveal overlay (same as SinglePlay), then
       // transition to the battle panel where the speech bubble is overlaid.
       const boss20 = buildRoguelikeBossState(20);
+      if (currentEnemy) {
+        boss20.voidminationActive = currentEnemy.voidminationActive;
+        boss20.voidminationUsed = currentEnemy.voidminationUsed;
+        boss20.voidminationSourceFloor = currentEnemy.voidminationSourceFloor;
+        boss20.voidminationBaseStats = currentEnemy.voidminationBaseStats;
+        boss20.voidminationForm = currentEnemy.voidminationForm;
+        boss20.voidminationFormTurnsRemaining = currentEnemy.voidminationFormTurnsRemaining;
+      }
       const statusLines = getSinglePlayLimitBreakStatusLines(boss20);
       setRoguelikeLimitBreakStatusLines(statusLines);
       setRoguelikeTransitionBossUrl(boss20.imageDataUrl);

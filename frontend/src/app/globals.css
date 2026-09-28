@@ -112,6 +112,19 @@ input {
   to { transform: scale(1); opacity: 1; }
 }
 
+@keyframes voidDominationRipple {
+  0% { transform: scale(0.76); opacity: 0.9; }
+  70% { transform: scale(1.08); opacity: 0.25; }
+  100% { transform: scale(1.18); opacity: 0; }
+}
+
+@keyframes voidDominationDistortion {
+  0% { transform: scale(1.18) rotate(0deg); opacity: 0.15; }
+  35% { transform: scale(1.04) rotate(1.2deg); opacity: 0.32; }
+  70% { transform: scale(1.12) rotate(-1deg); opacity: 0.22; }
+  100% { transform: scale(1) rotate(0deg); opacity: 0.08; }
+}
+
 @keyframes youLoseShake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-8px); }
