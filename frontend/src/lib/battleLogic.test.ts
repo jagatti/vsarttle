@@ -772,3 +772,33 @@ test("roguelike void-domination floor 17 keeps the first form for three full tur
   assert.notEqual(turn4.nextStates.boss.voidminationForm, "attack");
   assert.equal(turn4.nextStates.boss.voidminationFormTurnsRemaining, 3);
 });
+
+test("roguelike void-domination floor 17 countdown does not advance while the boss is paralyzed", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, speed: 10 };
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 100, hp: 100, speed: 1 };
+  boss.currentHp = 70;
+  boss.voidminationSourceFloor = 17;
+  const rngValues = [0.99, 0];
+  const rng = () => rngValues.shift() ?? 0.99;
+
+  const triggered = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "attack" },
+    rng,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  triggered.nextStates.boss.paralyzedNextTurn = true;
+
+  const paused = resolveTurn({
+    turn: 2,
+    players: triggered.nextStates,
+    actions: { player: "attack", boss: "paralysis" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(paused.nextStates.boss.voidminationFormTurnsRemaining, 3);
+});

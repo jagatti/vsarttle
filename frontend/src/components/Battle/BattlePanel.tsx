@@ -1681,7 +1681,6 @@ export function BattlePanel(props: {
                   cursor: "pointer",
                   boxShadow: "0 0 14px rgba(124,58,237,0.35)",
                 }}
-                title={voidminationTooltipText}
               >
                 ヴォイドミネーション：{voidminationSpec.badgeText}
               </button>

@@ -541,6 +541,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         boss20.voidminationActive = currentEnemy.voidminationActive;
         boss20.voidminationUsed = currentEnemy.voidminationUsed;
         boss20.voidminationSourceFloor = currentEnemy.voidminationSourceFloor;
+        boss20.voidminationBaseStats = currentEnemy.voidminationBaseStats;
+        boss20.voidminationForm = currentEnemy.voidminationForm;
+        boss20.voidminationFormTurnsRemaining = currentEnemy.voidminationFormTurnsRemaining;
       }
       const statusLines = getSinglePlayLimitBreakStatusLines(boss20);
       setRoguelikeLimitBreakStatusLines(statusLines);
