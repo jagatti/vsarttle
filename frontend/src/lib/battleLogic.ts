@@ -45,10 +45,11 @@ export function actionCategory(action: ActionType): ActionCategory {
 export function magicCost(
   action: ActionType,
   stats: CharacterStats,
-  ratios?: { magicWeak?: number; magicStrong?: number },
+  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
 ): number {
-  if (action === "magicWeak") return Math.max(1, Math.ceil(stats.maxPp * (ratios?.magicWeak ?? 0.2)));
-  if (action === "magicStrong") return Math.max(1, Math.ceil(stats.maxPp * (ratios?.magicStrong ?? 0.4)));
+  const maxPp = options?.baseMaxPp ?? stats.maxPp;
+  if (action === "magicWeak") return Math.max(1, Math.ceil(maxPp * (options?.magicWeak ?? 0.2)));
+  if (action === "magicStrong") return Math.max(1, Math.ceil(maxPp * (options?.magicStrong ?? 0.4)));
   return 0;
 }
 
@@ -128,9 +129,9 @@ const magicDamage = (
   action: ActionType,
   attacker: PlayerBattleState,
   target: PlayerBattleState,
-  ratios?: { magicWeak?: number; magicStrong?: number },
+  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
 ) =>
-  applyDefense(magicCost(action, attacker.stats, ratios) * 5 * attacker.chargeMultiplier, target.stats.defense);
+  applyDefense(magicCost(action, attacker.stats, options) * 5 * attacker.chargeMultiplier, target.stats.defense);
 
 const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattleState) =>
   applyDefense(attacker.stats.defense * attacker.chargeMultiplier, target.stats.defense);
@@ -139,9 +140,9 @@ const reflectionDamage = (
   magicAction: ActionType,
   magicUser: PlayerBattleState,
   targetDefense: number,
-  ratios?: { magicWeak?: number; magicStrong?: number },
+  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
 ) =>
-  applyDefense(magicCost(magicAction, magicUser.stats, ratios) * 5 * magicUser.chargeMultiplier, targetDefense);
+  applyDefense(magicCost(magicAction, magicUser.stats, options) * 5 * magicUser.chargeMultiplier, targetDefense);
 
 // 相手がチャージ/まひ状態で自身がバリアを選んだ際に発生する追加ダメージ。
 // 計算式: [自身の防御値 × チャージ倍率] に防御軽減 [raw × 300 / (300 + 相手の防御値)] を適用
@@ -223,14 +224,23 @@ export function resolveTurn(params: {
     : null;
 
   const bossVoidActive = () => !!bossState?.voidminationActive;
-  const getMagicCostRatios = (actor: PlayerBattleState, action: ActionType) => {
+  const getMagicCostOptions = (actor: PlayerBattleState, action: ActionType) => {
     const overchargeRatio = bossId && voidFloor
       ? getOverchargeMagicCostRatio(voidFloor, bossVoidActive(), actor.id, bossId, action)
       : null;
-    if (overchargeRatio === null) return undefined;
-    return action === "magicWeak"
-      ? { magicWeak: overchargeRatio }
-      : { magicStrong: overchargeRatio };
+    const baseMaxPp = voidFloor === 17
+      && actor.id === bossId
+      && actor.voidminationActive
+      && actor.voidminationForm === "magic"
+      ? actor.voidminationBaseStats?.maxPp
+      : undefined;
+    const result: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number } = {};
+    if (overchargeRatio !== null) {
+      if (action === "magicWeak") result.magicWeak = overchargeRatio;
+      if (action === "magicStrong") result.magicStrong = overchargeRatio;
+    }
+    if (baseMaxPp !== undefined) result.baseMaxPp = baseMaxPp;
+    return Object.keys(result).length > 0 ? result : undefined;
   };
 
   const activateBossVoidmination = () => {
@@ -339,7 +349,6 @@ export function resolveTurn(params: {
       if (damageResolution.triggered) {
         activateBossVoidmination();
       }
-      if (voidFloor === 10 && bossVoidActive() && !wasBossActive && damageResolution.triggered) return damageResolution.damageTaken;
       if (voidFloor === 10 && bossVoidActive()) {
         applyPainShare(to, from, damageResolution.damageTaken);
       }
@@ -393,7 +402,7 @@ export function resolveTurn(params: {
   };
 
   const consumePp = (player: PlayerBattleState, action: ActionType) => {
-    const cost = magicCost(action, player.stats, getMagicCostRatios(player, action));
+    const cost = magicCost(action, player.stats, getMagicCostOptions(player, action));
     const maxCurrentPp = bossId && player.id === bossId && voidFloor === 16 && bossVoidActive()
       ? player.stats.maxPp * 2
       : player.stats.maxPp;
@@ -457,7 +466,7 @@ export function resolveTurn(params: {
       const dealt = applyDamage(
         actor,
         target,
-        magicDamage(action, actor, target, getMagicCostRatios(actor, action)),
+        magicDamage(action, actor, target, getMagicCostOptions(actor, action)),
         action === "magicWeak" ? "弱まほう" : "強まほう",
       );
       if (action === "magicWeak" && dealt > 0) applyWeakMagicEffect(actor, target, false);
@@ -478,7 +487,7 @@ export function resolveTurn(params: {
     const dealt = applyDamage(
       right,
       left,
-      reflectionDamage(leftAction, left, left.stats.defense, getMagicCostRatios(left, leftAction)),
+      reflectionDamage(leftAction, left, left.stats.defense, getMagicCostOptions(left, leftAction)),
       "バリア反射",
     );
     // The magic caster (left) takes the reflected damage, so a 弱まほう effect
@@ -489,7 +498,7 @@ export function resolveTurn(params: {
     const dealt = applyDamage(
       left,
       right,
-      reflectionDamage(rightAction, right, right.stats.defense, getMagicCostRatios(right, rightAction)),
+      reflectionDamage(rightAction, right, right.stats.defense, getMagicCostOptions(right, rightAction)),
       "バリア反射",
     );
     if (rightAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(right, right, true);

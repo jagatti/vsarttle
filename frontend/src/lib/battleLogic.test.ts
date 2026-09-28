@@ -646,7 +646,7 @@ test("roguelike void-domination floor 19 makes the boss's remaining action unavo
   player.stats = { ...player.stats, speed: 10, evasion: 1 };
   const boss = makePlayer("boss");
   boss.stats = { ...boss.stats, maxHp: 100, hp: 100, attack: 80, speed: 1 };
-  boss.currentHp = 70;
+  boss.currentHp = 71;
   boss.voidminationSourceFloor = 19;
 
   const result = resolveTurn({
@@ -693,6 +693,27 @@ test("roguelike void-domination floor 16 overcharge lets the boss store PP above
     roguelikeBossBattle: { floor: 16, bossId: "boss", playerId: "player" },
   });
   assert.equal(cast.nextStates.boss.currentPp, 129);
+});
+
+test("roguelike void-domination floor 10 reflects pain-share damage on the triggering hit", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, speed: 10, maxHp: 200, hp: 200 };
+  player.currentHp = 200;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 100, hp: 100, attack: 80, defense: 80, evasion: 0 };
+  boss.currentHp = 71;
+  boss.voidminationSourceFloor = 10;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "paralysis" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 10, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(result.voidminationTriggered, true);
+  assert.ok(result.damageEvents.some((event) => event.reason === "ペインシェア" && event.to === "player"));
 });
 
 test("roguelike void-domination floor 18 color drain permanently lowers the player's max HP/PP on trigger", () => {
@@ -801,4 +822,26 @@ test("roguelike void-domination floor 17 countdown does not advance while the bo
   });
 
   assert.equal(paused.nextStates.boss.voidminationFormTurnsRemaining, 3);
+});
+
+test("roguelike void-domination floor 17 magic form keeps spell costs based on the base max PP", () => {
+  const player = makePlayer("player");
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxPp: 48, pp: 48 };
+  boss.currentPp = 48;
+  boss.voidminationActive = true;
+  boss.voidminationUsed = true;
+  boss.voidminationSourceFloor = 17;
+  boss.voidminationForm = "magic";
+  boss.voidminationBaseStats = { ...boss.stats, maxPp: 40, pp: 40 };
+
+  const result = resolveTurn({
+    turn: 2,
+    players: { player, boss },
+    actions: { player: "paralysis", boss: "magicStrong" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(result.nextStates.boss.currentPp, 32);
 });

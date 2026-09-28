@@ -884,6 +884,7 @@ export function BattlePanel(props: {
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
   const [showVoidminationBadgeTooltip, setShowVoidminationBadgeTooltip] = useState(false);
   const voidminationTooltipId = useId();
+  const voidminationBadgeRef = useRef<HTMLDivElement | null>(null);
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
     me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
@@ -964,6 +965,24 @@ export function BattlePanel(props: {
     setIsAnimating(false);
     setActivePhaseMotions({ me: {}, enemy: {} });
   }, [shouldResetTransientState, props.me, props.enemy]);
+
+  useEffect(() => {
+    if (!showVoidminationBadgeTooltip) return;
+    const handleOutsideInteraction = (event: MouseEvent | FocusEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (voidminationBadgeRef.current?.contains(target)) return;
+      setShowVoidminationBadgeTooltip(false);
+    };
+    document.addEventListener("mousedown", handleOutsideInteraction);
+    document.addEventListener("touchstart", handleOutsideInteraction);
+    document.addEventListener("focusin", handleOutsideInteraction);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideInteraction);
+      document.removeEventListener("touchstart", handleOutsideInteraction);
+      document.removeEventListener("focusin", handleOutsideInteraction);
+    };
+  }, [showVoidminationBadgeTooltip]);
 
   useEffect(() => {
     if (props.turnResult) return;
@@ -1654,13 +1673,12 @@ export function BattlePanel(props: {
             </span>
           )}
           {voidminationActive && voidminationSpec && (
-            <div style={{ position: "relative", display: "flex", justifyContent: "center", flex: 1 }}>
+            <div ref={voidminationBadgeRef} style={{ position: "relative", display: "flex", justifyContent: "center", flex: 1 }}>
               <button
                 type="button"
                 onMouseEnter={() => setShowVoidminationBadgeTooltip(true)}
                 onMouseLeave={() => setShowVoidminationBadgeTooltip(false)}
                 onClick={() => setShowVoidminationBadgeTooltip((visible) => !visible)}
-                onBlur={() => setShowVoidminationBadgeTooltip(false)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     setShowVoidminationBadgeTooltip(false);
