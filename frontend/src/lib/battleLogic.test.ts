@@ -720,3 +720,55 @@ test("roguelike void-domination floor 18 color drain permanently lowers the play
   assert.equal(result.nextStates.boss.currentHp, 631);
   assert.equal(result.nextStates.boss.currentPp, 107);
 });
+
+test("roguelike void-domination floor 17 keeps the first form for three full turns before rotating", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, speed: 10, maxHp: 500, hp: 500, evasion: 0 };
+  player.currentHp = 500;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 100, hp: 100, speed: 1, attack: 80, defense: 80, maxPp: 40, pp: 40 };
+  boss.currentHp = 70;
+  boss.voidminationSourceFloor = 17;
+  const rngValues = [0.99, 0, 0.99, 0.99, 0.99, 0];
+  const rng = () => rngValues.shift() ?? 0.99;
+
+  const turn1 = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "attack" },
+    rng,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(turn1.voidminationTriggered, true);
+  assert.equal(turn1.nextStates.boss.voidminationForm, "attack");
+  assert.equal(turn1.nextStates.boss.voidminationFormTurnsRemaining, 3);
+
+  const turn2 = resolveTurn({
+    turn: 2,
+    players: turn1.nextStates,
+    actions: { player: "paralysis", boss: "attack" },
+    rng,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(turn2.nextStates.boss.voidminationForm, "attack");
+  assert.equal(turn2.nextStates.boss.voidminationFormTurnsRemaining, 2);
+
+  const turn3 = resolveTurn({
+    turn: 3,
+    players: turn2.nextStates,
+    actions: { player: "paralysis", boss: "attack" },
+    rng,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(turn3.nextStates.boss.voidminationFormTurnsRemaining, 1);
+
+  const turn4 = resolveTurn({
+    turn: 4,
+    players: turn3.nextStates,
+    actions: { player: "paralysis", boss: "attack" },
+    rng,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  assert.notEqual(turn4.nextStates.boss.voidminationForm, "attack");
+  assert.equal(turn4.nextStates.boss.voidminationFormTurnsRemaining, 3);
+});

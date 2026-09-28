@@ -1660,6 +1660,12 @@ export function BattlePanel(props: {
                 onMouseEnter={() => setShowVoidminationBadgeTooltip(true)}
                 onMouseLeave={() => setShowVoidminationBadgeTooltip(false)}
                 onClick={() => setShowVoidminationBadgeTooltip((visible) => !visible)}
+                onBlur={() => setShowVoidminationBadgeTooltip(false)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setShowVoidminationBadgeTooltip(false);
+                  }
+                }}
                 aria-expanded={showVoidminationBadgeTooltip}
                 aria-controls={voidminationTooltipId}
                 aria-describedby={showVoidminationBadgeTooltip ? voidminationTooltipId : undefined}

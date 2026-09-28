@@ -513,7 +513,7 @@ export function resolveTurn(params: {
   if (leftHadChargedPrevious) left.chargeMultiplier = 1;
   if (rightHadChargedPrevious) right.chargeMultiplier = 1;
 
-  if (bossState && voidFloor === 17 && bossState.voidminationActive && bossState.currentHp > 0) {
+  if (bossState && voidFloor === 17 && bossState.voidminationActive && bossState.currentHp > 0 && !voidminationTriggered) {
     const remaining = (bossState.voidminationFormTurnsRemaining ?? 3) - 1;
     if (remaining <= 0) {
       const nextForm = pickNextVoidminationForm(rng, bossState.voidminationForm);
