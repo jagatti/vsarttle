@@ -66,6 +66,7 @@ export interface PlayerRecord {
   asGhostWins: number;
   roguelike: {
     bestFloorReached: number;
+    clearedAllFloors: boolean;
   };
   rating: number | null;
   updatedAt: string;
@@ -140,6 +141,7 @@ export function createEmptyPlayerRecord(playerId: string, nickname: string, upda
     asGhostWins: 0,
     roguelike: {
       bestFloorReached: 0,
+      clearedAllFloors: false,
     },
     rating: null,
     updatedAt,

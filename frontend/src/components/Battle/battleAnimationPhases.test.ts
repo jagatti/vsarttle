@@ -78,9 +78,11 @@ test("getTurnAnimationPhases keeps barrier counter damage on the charging player
 
   assert.equal(phases[0].actorId, "enemy");
   assert.deepEqual(phases[0].chargeEvents, turnResult.chargeEvents);
-  assert.deepEqual(phases[0].damageEvents, turnResult.damageEvents);
-  assert.equal(phases[1].actorId, "me");
-  assert.equal(phases[1].damageEvents.length, 0);
+  assert.equal(phases[0].damageEvents.length, 0);
+  assert.equal(phases[1].actorId, "enemy");
+  assert.deepEqual(phases[1].damageEvents, turnResult.damageEvents);
+  assert.equal(phases[2].actorId, "me");
+  assert.equal(phases[2].damageEvents.length, 0);
 });
 
 test("applyAnimationPhaseToDisplayResources updates only the active phase and preserves clamping", () => {
@@ -103,6 +105,7 @@ test("applyAnimationPhaseToDisplayResources updates only the active phase and pr
   const startingDisplay = buildDisplayBattleResources([me, enemy]);
   const afterFirst = applyAnimationPhaseToDisplayResources(startingDisplay, { me, enemy }, phases[0]);
   const afterSecond = applyAnimationPhaseToDisplayResources(afterFirst, { me, enemy }, phases[1]);
+  const afterThird = applyAnimationPhaseToDisplayResources(afterSecond, { me, enemy }, phases[2]);
 
   assert.deepEqual(startingDisplay, {
     me: { currentHp: 80, currentPp: 10 },
@@ -113,9 +116,27 @@ test("applyAnimationPhaseToDisplayResources updates only the active phase and pr
     enemy: { currentHp: 90, currentPp: 30 },
   });
   assert.deepEqual(afterSecond, {
+    me: { currentHp: 100, currentPp: 20 },
+    enemy: { currentHp: 90, currentPp: 30 },
+  });
+  assert.deepEqual(afterThird, {
     me: { currentHp: 65, currentPp: 20 },
     enemy: { currentHp: 90, currentPp: 30 },
   });
+});
+
+test("getTurnAnimationPhases always places charge recovery before damage phases", () => {
+  const me = makePlayer("me", { stats: { ...makePlayer("tmp").stats, speed: 2 } });
+  const enemy = makePlayer("enemy", { stats: { ...makePlayer("tmp").stats, speed: 9 } });
+  const turnResult = makeTurnResult({ me, enemy }, { me: "charge", enemy: "attack" });
+  turnResult.chargeEvents = [{ playerId: "me", hpRecover: 25, ppRecover: 10 }];
+  turnResult.damageEvents = [{ from: "enemy", to: "me", amount: 18, avoided: false, reason: "こうげき" }];
+
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+
+  assert.deepEqual(phases[0].chargeEvents, turnResult.chargeEvents);
+  assert.equal(phases[0].damageEvents.length, 0);
+  assert.ok(phases.slice(1).some((phase) => phase.damageEvents.length > 0));
 });
 
 // ---- わざモーションテスト ----

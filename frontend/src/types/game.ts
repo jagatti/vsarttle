@@ -125,7 +125,7 @@ export interface PlayerBattleState {
   halveDefenseOnCharge?: boolean;
   /** When true, this player used チャージ on the previous turn; the 1.5x chargeMultiplier is active for this turn only and will be reset at the end of this turn regardless of what action is taken. */
   chargedPreviousTurn?: boolean;
-  /** When true, the 空間支配（ヴォイドミネーション）is active; both players' evasion is treated as 0%. */
+  /** When true, this player has 空間支配（ヴォイドミネーション）active. */
   voidminationActive?: boolean;
   /** When true, this boss has already used 空間支配（ヴォイドミネーション） and cannot trigger it again. */
   voidminationUsed?: boolean;
