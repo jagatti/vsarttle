@@ -146,17 +146,25 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     if (chargedActorIds.has(enemy.id)) phaseByActor[enemy.id].motionType = "none";
   }
 
-  const chargePhases: TurnAnimationPhase[] = (turnResult.chargeEvents ?? [])
-    .map((chargeEvent) => {
-      const action = turnResult.actions[chargeEvent.playerId];
-      return {
-        actorId: chargeEvent.playerId,
-        damageEvents: [],
-        chargeEvents: [chargeEvent],
-        motionType: action === "charge" ? "chargeConcentration" : "none",
-        sourceActionType: action,
-      };
-    });
+  const chargeEventsByActor = new Map<string, TurnChargeEvent[]>();
+  const chargeActorOrder: string[] = [];
+  for (const chargeEvent of turnResult.chargeEvents ?? []) {
+    if (!chargeEventsByActor.has(chargeEvent.playerId)) {
+      chargeEventsByActor.set(chargeEvent.playerId, []);
+      chargeActorOrder.push(chargeEvent.playerId);
+    }
+    chargeEventsByActor.get(chargeEvent.playerId)!.push(chargeEvent);
+  }
+  const chargePhases: TurnAnimationPhase[] = chargeActorOrder.map((actorId) => {
+    const action = turnResult.actions[actorId];
+    return {
+      actorId,
+      damageEvents: [],
+      chargeEvents: chargeEventsByActor.get(actorId) ?? [],
+      motionType: action === "charge" ? "chargeConcentration" : "none",
+      sourceActionType: action,
+    };
+  });
 
   return [...chargePhases, phaseByActor[firstId], phaseByActor[secondId]];
 }

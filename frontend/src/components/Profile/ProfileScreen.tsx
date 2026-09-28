@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSlots, SLOT_COUNT } from "@/lib/drawingSlots";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { fetchPlayerProfile } from "@/lib/profileApi";
@@ -65,6 +65,9 @@ export function ProfileScreen(props: {
   const [error, setError] = useState("");
   const [slotPreviews, setSlotPreviews] = useState<(ProfileSlotPreview | null)[]>(() => Array.from({ length: SLOT_COUNT }, () => null));
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const slotModalRef = useRef<HTMLDivElement | null>(null);
+  const slotModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const slotModalLastFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -94,34 +97,103 @@ export function ProfileScreen(props: {
   const recentMatches = useMemo(() => profile?.recentMatches ?? [], [profile]);
   const selectedSlot = selectedSlotIndex !== null ? slotPreviews[selectedSlotIndex] ?? null : null;
 
-  useEffect(() => {
-    let active = true;
+  const loadSlotPreviews = useCallback(async (): Promise<(ProfileSlotPreview | null)[]> => {
     const nickname = player?.nickname || props.fallbackNickname;
-    void (async () => {
-      const slots = loadSlots();
-      const previews = await Promise.all(slots.map(async (slot, index) => {
-        if (!slot) return null;
-        const imageDataUrl = drawingToDataUrl(slot.drawingData);
-        const imageData = await renderDrawingToImageData(slot.drawingData, imageDataUrl);
-        if (!imageData) return null;
-        const analysis = analyzeDrawing(slot.drawingData, imageData);
-        return {
-          index,
-          name: nickname,
-          thumbnail: slot.thumbnail || imageDataUrl,
-          imageDataUrl,
-          characterType: analysis.trend,
-          stats: analysis.stats,
-          drawingData: slot.drawingData,
-        } satisfies ProfileSlotPreview;
-      }));
-      if (!active) return;
-      setSlotPreviews(previews);
-    })();
-    return () => {
-      active = false;
-    };
+    const slots = loadSlots();
+    return Promise.all(slots.map(async (slot, index) => {
+      if (!slot) return null;
+      const imageDataUrl = drawingToDataUrl(slot.drawingData);
+      const imageData = await renderDrawingToImageData(slot.drawingData, imageDataUrl);
+      if (!imageData) return null;
+      const analysis = analyzeDrawing(slot.drawingData, imageData);
+      return {
+        index,
+        name: nickname,
+        thumbnail: slot.thumbnail || imageDataUrl,
+        imageDataUrl,
+        characterType: analysis.trend,
+        stats: analysis.stats,
+        drawingData: slot.drawingData,
+      } satisfies ProfileSlotPreview;
+    }));
   }, [player?.nickname, props.fallbackNickname]);
+
+  const refreshSlotPreviews = useCallback(() => {
+    void loadSlotPreviews().then((previews) => {
+      setSlotPreviews(previews);
+    });
+  }, [loadSlotPreviews]);
+
+  useEffect(() => {
+    refreshSlotPreviews();
+    const handleRefresh = () => {
+      refreshSlotPreviews();
+    };
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+    };
+  }, [refreshSlotPreviews]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    slotModalLastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    slotModalCloseButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSelectedSlotIndex(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const container = slotModalRef.current;
+      if (!container) return;
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => {
+        if (element.hasAttribute("disabled")) return false;
+        if (element.getAttribute("aria-hidden") === "true") return false;
+        if (element.hasAttribute("hidden")) return false;
+        if (element.tabIndex < 0) return false;
+        if (element.getClientRects().length === 0) return false;
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        return true;
+      });
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeElement = document.activeElement;
+      if (!(activeElement instanceof HTMLElement) || !container.contains(activeElement)) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          last.focus();
+        } else {
+          first.focus();
+        }
+        return;
+      }
+      if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      slotModalLastFocusRef.current?.focus();
+    };
+  }, [selectedSlot]);
 
   return (
     <section className="app-panel space-y-4 p-4 text-gray-100">
@@ -181,6 +253,18 @@ export function ProfileScreen(props: {
 
           <div className="space-y-3">
             <h3 className="text-lg font-bold text-gray-50">保存スロットのラクガキ</h3>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="rounded border border-emerald-400/60 px-2 py-1 text-xs font-bold text-emerald-200"
+                onClick={() => {
+                  soundManager.playSe("/sounds/se/button.mp3");
+                  refreshSlotPreviews();
+                }}
+              >
+                再読み込み
+              </button>
+            </div>
             <div className="grid gap-3 md:grid-cols-3">
               {slotPreviews.map((slot, index) => (
                 <button
@@ -191,7 +275,8 @@ export function ProfileScreen(props: {
                     soundManager.playSe("/sounds/se/button.mp3");
                     setSelectedSlotIndex(index);
                   }}
-                  className="rounded-lg border border-emerald-400/30 bg-black/20 p-3 text-left"
+                  disabled={!slot}
+                  className="rounded-lg border border-emerald-400/30 bg-black/20 p-3 text-left disabled:cursor-default"
                   style={{ cursor: slot ? "pointer" : "default" }}
                 >
                   <div className="mb-2 text-xs text-emerald-200">スロット {index + 1}</div>
@@ -252,29 +337,39 @@ export function ProfileScreen(props: {
       )}
       {selectedSlot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl rounded-xl border border-emerald-400/40 bg-slate-900 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-lg font-bold text-emerald-200">スロット {selectedSlot.index + 1} の詳細</h4>
-              <button
-                type="button"
-                className="rounded border border-gray-500 px-2 py-1 text-sm text-gray-300"
-                onClick={() => setSelectedSlotIndex(null)}
-              >
-                閉じる
-              </button>
-            </div>
-            <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={selectedSlot.imageDataUrl} alt="保存ラクガキ" className="h-[320px] w-full rounded-md border border-gray-700 bg-white object-contain" />
-              <div className="space-y-1 text-sm text-gray-100">
-                <div className="font-bold">{selectedSlot.name}</div>
-                <div className="text-emerald-200">{TYPE_LABELS[selectedSlot.characterType]}</div>
-                <div className="pt-2">HP: {selectedSlot.stats.maxHp}</div>
-                <div>PP: {selectedSlot.stats.maxPp}</div>
-                <div>攻撃: {selectedSlot.stats.attack}</div>
-                <div>防御: {selectedSlot.stats.defense}</div>
-                <div>速度: {selectedSlot.stats.speed}</div>
-                <div>回避: {Math.round(selectedSlot.stats.evasion * 100)}%</div>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-slot-detail-title"
+            ref={slotModalRef}
+            className="w-full max-w-2xl rounded-xl border border-emerald-400/40 bg-slate-900 p-4"
+            tabIndex={-1}
+          >
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <h4 id="profile-slot-detail-title" className="text-lg font-bold text-emerald-200">スロット {selectedSlot.index + 1} の詳細</h4>
+                <button
+                  ref={slotModalCloseButtonRef}
+                  type="button"
+                  className="rounded border border-gray-500 px-2 py-1 text-sm text-gray-300"
+                  onClick={() => setSelectedSlotIndex(null)}
+                >
+                  閉じる
+                </button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selectedSlot.imageDataUrl} alt="保存ラクガキ" className="h-[320px] w-full rounded-md border border-gray-700 bg-white object-contain" />
+                <div className="space-y-1 text-sm text-gray-100">
+                  <div className="font-bold">{selectedSlot.name}</div>
+                  <div className="text-emerald-200">{TYPE_LABELS[selectedSlot.characterType]}</div>
+                  <div className="pt-2">HP: {selectedSlot.stats.maxHp}</div>
+                  <div>PP: {selectedSlot.stats.maxPp}</div>
+                  <div>攻撃: {selectedSlot.stats.attack}</div>
+                  <div>防御: {selectedSlot.stats.defense}</div>
+                  <div>速度: {selectedSlot.stats.speed}</div>
+                  <div>回避: {Math.round(selectedSlot.stats.evasion * 100)}%</div>
+                </div>
               </div>
             </div>
           </div>
