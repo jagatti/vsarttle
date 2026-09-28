@@ -640,3 +640,83 @@ test("damageCaps: damage events record the capped (applied) value", () => {
   assert.equal(dmgEvent!.amount, 50, "damage event amount should reflect the capped value");
   assert.equal(result.nextStates.b.currentHp, 9999 - 50, "HP should reflect capped damage");
 });
+
+test("roguelike void-domination floor 19 makes the boss's remaining action unavoidable on the trigger turn", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, speed: 10, evasion: 1 };
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 100, hp: 100, attack: 80, speed: 1 };
+  boss.currentHp = 70;
+  boss.voidminationSourceFloor = 19;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "attack" },
+    rng: () => 0,
+    roguelikeBossBattle: { floor: 19, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(result.voidminationTriggered, true);
+  assert.equal(result.nextStates.boss.currentHp, 66);
+  assert.ok(
+    result.damageEvents.some((event) => event.to === "player" && event.amount > 0 && !event.avoided),
+    "boss attack should hit through 100% evasion after inevitable zone activates",
+  );
+});
+
+test("roguelike void-domination floor 16 overcharge lets the boss store PP above max and spends boosted costs", () => {
+  const player = makePlayer("player");
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 666, hp: 666, maxPp: 99, pp: 99, defense: 80 };
+  boss.currentHp = 439;
+  boss.currentPp = 80;
+  boss.voidminationActive = true;
+  boss.voidminationUsed = true;
+  boss.voidminationSourceFloor = 16;
+
+  const charged = resolveTurn({
+    turn: 2,
+    players: { player, boss },
+    actions: { player: "paralysis", boss: "charge" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 16, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(charged.nextStates.boss.currentHp, 473);
+  assert.equal(charged.nextStates.boss.currentPp, 179);
+
+  const cast = resolveTurn({
+    turn: 3,
+    players: charged.nextStates,
+    actions: { player: "paralysis", boss: "magicStrong" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 16, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(cast.nextStates.boss.currentPp, 129);
+});
+
+test("roguelike void-domination floor 18 color drain permanently lowers the player's max HP/PP on trigger", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, maxHp: 250, hp: 250, maxPp: 50, pp: 50 };
+  player.currentHp = 250;
+  player.currentPp = 50;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 900, hp: 900, maxPp: 130, pp: 130, attack: 80 };
+  boss.currentHp = 600;
+  boss.currentPp = 100;
+  boss.voidminationSourceFloor = 18;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "attack" },
+    rng: () => 0.99,
+    roguelikeBossBattle: { floor: 18, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(result.voidminationTriggered, true);
+  assert.equal(result.nextStates.player.stats.maxHp, 213);
+  assert.equal(result.nextStates.player.stats.maxPp, 43);
+  assert.equal(result.nextStates.boss.currentHp, 631);
+  assert.equal(result.nextStates.boss.currentPp, 107);
+});

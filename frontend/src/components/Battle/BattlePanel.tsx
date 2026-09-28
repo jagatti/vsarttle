@@ -6,6 +6,10 @@ import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battl
 import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { safeImageUrl } from "@/lib/imageUrl";
+import {
+  getRoguelikeVoidDominationSpec,
+  getVoidminationFormLabel,
+} from "@/lib/roguelikeVoidDomination";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, EnhancementSlot, PlayerBattleState, TurnResult } from "@/types/game";
 import type { MoveMotionType } from "./battleAnimationPhases";
@@ -147,19 +151,37 @@ function HpBar({ current, max }: { current: number; max: number }) {
   );
 }
 
-function PpBar({ current, max }: { current: number; max: number }) {
-  const pct = Math.max(0, Math.min(100, (current / max) * 100));
+function PpBar({ current, max, ceiling }: { current: number; max: number; ceiling?: number }) {
+  const effectiveCeiling = Math.max(max, ceiling ?? max);
+  const pct = Math.max(0, Math.min(100, (current / effectiveCeiling) * 100));
+  const maxBoundaryPct = Math.max(0, Math.min(100, (max / effectiveCeiling) * 100));
   return (
-    <div style={{ height: "clamp(7px, 0.85vw, 10px)", background: "#0b0d14", borderRadius: 999, border: "2px solid #cbd5e1", overflow: "hidden", marginTop: 3 }}>
+    <div style={{ position: "relative", height: "clamp(7px, 0.85vw, 10px)", background: "#0b0d14", borderRadius: 999, border: "2px solid #cbd5e1", overflow: "hidden", marginTop: 3 }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
-          background: "linear-gradient(to bottom, #38bdf8, #0ea5e9)",
+          background: current > max
+            ? "linear-gradient(to right, #38bdf8, #0ea5e9 65%, #a855f7)"
+            : "linear-gradient(to bottom, #38bdf8, #0ea5e9)",
           transition: "width 0.45s ease-out",
           borderRadius: 999,
         }}
       />
+      {effectiveCeiling > max && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${maxBoundaryPct}%`,
+            width: 2,
+            background: "rgba(254,240,138,0.95)",
+            boxShadow: "0 0 8px rgba(254,240,138,0.7)",
+            transform: "translateX(-1px)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -181,6 +203,10 @@ interface ImpactEffect {
 function NameHpBox({ player, align, title }: { player: PlayerBattleState; align: "left" | "right"; title?: string }) {
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   const hpPct = Math.max(0, Math.round((player.currentHp / player.stats.maxHp) * 100));
+  const ppCeiling = player.voidminationSourceFloor === 16 && player.voidminationActive
+    ? player.stats.maxPp * 2
+    : player.stats.maxPp;
+  const hasPpOverflow = player.currentPp > player.stats.maxPp;
   const typeTitle = [title, "防御はバリアの威力にもなります"].filter(Boolean).join(" / ");
   return (
     <div
@@ -270,11 +296,11 @@ function NameHpBox({ player, align, title }: { player: PlayerBattleState; align:
       <HpBar current={player.currentHp} max={player.stats.maxHp} />
       <div style={{ display: "flex", justifyContent: "space-between", color: "#a5f3fc", fontSize: "clamp(9px, 0.75vw, 12px)", fontWeight: 800, marginTop: 4 }}>
         <span>PP</span>
-        <span>
+        <span style={{ color: hasPpOverflow ? "#f5d0fe" : undefined }}>
           {player.currentPp}/{player.stats.maxPp}
         </span>
       </div>
-      <PpBar current={player.currentPp} max={player.stats.maxPp} />
+      <PpBar current={player.currentPp} max={player.stats.maxPp} ceiling={ppCeiling} />
     </div>
   );
 }
@@ -856,6 +882,7 @@ export function BattlePanel(props: {
     () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
   );
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
+  const [showVoidminationBadgeTooltip, setShowVoidminationBadgeTooltip] = useState(false);
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
     me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
@@ -890,6 +917,14 @@ export function BattlePanel(props: {
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
+  const voidminationSpec = getRoguelikeVoidDominationSpec(props.enemy.voidminationSourceFloor ?? props.me.voidminationSourceFloor ?? 0);
+  const voidminationTooltipText = (() => {
+    if (!voidminationSpec) return "効果情報なし";
+    if (voidminationSpec.floor === 17 && props.enemy.voidminationForm) {
+      return `${voidminationSpec.description}\n現在: ${getVoidminationFormLabel(props.enemy.voidminationForm)} / 次の変化まで ${props.enemy.voidminationFormTurnsRemaining ?? 0}ターン`;
+    }
+    return voidminationSpec.description;
+  })();
   const shouldResetTransientState = shouldResetBattlePanelTransientState(
     props.turn,
     props.turnResult,
@@ -924,6 +959,7 @@ export function BattlePanel(props: {
     setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
     setVoidminationActive(false);
     setShowVoidminationCutIn(false);
+    setShowVoidminationBadgeTooltip(false);
     setIsAnimating(false);
     setActivePhaseMotions({ me: {}, enemy: {} });
   }, [shouldResetTransientState, props.me, props.enemy]);
@@ -1096,7 +1132,7 @@ export function BattlePanel(props: {
         if (turnResult.voidminationTriggered) {
           // 空間支配（ヴォイドミネーション）cutscene: BGM swap → shihai.png for 3.9s
           soundManager.stopBgm();
-          soundManager.playSe("/sounds/se/void.mp3");
+          soundManager.playSe("/arttle_SE/void.mp3");
           soundManager.playBgm("/sounds/bgm/boss5-3_loop.mp3");
           setVoidminationActive(true);
           setShowVoidminationCutIn(true);
@@ -1212,7 +1248,89 @@ export function BattlePanel(props: {
       {showMatchupModal && <MatchupModal onClose={() => setShowMatchupModal(false)} />}
 
       {/* 空間支配（ヴォイドミネーション）cutscene overlay */}
-      {showVoidminationCutIn && <div style={getVoidminationCutInOverlayStyle()} />}
+      {showVoidminationCutIn && (
+        <div style={getVoidminationCutInOverlayStyle()}>
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(circle at center, rgba(124,58,237,0.28), rgba(2,6,23,0.94) 56%, rgba(0,0,0,0.98))",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: "-12%",
+              borderRadius: "50%",
+              border: "2px solid rgba(196,181,253,0.38)",
+              animation: "voidDominationRipple 1.4s ease-out infinite",
+              filter: "blur(1px)",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: "-5%",
+              background:
+                "repeating-linear-gradient(115deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 14px)",
+              mixBlendMode: "screen",
+              animation: "voidDominationDistortion 3.9s linear forwards",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
+              textAlign: "center",
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                color: "#a78bfa",
+                fontSize: "clamp(16px, 1.8vw, 24px)",
+                fontWeight: 900,
+                letterSpacing: "0.5em",
+                textShadow: "0 0 18px rgba(167,139,250,0.9)",
+              }}
+            >
+              VOID DOMINATION
+            </div>
+            <div
+              className="sticker-text"
+              style={{
+                color: "#f5d0fe",
+                fontSize: "clamp(34px, 6vw, 72px)",
+                fontWeight: 900,
+                WebkitTextStroke: "5px #14161f",
+                textShadow: "0 0 22px rgba(168,85,247,0.9), 0 0 46px rgba(91,33,182,0.85)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              ヴォイドミネーション
+            </div>
+            <div
+              style={{
+                color: "#ddd6fe",
+                fontSize: "clamp(14px, 1.6vw, 22px)",
+                fontWeight: 800,
+                textShadow: "0 2px 10px rgba(0,0,0,0.8)",
+              }}
+            >
+              空間がねじれ、戦場は支配された。
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Battle event flash */}
       {showFlash && (
@@ -1301,6 +1419,37 @@ export function BattlePanel(props: {
             }}
           >
             {revealCommentary.detail}
+          </div>
+        </div>
+      )}
+
+      {props.turnResult?.voidminationStatusText && (
+        <div
+          style={{
+            position: "absolute",
+            top: 84,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 26,
+            pointerEvents: "none",
+            maxWidth: "min(92%, 520px)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            className="doodle-frame"
+            style={{
+              display: "inline-block",
+              background: "rgba(15,23,42,0.92)",
+              border: "3px solid #a78bfa",
+              color: "#ede9fe",
+              fontWeight: 900,
+              fontSize: "clamp(12px, 1.2vw, 18px)",
+              padding: "8px 14px",
+              boxShadow: "0 0 18px rgba(167,139,250,0.35)",
+            }}
+          >
+            {props.turnResult.voidminationStatusText}
           </div>
         </div>
       )}
@@ -1503,23 +1652,57 @@ export function BattlePanel(props: {
               {upcomingDamageAnnouncement}
             </span>
           )}
-          {voidminationActive && (
-            <span
-              title="効果：お互いの回避率を0%にする"
-              style={{
-                color: "#c4b5fd",
-                fontWeight: "bold",
-                fontSize: "clamp(9px, 0.85vw, 12px)",
-                border: "1px solid #7c3aed",
-                borderRadius: 5,
-                padding: "2px 8px",
-                background: "rgba(124,58,237,0.18)",
-                whiteSpace: "nowrap",
-                cursor: "default",
-              }}
-            >
-              ヴォイドミネーション
-            </span>
+          {voidminationActive && voidminationSpec && (
+            <div style={{ position: "relative", display: "flex", justifyContent: "center", flex: 1 }}>
+              <button
+                type="button"
+                onMouseEnter={() => setShowVoidminationBadgeTooltip(true)}
+                onMouseLeave={() => setShowVoidminationBadgeTooltip(false)}
+                onClick={() => setShowVoidminationBadgeTooltip((visible) => !visible)}
+                style={{
+                  color: "#ede9fe",
+                  fontWeight: "bold",
+                  fontSize: "clamp(10px, 0.95vw, 13px)",
+                  border: "1px solid #7c3aed",
+                  borderRadius: 999,
+                  padding: "4px 12px",
+                  background: "linear-gradient(135deg, rgba(76,29,149,0.82), rgba(15,23,42,0.92))",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  boxShadow: "0 0 14px rgba(124,58,237,0.35)",
+                }}
+                title={voidminationTooltipText}
+              >
+                ヴォイドミネーション：{voidminationSpec.badgeText}
+              </button>
+              {showVoidminationBadgeTooltip && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: "min(88vw, 360px)",
+                    zIndex: 40,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(196,181,253,0.55)",
+                    background: "rgba(5,8,20,0.96)",
+                    color: "#ede9fe",
+                    fontSize: "clamp(11px, 0.95vw, 13px)",
+                    lineHeight: 1.6,
+                    textAlign: "left",
+                    whiteSpace: "pre-line",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: "#c4b5fd", marginBottom: 4 }}>
+                    {voidminationSpec.badgeText}
+                  </div>
+                  <div>{voidminationTooltipText}</div>
+                </div>
+              )}
+            </div>
           )}
           <button
             className="doodle-btn"

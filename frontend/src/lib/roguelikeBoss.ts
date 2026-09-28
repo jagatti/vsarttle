@@ -1,4 +1,5 @@
 import { LIMIT_BREAK_MAX_STAT } from "@/lib/singlePlayLimitBreak";
+import { getRoguelikeVoidDominationSourceFloor } from "@/lib/roguelikeVoidDomination";
 import type { CharacterStats, CharacterType, PlayerBattleState } from "@/types/game";
 
 export interface RoguelikeBossInfo {
@@ -31,6 +32,7 @@ const ROGUELIKE_BOSS_SPECS: Record<number, RoguelikeBossSpec> = {
 };
 
 export function buildRoguelikeBossState(floor: number): PlayerBattleState {
+  const voidminationSourceFloor = getRoguelikeVoidDominationSourceFloor(floor) ?? undefined;
   if (floor === 20) {
     return {
       id: "rl-boss-20",
@@ -53,6 +55,15 @@ export function buildRoguelikeBossState(floor: number): PlayerBattleState {
       limitBreakActive: true,
       forceMagicStrongAction: false,
       halveDefenseOnCharge: true,
+      voidminationSourceFloor,
+      voidminationBaseStats: {
+        hp: LIMIT_BREAK_MAX_STAT, maxHp: LIMIT_BREAK_MAX_STAT,
+        pp: LIMIT_BREAK_MAX_STAT, maxPp: LIMIT_BREAK_MAX_STAT,
+        attack: LIMIT_BREAK_MAX_STAT,
+        defense: LIMIT_BREAK_MAX_STAT,
+        speed: LIMIT_BREAK_MAX_STAT,
+        evasion: 0,
+      },
     };
   }
 
@@ -80,5 +91,7 @@ function specToState(floor: number, spec: RoguelikeBossSpec): PlayerBattleState 
     currentPp: spec.pp,
     chargeMultiplier: 1,
     lastActionCategory: null,
+    voidminationSourceFloor: getRoguelikeVoidDominationSourceFloor(floor) ?? undefined,
+    voidminationBaseStats: { ...stats },
   };
 }

@@ -46,6 +46,9 @@ export function buildDisplayBattleResources(players: PlayerBattleState[]): Recor
 }
 
 export function getTurnAnimationOrder(turnResult: TurnResult, me: PlayerBattleState, enemy: PlayerBattleState): [string, string] {
+  if (turnResult.actionOrder && turnResult.actionOrder.length === 2) {
+    return turnResult.actionOrder;
+  }
   const myAction = turnResult.actions[me.id];
   const enemyAction = turnResult.actions[enemy.id];
 
@@ -163,9 +166,12 @@ export function applyAnimationPhaseToDisplayResources(
   for (const chargeEvent of phase.chargeEvents) {
     const player = playersById[chargeEvent.playerId];
     if (!player) continue;
+    const ppCeiling = player.voidminationSourceFloor === 16 && player.voidminationActive
+      ? player.stats.maxPp * 2
+      : player.stats.maxPp;
     next[chargeEvent.playerId] = {
       currentHp: clamp(next[chargeEvent.playerId].currentHp + chargeEvent.hpRecover, 0, player.stats.maxHp),
-      currentPp: clamp(next[chargeEvent.playerId].currentPp + chargeEvent.ppRecover, 0, player.stats.maxPp),
+      currentPp: clamp(next[chargeEvent.playerId].currentPp + chargeEvent.ppRecover, 0, ppCeiling),
     };
   }
 

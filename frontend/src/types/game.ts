@@ -80,6 +80,7 @@ export type TwoTurnWeakMagicEffectKind = "attackBan" | "barrierBan" | "magicBan"
 export type WeakMagicEffectKind = OneTurnWeakMagicEffectKind | TwoTurnWeakMagicEffectKind;
 
 export type CharacterType = "attack" | "magic" | "defense" | "balanced";
+export type VoidminationBossForm = "attack" | "magic" | "defense";
 
 export interface WeakMagicEffectSelection {
   oneTurn?: OneTurnWeakMagicEffectKind;
@@ -126,6 +127,16 @@ export interface PlayerBattleState {
   chargedPreviousTurn?: boolean;
   /** When true, the 空間支配（ヴォイドミネーション）is active; both players' evasion is treated as 0%. */
   voidminationActive?: boolean;
+  /** When true, this boss has already used 空間支配（ヴォイドミネーション） and cannot trigger it again. */
+  voidminationUsed?: boolean;
+  /** Source floor for the active roguelike boss effect. Floor 20 reuses floor 19. */
+  voidminationSourceFloor?: number;
+  /** Base stats used to rebuild type-change forms without stacking modifiers. */
+  voidminationBaseStats?: CharacterStats;
+  /** Current floor 17 type-change form while 空間支配 is active. */
+  voidminationForm?: VoidminationBossForm;
+  /** Remaining turns until the next floor 17 form change. */
+  voidminationFormTurnsRemaining?: number;
 }
 
 export interface TurnDamageEvent {
@@ -162,6 +173,8 @@ export interface TurnResult {
   logs: string[];
   nextStates: Record<string, PlayerBattleState>;
   winnerId: string | null;
+  actionOrder?: [string, string];
   /** True if 空間支配（ヴォイドミネーション）was newly triggered this turn. */
   voidminationTriggered?: boolean;
+  voidminationStatusText?: string | null;
 }
