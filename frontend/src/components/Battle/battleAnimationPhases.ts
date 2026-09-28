@@ -87,10 +87,7 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     [firstId]: { actorId: firstId, damageEvents: [], chargeEvents: [] },
     [secondId]: { actorId: secondId, damageEvents: [], chargeEvents: [] },
   };
-
-  for (const chargeEvent of turnResult.chargeEvents ?? []) {
-    phaseByActor[chargeEvent.playerId]?.chargeEvents.push(chargeEvent);
-  }
+  const chargedActorIds = new Set((turnResult.chargeEvents ?? []).map((event) => event.playerId));
 
   for (const damageEvent of turnResult.damageEvents ?? []) {
     const actorId = getDamagePhaseActorId(damageEvent, turnResult.actions);
@@ -142,9 +139,34 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
       phaseByActor[me.id].motionType = defaultMotionForAction(myAction);
       phaseByActor[enemy.id].motionType = defaultMotionForAction(enemyAction);
     }
+
+    // Charge recoveries are animated in a dedicated first phase so they always
+    // finish before any damage animation regardless of speed order.
+    if (chargedActorIds.has(me.id)) phaseByActor[me.id].motionType = "none";
+    if (chargedActorIds.has(enemy.id)) phaseByActor[enemy.id].motionType = "none";
   }
 
-  return [phaseByActor[firstId], phaseByActor[secondId]];
+  const chargeEventsByActor = new Map<string, TurnChargeEvent[]>();
+  const chargeActorOrder: string[] = [];
+  for (const chargeEvent of turnResult.chargeEvents ?? []) {
+    if (!chargeEventsByActor.has(chargeEvent.playerId)) {
+      chargeEventsByActor.set(chargeEvent.playerId, []);
+      chargeActorOrder.push(chargeEvent.playerId);
+    }
+    chargeEventsByActor.get(chargeEvent.playerId)!.push(chargeEvent);
+  }
+  const chargePhases: TurnAnimationPhase[] = chargeActorOrder.map((actorId) => {
+    const action = turnResult.actions[actorId];
+    return {
+      actorId,
+      damageEvents: [],
+      chargeEvents: chargeEventsByActor.get(actorId) ?? [],
+      motionType: action === "charge" ? "chargeConcentration" : "none",
+      sourceActionType: action,
+    };
+  });
+
+  return [...chargePhases, phaseByActor[firstId], phaseByActor[secondId]];
 }
 
 export function applyAnimationPhaseToDisplayResources(

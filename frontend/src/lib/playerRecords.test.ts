@@ -90,6 +90,16 @@ test("applyMatchToPlayerRecords tracks roguelike best floor reached", () => {
     roguelikeResult: { floorReached: 8, cleared: false },
   }));
   assert.equal(players["player-a"].roguelike.bestFloorReached, 8);
+  assert.equal(players["player-a"].roguelike.clearedAllFloors, false);
+
+  players = applyMatchToPlayerRecords(players, makeMatch({
+    source: "roguelike",
+    players: [basePlayers[0]],
+    winnerId: "rl-boss-20",
+    roguelikeResult: { floorReached: 20, cleared: false },
+  }));
+  assert.equal(players["player-a"].roguelike.bestFloorReached, 20);
+  assert.equal(players["player-a"].roguelike.clearedAllFloors, false);
 
   players = applyMatchToPlayerRecords(players, makeMatch({
     source: "roguelike",
@@ -98,4 +108,5 @@ test("applyMatchToPlayerRecords tracks roguelike best floor reached", () => {
     roguelikeResult: { floorReached: 20, cleared: true },
   }));
   assert.equal(players["player-a"].roguelike.bestFloorReached, 20);
+  assert.equal(players["player-a"].roguelike.clearedAllFloors, true);
 });

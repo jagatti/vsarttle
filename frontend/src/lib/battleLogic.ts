@@ -326,11 +326,10 @@ export function resolveTurn(params: {
         })
       : false;
     const finalAmount = magicDamperActive ? applyBossMagicDamper(cappedAmount) : cappedAmount;
-    const voidActive = shouldSuppressEvasion(voidFloor ?? 0, bossVoidActive()) || !!(left.voidminationActive || right.voidminationActive);
+    const voidActive = shouldSuppressEvasion(voidFloor ?? 0, bossVoidActive());
     const actual = maybeAvoid(finalAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       const bossTakingDamage = !!bossState && to.id === bossState.id && voidFloor;
-      const wasBossActive = bossVoidActive();
       const damageResolution = bossTakingDamage
         ? resolveVoidminationDamage({
             currentHp: to.currentHp,

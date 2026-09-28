@@ -473,21 +473,20 @@ test("voidmination: once active, voidminationTriggered is false on subsequent tu
   assert.equal(result.voidminationTriggered, false);
 });
 
-test("voidmination: once active, evasion is 0% (attacks always land)", () => {
+test("voidmination: generic EVA0 mode does not force evasion to 0%", () => {
   const a = makeEva0Player("a");
   const b = makePlayer("b");
   // Mark as already active
   a.voidminationActive = true;
   b.voidminationActive = true;
-  // Even with 100% evasion, attacks should land when voidmination is active
+  // Even with voidminationActive, non-roguelike EVA0 mode should keep normal evasion
   const result = resolveTurn({
     turn: 2,
     players: { a, b },
     actions: { a: "attack", b: "attack" },
     rng: () => 0, // would normally trigger evasion (0 < 1.0)
   });
-  // No avoidance should occur
-  assert.ok(result.damageEvents.every((e) => !e.avoided), "No avoidance should happen with voidmination active");
+  assert.ok(result.damageEvents.some((e) => e.avoided), "Evasion should remain active in generic EVA0 mode");
 });
 
 test("voidmination: disableVoidmination prevents triggering (single-play)", () => {
@@ -664,6 +663,50 @@ test("roguelike void-domination floor 19 makes the boss's remaining action unavo
     "boss attack should hit through 100% evasion after inevitable zone activates",
   );
   assert.equal(result.nextStates.player.voidminationActive, true);
+});
+
+test("roguelike void-domination floors other than 19 do not force evasion to 0%", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, evasion: 1, speed: 10 };
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, maxHp: 100, hp: 100, attack: 90, speed: 1 };
+  boss.currentHp = 70;
+  boss.voidminationSourceFloor = 10;
+
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "attack", boss: "attack" },
+    rng: () => 0,
+    roguelikeBossBattle: { floor: 10, bossId: "boss", playerId: "player" },
+  });
+
+  assert.equal(result.voidminationTriggered, true);
+  assert.ok(
+    result.damageEvents.some((event) => event.to === "player" && event.avoided),
+    "boss attack should still be avoidable when floor 10 pain-share is active",
+  );
+});
+
+test("charge recovery is always resolved before damage regardless of speed order", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, maxHp: 100, hp: 100, speed: 1 };
+  player.currentHp = 10;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, attack: 38, speed: 99 };
+
+  const result = resolveTurn({
+    turn: 2,
+    players: { player, boss },
+    actions: { player: "charge", boss: "attack" },
+    rng: () => 0.99,
+  });
+
+  assert.equal(result.nextStates.player.currentHp, 5);
+  assert.ok(
+    result.chargeEvents.some((event) => event.playerId === "player" && event.hpRecover === 25),
+    "charge recovery should be recorded before damage resolution",
+  );
 });
 
 test("roguelike void-domination floor 16 overcharge lets the boss store PP above max and spends boosted costs", () => {

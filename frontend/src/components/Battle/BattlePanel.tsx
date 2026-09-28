@@ -87,8 +87,8 @@ export function getVoidminationCutInOverlayStyle() {
   };
 }
 
-export function getVoidminationTooltipEvasionDisplay(evasion: number, voidminationActive: boolean) {
-  return voidminationActive
+export function getVoidminationTooltipEvasionDisplay(evasion: number, inevitableZoneActive: boolean) {
+  return inevitableZoneActive
     ? { color: "#ef4444", text: "0%" }
     : { color: "#c4b5fd", text: `${Math.round(evasion * 100)}%` };
 }
@@ -200,7 +200,8 @@ interface ImpactEffect {
   charged: boolean;
 }
 
-function NameHpBox({ player, align, title }: { player: PlayerBattleState; align: "left" | "right"; title?: string }) {
+function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; title?: string; typeLabelOverride?: string }) {
+  const { player, align, title, typeLabelOverride } = props;
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   const hpPct = Math.max(0, Math.round((player.currentHp / player.stats.maxHp) * 100));
   const ppCeiling = player.voidminationSourceFloor === 16 && player.voidminationActive
@@ -258,7 +259,7 @@ function NameHpBox({ player, align, title }: { player: PlayerBattleState; align:
             background: `${borderColor}22`,
           }}
         >
-          {TYPE_LABELS[player.characterType]}
+          {typeLabelOverride ?? TYPE_LABELS[player.characterType]}
         </span>
         {player.drawingTags?.[0] ? (
           <span
@@ -309,7 +310,7 @@ function PortraitBlock({
   player,
   floaters,
   impactEffects,
-  voidminationActive,
+  inevitableZoneActive,
   isActing,
   isLoser,
   isShaking,
@@ -322,11 +323,13 @@ function PortraitBlock({
   sourceActionType,
   isHit,
   side,
+  transformPulse,
+  drainDesaturate,
 }: {
   player: PlayerBattleState;
   floaters: DamageFloater[];
   impactEffects: ImpactEffect[];
-  voidminationActive?: boolean;
+  inevitableZoneActive?: boolean;
   isActing?: boolean;
   isLoser?: boolean;
   isShaking?: boolean;
@@ -339,6 +342,8 @@ function PortraitBlock({
   sourceActionType?: ActionType;
   isHit?: boolean;
   side: "left" | "right";
+  transformPulse?: boolean;
+  drainDesaturate?: boolean;
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const isCharged = player.chargeMultiplier > 1;
@@ -511,13 +516,15 @@ function PortraitBlock({
               // 白いふちどり + 地面側の影。透過ラクガキが背景から独立して見えるようにする。
               filter: [
                 isLoser ? "grayscale(100%)" : "",
+                drainDesaturate ? "saturate(0.28) brightness(0.92)" : "",
                 "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
                 "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
+                transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
                 isCharged ? "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)" : "",
               ].filter(Boolean).join(" "),
               transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
               transform: isActing ? "scale(1.08)" : "scale(1)",
-              animation: imgAnimations || "none",
+              animation: `${imgAnimations ? `${imgAnimations}, ` : ""}${transformPulse ? "voidTypeShift 1.05s ease-in-out" : "none"}`,
               cursor: "pointer",
             }}
           />
@@ -531,7 +538,7 @@ function PortraitBlock({
         )}
         {tooltipVisible && (() => {
           const s = getEffectiveStats(player);
-          const evasionDisplay = getVoidminationTooltipEvasionDisplay(s.evasion, !!voidminationActive);
+          const evasionDisplay = getVoidminationTooltipEvasionDisplay(s.evasion, !!inevitableZoneActive);
           return (
             <div
               style={{
@@ -882,6 +889,8 @@ export function BattlePanel(props: {
     () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
   );
   const [showVoidminationCutIn, setShowVoidminationCutIn] = useState(false);
+  const [showTypeChangePulse, setShowTypeChangePulse] = useState(false);
+  const [showColorDrainPulse, setShowColorDrainPulse] = useState(false);
   const [showVoidminationBadgeTooltip, setShowVoidminationBadgeTooltip] = useState(false);
   const voidminationTooltipId = useId();
   const voidminationBadgeRef = useRef<HTMLDivElement | null>(null);
@@ -927,6 +936,10 @@ export function BattlePanel(props: {
     }
     return voidminationSpec.description;
   })();
+  const inevitableZoneActive = !!(voidminationActive && voidminationSpec?.floor === 19);
+  const enemyTypeLabel = props.enemy.voidminationForm
+    ? getVoidminationFormLabel(props.enemy.voidminationForm)
+    : TYPE_LABELS[props.enemy.characterType];
   const shouldResetTransientState = shouldResetBattlePanelTransientState(
     props.turn,
     props.turnResult,
@@ -961,6 +974,8 @@ export function BattlePanel(props: {
     setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
     setVoidminationActive(false);
     setShowVoidminationCutIn(false);
+    setShowTypeChangePulse(false);
+    setShowColorDrainPulse(false);
     setShowVoidminationBadgeTooltip(false);
     setIsAnimating(false);
     setActivePhaseMotions({ me: {}, enemy: {} });
@@ -1008,6 +1023,12 @@ export function BattlePanel(props: {
     const turnResult = props.turnResult;
     const playersById = { [props.me.id]: props.me, [props.enemy.id]: props.enemy };
     const phases = getTurnAnimationPhases(turnResult, props.me, props.enemy);
+    const statusText = turnResult.voidminationStatusText ?? "";
+    const statusKind = statusText.includes("カラードレイン")
+      ? "colorDrain"
+      : statusText.includes("に変化した")
+      ? "typeChange"
+      : null;
     const timers: number[] = [];
     const schedule = (callback: () => void, delayMs: number) => {
       timers.push(window.setTimeout(callback, delayMs));
@@ -1142,30 +1163,61 @@ export function BattlePanel(props: {
         }
       };
 
-      runPhase(0);
-      schedule(() => runPhase(1), 850);
+      const phaseIntervalMs = 850;
+      const phaseDurationMs = Math.max(1, phases.length) * phaseIntervalMs;
+      phases.forEach((_, index) => {
+        schedule(() => runPhase(index), index * phaseIntervalMs);
+      });
       schedule(() => {
         setActingPlayerId(null);
         setActivePhaseMotions({ me: {}, enemy: {} });
-        setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
+        const finalDisplayResources = buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]);
+        const runStatusEffect = (onDone: () => void) => {
+          if (statusKind === "typeChange") {
+            if (!turnResult.voidminationTriggered) {
+              soundManager.playSe("/arttle_SE/void.mp3");
+            }
+            setShowTypeChangePulse(true);
+            schedule(() => {
+              setShowTypeChangePulse(false);
+              onDone();
+            }, 1100);
+            return;
+          }
+          if (statusKind === "colorDrain") {
+            setShowColorDrainPulse(true);
+            schedule(() => {
+              setShowColorDrainPulse(false);
+              onDone();
+            }, 1400);
+            return;
+          }
+          onDone();
+        };
+        const finishAnimation = () => {
+          finalized = true;
+          setIsAnimating(false);
+        };
+        const applyResultAndFinish = () => {
+          setDisplayResources(finalDisplayResources);
+          finishAnimation();
+        };
 
         if (turnResult.voidminationTriggered) {
-          // 空間支配（ヴォイドミネーション）cutscene: BGM swap → shihai.png for 3.9s
-          soundManager.stopBgm();
+          // 空間支配（ヴォイドミネーション）cutscene: keep current BGM, play SE only.
           soundManager.playSe("/arttle_SE/void.mp3");
-          soundManager.playBgm("/sounds/bgm/boss5-3_loop.mp3");
-          setVoidminationActive(true);
           setShowVoidminationCutIn(true);
           schedule(() => {
             setShowVoidminationCutIn(false);
-            finalized = true;
-            setIsAnimating(false);
+            runStatusEffect(() => {
+              setVoidminationActive(true);
+              applyResultAndFinish();
+            });
           }, VOIDMINATION_CUT_IN_DURATION_MS);
         } else {
-          finalized = true;
-          setIsAnimating(false);
+          runStatusEffect(applyResultAndFinish);
         }
-      }, 1700);
+      }, phaseDurationMs);
     }, 2000);
 
     return () => {
@@ -1189,6 +1241,8 @@ export function BattlePanel(props: {
         setImpactEffects({});
         setScreenShake(null);
         setShowVoidminationCutIn(false);
+        setShowTypeChangePulse(false);
+        setShowColorDrainPulse(false);
         if (turnResult.voidminationTriggered) {
           setVoidminationActive(true);
         }
@@ -1351,6 +1405,30 @@ export function BattlePanel(props: {
           </div>
         </div>
       )}
+      {showTypeChangePulse && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 950,
+            pointerEvents: "none",
+            background: "radial-gradient(circle at 72% 52%, rgba(192,132,252,0.4), rgba(0,0,0,0) 42%)",
+            animation: "voidTypeShiftOverlay 1.05s ease-in-out",
+          }}
+        />
+      )}
+      {showColorDrainPulse && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 940,
+            pointerEvents: "none",
+            background: "linear-gradient(90deg, rgba(34,211,238,0.18), rgba(0,0,0,0) 44%, rgba(217,70,239,0.2))",
+            animation: "colorDrainPulse 1.4s ease-out",
+          }}
+        />
+      )}
 
       {/* Battle event flash */}
       {showFlash && (
@@ -1443,7 +1521,7 @@ export function BattlePanel(props: {
         </div>
       )}
 
-      {props.turnResult?.voidminationStatusText && (
+      {props.turnResult?.voidminationStatusText && !showVoidminationCutIn && !showTypeChangePulse && !showColorDrainPulse && (
         <div
           style={{
             position: "absolute",
@@ -1774,7 +1852,12 @@ export function BattlePanel(props: {
         {/* Name / HP / PP boxes, colored by character type */}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
           <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} />
-          <NameHpBox player={{ ...props.enemy, ...displayEnemy }} align="right" title={props.roguelikeWeakMagicTooltipTitle} />
+          <NameHpBox
+            player={{ ...props.enemy, ...displayEnemy }}
+            align="right"
+            title={props.roguelikeWeakMagicTooltipTitle}
+            typeLabelOverride={enemyTypeLabel}
+          />
         </div>
 
         {/* Portraits + timer */}
@@ -1791,11 +1874,12 @@ export function BattlePanel(props: {
             player={props.me}
             floaters={floaters.filter((f) => f.toMe)}
             impactEffects={impactEffects[props.me.id] ?? []}
-            voidminationActive={voidminationActive}
+            inevitableZoneActive={inevitableZoneActive}
             isActing={actingPlayerId === props.me.id}
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
             isHit={hitIds.has(props.me.id)}
+            drainDesaturate={showColorDrainPulse}
             revealedAction={revealedActions ? revealedActions[props.me.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.me.id)}
             enhancementSlot={props.me.enhancementSlot}
@@ -1878,11 +1962,12 @@ export function BattlePanel(props: {
             player={props.enemy}
             floaters={floaters.filter((f) => !f.toMe)}
             impactEffects={impactEffects[props.enemy.id] ?? []}
-            voidminationActive={voidminationActive}
+            inevitableZoneActive={inevitableZoneActive}
             isActing={actingPlayerId === props.enemy.id}
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
             isHit={hitIds.has(props.enemy.id)}
+            transformPulse={showTypeChangePulse}
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.enemy.id)}
             enhancementSlot={props.enemy.enhancementSlot}
