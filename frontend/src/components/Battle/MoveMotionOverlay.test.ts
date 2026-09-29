@@ -18,12 +18,12 @@ const motions: Array<[MoveMotionType, string]> = [
   ["chargeConcentration", "chargeConcentration"],
 ];
 
-test("portrait motions use stepped frame animations for both battle sides", () => {
+test("portrait motions ease between poses for both battle sides", () => {
   for (const [motionType, animationName] of motions) {
     for (const side of ["left", "right"] as const) {
       const animation = getPortraitAnimation(motionType, side, true);
       assert.match(animation, new RegExp(`^${animationName} `));
-      assert.match(animation, /steps\(1, end\)/);
+      assert.match(animation, /ease-out/);
     }
   }
 });
@@ -41,7 +41,7 @@ test("portrait motion direction is expressed by a shared animation's direction v
 test("hit recoil points away from the opponent and scales up for heavy hits", () => {
   const left = getHitPortraitStyle("left", true);
   const right = getHitPortraitStyle("right", true, true);
-  assert.match(getHitPortraitAnimation("left", true), /steps\(1, end\)/);
+  assert.match(getHitPortraitAnimation("left", true), /ease-out/);
   assert.equal(left["--dir"], -1);
   assert.equal(right["--dir"], 1);
   assert.equal(left["--hit-distance"], "24px");

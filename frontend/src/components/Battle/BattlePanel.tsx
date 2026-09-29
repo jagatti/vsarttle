@@ -321,7 +321,6 @@ function PortraitBlock({
   inevitableZoneActive,
   isActing,
   isLoser,
-  isShaking,
   revealedAction,
   suppressedByTieBan,
   enhancementSlot,
@@ -342,7 +341,6 @@ function PortraitBlock({
   inevitableZoneActive?: boolean;
   isActing?: boolean;
   isLoser?: boolean;
-  isShaking?: boolean;
   revealedAction?: ActionType | null;
   suppressedByTieBan?: boolean;
   enhancementSlot?: EnhancementSlot | null;
@@ -375,7 +373,7 @@ function PortraitBlock({
   );
   const portraitHitStyle = getHitPortraitStyle(side, !!isHit, !!isStrongHit);
   const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
-  const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s steps(1, end) forwards" : "";
+  const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
   // Portrait size scales with BOTH viewport width and height (via vh), so it
   // shrinks to fit short browser windows too instead of only reacting to
   // width and forcing the page to scroll to reach the action buttons.
@@ -383,7 +381,7 @@ function PortraitBlock({
   const chargedSize = "clamp(100px, min(14.5vw, 22vh), 210px)";
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
-  const activeBarrierMotion = isActing ? motionType : (isShaking ? targetMotionType : undefined);
+  const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
 
   return (
     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -507,7 +505,7 @@ function PortraitBlock({
             <div className="portrait-hit-frame" style={portraitHitStyle as CSSProperties}>
               <div
                 className="portrait-hit-filter"
-                style={{ animation: isHit ? `hitFlash ${HIT_FLASH_DURATION_MS}ms steps(1, end) forwards` : "none" }}
+                style={{ animation: isHit ? `hitFlash ${HIT_FLASH_DURATION_MS}ms ease-out forwards` : "none" }}
               >
                 <div
                   className="portrait-charge-glow"
@@ -556,6 +554,9 @@ function PortraitBlock({
         <MagicRuneEffect side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
         {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
         <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
+        {activeBarrierMotion === "barrierWall" && !isActing && (
+          <BarrierWallEffect side={side} motionType="barrierWall" active={true} />
+        )}
         {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
         {activeBarrierMotion === "barrierBreak" && (
           <BarrierWallEffect side={side} motionType="barrierBreak" active={true} />
@@ -905,7 +906,6 @@ export function BattlePanel(props: {
   const [showFinishButtons, setShowFinishButtons] = useState(false);
   const [revealedActions, setRevealedActions] = useState<Record<string, ActionType> | null>(null);
   const [showMatchupModal, setShowMatchupModal] = useState(false);
-  const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
   const [hitIds, setHitIds] = useState<Set<string>>(new Set());
   const [strongHitIds, setStrongHitIds] = useState<Set<string>>(new Set());
   const [screenShake, setScreenShake] = useState<"normal" | "charged" | null>(null);
@@ -993,7 +993,6 @@ export function BattlePanel(props: {
     setShowFinishButtons(false);
     setRevealedActions(null);
     setShowMatchupModal(false);
-    setShakingIds(new Set());
     setHitIds(new Set());
     setScreenShake(null);
     setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
@@ -1086,7 +1085,7 @@ export function BattlePanel(props: {
         if (!phase) return;
 
         setActingPlayerId(phase.actorId);
-        playActionSe(phase.actorId);
+        if (phase.sourceActionType) playActionSe(phase.actorId);
         setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
 
         // わざモーションの状態を更新
@@ -1102,12 +1101,12 @@ export function BattlePanel(props: {
                 ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
               ),
             },
-            enemy: { motionType: phase.targetMotionType },
+            enemy: { targetMotionType: phase.targetMotionType },
           });
         } else {
           // enemyがactor: enemyにmotionType、meにtargetMotionType
           setActivePhaseMotions({
-            me: { motionType: phase.targetMotionType },
+            me: { targetMotionType: phase.targetMotionType },
             enemy: {
               motionType: phase.motionType,
               sourceActionType: phase.sourceActionType,
@@ -1195,11 +1194,6 @@ export function BattlePanel(props: {
             });
           }, IMPACT_EFFECT_DURATION_MS);
         }
-        if (heavyHits.length > 0) {
-          const phaseHeavyIds = new Set(heavyHits.map((event) => event.to));
-          setShakingIds(phaseHeavyIds);
-          schedule(() => setShakingIds(new Set()), chargedHit ? CHARGED_SCREEN_SHAKE_DURATION_MS : SCREEN_SHAKE_DURATION_MS);
-        }
         if (chargedHit) {
           setScreenShake("charged");
           schedule(() => setScreenShake(null), CHARGED_SCREEN_SHAKE_DURATION_MS);
@@ -1282,7 +1276,6 @@ export function BattlePanel(props: {
         setActivePhaseMotions({ me: {}, enemy: {} });
         setRevealedActions(null);
         setShowFlash(false);
-        setShakingIds(new Set());
         setHitIds(new Set());
         setImpactEffects({});
         setScreenShake(null);
@@ -1923,7 +1916,6 @@ export function BattlePanel(props: {
             inevitableZoneActive={inevitableZoneActive}
             isActing={actingPlayerId === props.me.id}
             isLoser={myIsLoser}
-            isShaking={shakingIds.has(props.me.id)}
             isHit={hitIds.has(props.me.id)}
             isStrongHit={strongHitIds.has(props.me.id)}
             drainDesaturate={showColorDrainPulse}
@@ -2013,7 +2005,6 @@ export function BattlePanel(props: {
             inevitableZoneActive={inevitableZoneActive}
             isActing={actingPlayerId === props.enemy.id}
             isLoser={enemyIsLoser}
-            isShaking={shakingIds.has(props.enemy.id)}
             isHit={hitIds.has(props.enemy.id)}
             isStrongHit={strongHitIds.has(props.enemy.id)}
             transformPulse={showTypeChangePulse}

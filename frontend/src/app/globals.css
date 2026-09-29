@@ -173,9 +173,9 @@ input {
 
 @keyframes hitFlash {
   0%, 100% { filter: brightness(1) saturate(1); }
-  22% { filter: brightness(2.6) saturate(0.45); }
-  48% { filter: brightness(1) saturate(1); }
-  70% { filter: brightness(1.9) saturate(1.8) sepia(0.45) hue-rotate(-30deg); }
+  12%, 30% { filter: brightness(2.6) saturate(0.45); }
+  42%, 54% { filter: brightness(1) saturate(1); }
+  66%, 78% { filter: brightness(1.9) saturate(1.8) sepia(0.45) hue-rotate(-30deg); }
 }
 
 @keyframes screenShake {
@@ -235,114 +235,112 @@ input {
   50% { filter: drop-shadow(0 0 6px #facc15aa) drop-shadow(0 0 12px #facc1566); }
 }
 
-/* ---- Sprite-style battle motion keyframes ---- */
+/* ---- Battle motion keyframes: held poses with short eased transitions ---- */
 
 /* チャージ: 沈み込み、浮き上がって発光し、元の姿勢に戻る */
 @keyframes chargeConcentration {
-  0% { translate: 0 6px; scale: 0.9 0.78; }
-  32% { translate: 0 0; scale: 1 1; }
-  68% { translate: 0 -12px; scale: 1.12 1.12; }
+  0%, 20% { translate: 0 6px; scale: 0.9 0.78; }
+  32%, 56% { translate: 0 0; scale: 1 1; }
+  68%, 88% { translate: 0 -12px; scale: 1.12 1.12; }
   100% { translate: 0 0; scale: 1 1; }
 }
 
 /* こうげき: ため、踏み込み、反動で戻る。--dir は相手側を向く方向。 */
 @keyframes attackLunge {
   0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
-  28% { translate: calc(var(--dir) * -12px) 4px; rotate: calc(var(--dir) * -4deg); scale: 0.88 0.8; }
-  62% { translate: calc(var(--dir) * 38px * var(--motion-power, 1)) 0; rotate: calc(var(--dir) * 10deg); scale: 1.1 1.04; }
+  14%, 38% { translate: calc(var(--dir) * -12px) 4px; rotate: calc(var(--dir) * -4deg); scale: 0.88 0.8; }
+  50%, 86% { translate: calc(var(--dir) * 38px * var(--motion-power, 1)) 0; rotate: calc(var(--dir) * 10deg); scale: 1.1 1.04; }
   100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
 }
 
 @keyframes magicCast {
   0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
-  30% { translate: 0 -8px; rotate: 0deg; scale: 0.96 1.04; }
-  68% { translate: 0 -14px; rotate: calc(var(--dir) * -8deg); scale: 1.1 1.12; }
+  12%, 40% { translate: 0 -8px; rotate: 0deg; scale: 0.96 1.04; }
+  52%, 88% { translate: 0 -14px; rotate: calc(var(--dir) * -8deg); scale: 1.1 1.12; }
   100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
 }
 
 @keyframes barrierBrace {
-  0% { translate: 0 5px; scale: 0.9 0.78; rotate: 0deg; }
-  35% { translate: 0 1px; scale: 1 1; rotate: calc(var(--dir) * -3deg); }
-  70% { translate: 0 0; scale: 1.12 1.08; rotate: 0deg; }
+  0%, 20% { translate: 0 5px; scale: 0.9 0.78; rotate: 0deg; }
+  32%, 58% { translate: 0 1px; scale: 1 1; rotate: calc(var(--dir) * -3deg); }
+  70%, 88% { translate: 0 0; scale: 1.12 1.08; rotate: 0deg; }
   100% { translate: 0 0; scale: 1 1; rotate: 0deg; }
 }
 
 @keyframes hitRecoil {
   0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
-  28% { translate: 0 3px; rotate: 0deg; scale: 0.82 0.72; }
-  64% { translate: calc(var(--dir) * var(--hit-distance)) -3px; rotate: calc(var(--dir) * var(--hit-angle)); scale: 1.06 0.92; }
-  84% { translate: calc(var(--dir) * -6px) 0; rotate: calc(var(--dir) * -4deg); scale: 0.98 1.02; }
+  14%, 38% { translate: 0 3px; rotate: 0deg; scale: 0.82 0.72; }
+  50%, 70% { translate: calc(var(--dir) * var(--hit-distance)) -3px; rotate: calc(var(--dir) * var(--hit-angle)); scale: 1.06 0.92; }
+  82%, 88% { translate: calc(var(--dir) * -6px) 0; rotate: calc(var(--dir) * -4deg); scale: 0.98 1.02; }
   100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
 }
 
 /* まほう弾の飛翔 */
 @keyframes magicBlast {
-  0% { translate: 0 0; scale: 0.3; opacity: 1; }
-  60% { translate: var(--blast-dx, 160px) 0; scale: 1; opacity: 1; }
-  80% { translate: var(--blast-dx, 160px) 0; scale: 1.2; opacity: 0.7; }
+  0%, 18% { translate: 0 0; scale: 0.3; opacity: 1; }
+  70%, 80% { translate: var(--blast-dx, 160px) 0; scale: 1; opacity: 1; }
   100% { translate: var(--blast-dx, 160px) 0; scale: 0; opacity: 0; }
 }
 
 /* バリア反射: まほう弾が跳ね返る */
 @keyframes barrierReflect {
-  0% { translate: 0 0; scale: 0.3; opacity: 1; }
-  45% { translate: var(--blast-dx, 160px) 0; scale: 1; opacity: 1; }
-  55% { translate: var(--blast-dx, 160px) 0; scale: 1.2; opacity: 0.8; }
+  0%, 12% { translate: 0 0; scale: 0.3; opacity: 1; }
+  50%, 60% { translate: var(--blast-dx, 160px) 0; scale: 1.2; opacity: 0.8; }
   100% { translate: 0 0; scale: 0.3; opacity: 0; }
 }
 
 /* バリアの壁が出現する */
 @keyframes barrierWall {
-  0%   { transform: scaleY(0); opacity: 0; }
-  25%  { transform: scaleY(1.08); opacity: 0.9; }
-  80%  { transform: scaleY(1); opacity: 0.85; }
+  0%, 14% { transform: scaleY(0); opacity: 0; }
+  26%, 38% { transform: scaleY(1.08); opacity: 0.9; }
+  50%, 86% { transform: scaleY(1); opacity: 0.85; }
   100% { transform: scaleY(0); opacity: 0; }
 }
 
 /* バリアが割れる */
 @keyframes barrierBreak {
-  0%   { transform: scaleY(1) scaleX(1); opacity: 0.9; filter: brightness(1); }
-  40%  { transform: scaleY(1.15) scaleX(1.1); opacity: 1; filter: brightness(2.5); }
-  70%  { transform: scaleY(0.6) scaleX(1.3); opacity: 0.6; filter: brightness(1.5); }
+  0%, 20% { transform: scaleY(1) scaleX(1); opacity: 0.9; filter: brightness(1); }
+  36%, 48% { transform: scaleY(1.15) scaleX(1.1); opacity: 1; filter: brightness(2.5); }
+  64%, 76% { transform: scaleY(0.6) scaleX(1.3); opacity: 0.6; filter: brightness(1.5); }
   100% { transform: scaleY(0) scaleX(1.4); opacity: 0; filter: brightness(1); }
 }
 
 /* バリア同士の衝突: 壁が相手方向に突進 */
 @keyframes barrierClash {
-  0%   { transform: translateX(0) scaleY(1); opacity: 0.9; }
-  50%  { transform: translateX(var(--clash-dx, 60px)) scaleY(1.15); opacity: 1; }
-  75%  { transform: translateX(var(--clash-dx, 60px)) scaleY(0.7); opacity: 0.6; }
+  0%, 26% { transform: translateX(0) scaleY(1); opacity: 0.9; }
+  44%, 56% { transform: translateX(var(--clash-dx, 60px)) scaleY(1.15); opacity: 1; }
+  72%, 84% { transform: translateX(var(--clash-dx, 60px)) scaleY(0.7); opacity: 0.6; }
   100% { transform: translateX(0) scaleY(0); opacity: 0; }
 }
 
 @keyframes magicRune {
-  0% { rotate: 0deg; scale: 0.35; opacity: 0; }
-  35% { rotate: 90deg; scale: 1; opacity: 1; }
-  70% { rotate: 180deg; scale: 1.08; opacity: 0.9; }
+  0%, 18% { rotate: 0deg; scale: 0.35; opacity: 0; }
+  30%, 58% { rotate: 90deg; scale: 1; opacity: 1; }
+  70%, 86% { rotate: 180deg; scale: 1.08; opacity: 0.9; }
   100% { rotate: 270deg; scale: 0.9; opacity: 0; }
 }
 
 @keyframes magicSpark {
-  0% { transform: rotate(var(--particle-angle)) translateX(0) scale(0.5); opacity: 0; }
-  35% { transform: rotate(var(--particle-angle)) translateX(8px) scale(1); opacity: 1; }
+  0%, 18% { transform: rotate(var(--particle-angle)) translateX(0) scale(0.5); opacity: 0; }
+  30%, 48% { transform: rotate(var(--particle-angle)) translateX(8px) scale(1); opacity: 1; }
   100% { transform: rotate(var(--particle-angle)) translateX(34px) scale(0); opacity: 0; }
 }
 
 @keyframes magicPortraitGlow {
   0%, 100% { filter: drop-shadow(0 0 5px #a78bfa) drop-shadow(0 0 10px #7c3aed66); }
-  55% { filter: drop-shadow(0 0 12px #c4b5fd) drop-shadow(0 0 26px #7c3aedcc); }
+  48%, 66% { filter: drop-shadow(0 0 12px #c4b5fd) drop-shadow(0 0 26px #7c3aedcc); }
 }
 
 @keyframes attackTrail {
-  0% { translate: 0 0; scale: 0.35 0.6; opacity: 0; }
-  32% { translate: calc(var(--dir) * 8px) 0; scale: 1 1; opacity: 0.95; }
-  70% { translate: calc(var(--dir) * 28px) 0; scale: 1.15 0.7; opacity: 0.85; }
+  0%, 18% { translate: 0 0; scale: 0.35 0.6; opacity: 0; }
+  30%, 44% { translate: calc(var(--dir) * 8px) 0; scale: 1 1; opacity: 0.95; }
+  56%, 76% { translate: calc(var(--dir) * 28px) 0; scale: 1.15 0.7; opacity: 0.85; }
   100% { translate: calc(var(--dir) * 44px) 0; scale: 0.3 0.5; opacity: 0; }
 }
 
 .magic-rune-effect {
   transform: translateX(-50%);
-  animation: magicRune 0.78s steps(1, end) forwards;
+  animation: magicRune 0.78s ease-out forwards;
   pointer-events: none;
 }
 
@@ -362,7 +360,7 @@ input {
   border-radius: 50%;
   background: #ede9fe;
   box-shadow: 0 0 8px 2px #a78bfa;
-  animation: magicSpark 0.68s steps(1, end) forwards;
+  animation: magicSpark 0.68s ease-out forwards;
 }
 
 .attack-trail-effect {
@@ -375,7 +373,7 @@ input {
   background: linear-gradient(90deg, transparent, #fff7ed 35%, #facc15 70%, transparent);
   filter: drop-shadow(0 0 6px #f97316);
   pointer-events: none;
-  animation: attackTrail 0.65s steps(1, end) forwards;
+  animation: attackTrail 0.65s ease-out forwards;
 }
 
 .attack-trail-charged {
@@ -398,13 +396,13 @@ input {
   box-shadow: 0 0 22px 8px rgba(250, 204, 21, 0.38), inset 0 0 14px rgba(253, 230, 138, 0.5);
   transform: translateX(-50%);
   pointer-events: none;
-  animation: chargeAura 0.8s steps(1, end) forwards;
+  animation: chargeAura 0.8s ease-out forwards;
 }
 
 @keyframes chargeAura {
-  0% { translate: 0 8px; scale: 0.55 0.5; opacity: 0; }
-  34% { translate: 0 0; scale: 0.9 1; opacity: 0.85; }
-  68% { translate: 0 -18px; scale: 1.12 1.3; opacity: 1; }
+  0%, 20% { translate: 0 8px; scale: 0.55 0.5; opacity: 0; }
+  32%, 56% { translate: 0 0; scale: 0.9 1; opacity: 0.85; }
+  68%, 86% { translate: 0 -18px; scale: 1.12 1.3; opacity: 1; }
   100% { translate: 0 -34px; scale: 0.75 1.5; opacity: 0; }
 }
 
