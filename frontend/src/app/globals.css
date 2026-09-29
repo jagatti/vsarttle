@@ -760,6 +760,7 @@ input {
   .magic-bullet-effect,
   .barrier-wall-effect {
     animation-duration: 0.28s !important;
+    animation-iteration-count: 1 !important;
   }
 
   .portrait-motion-frame {
@@ -769,5 +770,9 @@ input {
   .portrait-hit-frame {
     --hit-distance: 8px !important;
     --hit-angle: 3deg !important;
+  }
+
+  .magic-bullet-effect {
+    animation-delay: 0s !important;
   }
 }

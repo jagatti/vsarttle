@@ -112,7 +112,7 @@ export function MagicBullet({
         background: "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
         boxShadow: isStrongMagic ? "0 0 18px 6px rgba(167,139,250,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
         animation: isReflect
-          ? "barrierReflect 0.8s steps(1, end) forwards"
+          ? "barrierReflect 0.52s steps(1, end) 0.3s forwards"
           : `magicBlast 0.52s steps(1, end) 0.3s forwards${isStrongMagic ? ", chargeGlow 0.9s ease-in-out infinite" : ""}`,
         // CSS カスタムプロパティで弾の移動距離を渡す
         ["--blast-dx" as string]: `${dx}px`,

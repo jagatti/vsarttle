@@ -334,6 +334,7 @@ function PortraitBlock({
   side,
   transformPulse,
   drainDesaturate,
+  motionChargeMultiplier,
 }: {
   player: PlayerBattleState;
   floaters: DamageFloater[];
