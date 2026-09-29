@@ -18,7 +18,15 @@ import {
   buildDisplayBattleResources,
   getTurnAnimationPhases,
 } from "./battleAnimationPhases";
-import { BarrierWallEffect, MagicBullet, getPortraitAnimation } from "./MoveMotionOverlay";
+import {
+  AttackTrailEffect,
+  BarrierWallEffect,
+  ChargeAuraEffect,
+  MagicBullet,
+  MagicRuneEffect,
+  getHitPortraitStyle,
+  getPortraitMotionStyle,
+} from "./MoveMotionOverlay";
 import { MATCHUP_TONE_COLORS, getMatchupCommentary } from "./matchupCommentary";
 
 const ACTION_SE: Record<ActionType, string> = {
@@ -69,7 +77,7 @@ const TYPE_LABELS: Record<CharacterType, string> = {
 
 export const VOIDMINATION_CUT_IN_DURATION_MS = 3900;
 export const HEAVY_DAMAGE_HP_RATIO = 0.33;
-export const HIT_FLASH_DURATION_MS = 180;
+export const HIT_FLASH_DURATION_MS = 720;
 export const IMPACT_EFFECT_DURATION_MS = 520;
 const SCREEN_SHAKE_DURATION_MS = 220;
 const CHARGED_SCREEN_SHAKE_DURATION_MS = 360;
@@ -322,6 +330,7 @@ function PortraitBlock({
   targetMotionType,
   sourceActionType,
   isHit,
+  isStrongHit,
   side,
   transformPulse,
   drainDesaturate,
@@ -341,9 +350,11 @@ function PortraitBlock({
   targetMotionType?: MoveMotionType;
   sourceActionType?: ActionType;
   isHit?: boolean;
+  isStrongHit?: boolean;
   side: "left" | "right";
   transformPulse?: boolean;
   drainDesaturate?: boolean;
+  motionChargeMultiplier?: number;
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const isCharged = player.chargeMultiplier > 1;
@@ -355,27 +366,15 @@ function PortraitBlock({
   if ((player.magicBanTurns ?? 0) > 0) activeEffects.push("まほう禁止");
   if ((player.chargeBanTurns ?? 0) > 0) activeEffects.push("チャージ禁止");
 
-  // わざモーションアニメーション（isActing中に適用）
-  const portraitMotionAnim = getPortraitAnimation(motionType ?? "none", side, !!isActing);
-  // 被弾時は「押し戻される」ノックバック。相手から遠ざかる向きに動かして、
-  // ラクガキが実際に殴られたように見せる。
-  const knockbackAnim = isShaking
-    ? side === "left"
-      ? "doodleKnockbackLeft 0.34s ease-out"
-      : "doodleKnockbackRight 0.34s ease-out"
-    : isHit
-    ? side === "left"
-      ? "doodleKnockbackLeft 0.24s ease-out"
-      : "doodleKnockbackRight 0.24s ease-out"
-    : "";
-  const imgAnimations = [
-    knockbackAnim,
-    isHit ? "hitFlash 0.18s ease-out" : "",
-    isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "",
-    portraitMotionAnim,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const portraitMotionStyle = getPortraitMotionStyle(
+    motionType ?? "none",
+    side,
+    !!isActing,
+    motionChargeMultiplier ?? player.chargeMultiplier,
+  );
+  const portraitHitStyle = getHitPortraitStyle(side, !!isHit, !!isStrongHit);
+  const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
+  const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s steps(1, end) forwards" : "";
   // Portrait size scales with BOTH viewport width and height (via vh), so it
   // shrinks to fit short browser windows too instead of only reacting to
   // width and forcing the page to scroll to reach the action buttons.
@@ -496,40 +495,64 @@ function PortraitBlock({
         />
         {/* 待機モーション。四角い画像ではなく、ふわふわ生きているラクガキに見せる。 */}
         <div
+          className="portrait-idle"
           style={{
             animation: isLoser
               ? "none"
               : `${side === "left" ? "doodleIdleFloat" : "doodleIdleFloatRight"} ${side === "left" ? 3.4 : 3.8}s ease-in-out infinite`,
           }}
         >
-          <img
-            src={safeImageUrl(player.imageDataUrl)}
-            alt={`${player.nickname} のキャラクター`}
-            onMouseEnter={() => setTooltipVisible(true)}
-            onMouseLeave={() => setTooltipVisible(false)}
-            onClick={() => setTooltipVisible((v) => !v)}
-            style={{
-              display: "block",
-              width: isCharged ? chargedSize : baseSize,
-              height: isCharged ? chargedSize : baseSize,
-              objectFit: "contain",
-              // 白いふちどり + 地面側の影。透過ラクガキが背景から独立して見えるようにする。
-              filter: [
-                isLoser ? "grayscale(100%)" : "",
-                drainDesaturate ? "saturate(0.28) brightness(0.92)" : "",
-                "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
-                "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
-                transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
-                isCharged ? "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)" : "",
-              ].filter(Boolean).join(" "),
-              transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
-              transform: isActing ? "scale(1.08)" : "scale(1)",
-              animation: `${imgAnimations ? `${imgAnimations}, ` : ""}${transformPulse ? "voidTypeShift 1.05s ease-in-out" : "none"}`,
-              cursor: "pointer",
-            }}
-          />
+          <div className="portrait-motion-frame" style={portraitMotionStyle as CSSProperties}>
+            <div className="portrait-hit-frame" style={portraitHitStyle as CSSProperties}>
+              <div
+                className="portrait-hit-filter"
+                style={{ animation: isHit ? `hitFlash ${HIT_FLASH_DURATION_MS}ms steps(1, end) forwards` : "none" }}
+              >
+                <div
+                  className="portrait-charge-glow"
+                  style={{ animation: isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "none" }}
+                >
+                  <div
+                    className="portrait-void-pulse"
+                    style={{ animation: transformPulse ? "voidTypeShift 1.05s ease-in-out" : "none" }}
+                  >
+                    <div className="portrait-magic-glow" style={{ animation: magicGlowAnimation }}>
+                      <img
+                        src={safeImageUrl(player.imageDataUrl)}
+                        alt={`${player.nickname} のキャラクター`}
+                        onMouseEnter={() => setTooltipVisible(true)}
+                        onMouseLeave={() => setTooltipVisible(false)}
+                        onClick={() => setTooltipVisible((v) => !v)}
+                        style={{
+                          display: "block",
+                          width: isCharged ? chargedSize : baseSize,
+                          height: isCharged ? chargedSize : baseSize,
+                          objectFit: "contain",
+                          // 白いふちどり + 地面側の影。透過ラクガキが背景から独立して見えるようにする。
+                          filter: [
+                            isLoser ? "grayscale(100%)" : "",
+                            drainDesaturate ? "saturate(0.28) brightness(0.92)" : "",
+                            "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
+                            "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
+                            transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
+                            isCharged ? "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)" : "",
+                          ].filter(Boolean).join(" "),
+                          transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
+                          transform: isActing ? "scale(1.08)" : "scale(1)",
+                          cursor: "pointer",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>        {/* まほう弾エフェクト */}
+        <AttackTrailEffect side={side} active={!!isActing && motionType === "attackLunge"} charged={(motionChargeMultiplier ?? player.chargeMultiplier) > 1} />
+        <ChargeAuraEffect active={!!isActing && motionType === "chargeConcentration"} />
         <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
+        <MagicRuneEffect side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
         {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
         <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
         {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
@@ -883,6 +906,7 @@ export function BattlePanel(props: {
   const [showMatchupModal, setShowMatchupModal] = useState(false);
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set());
   const [hitIds, setHitIds] = useState<Set<string>>(new Set());
+  const [strongHitIds, setStrongHitIds] = useState<Set<string>>(new Set());
   const [screenShake, setScreenShake] = useState<"normal" | "charged" | null>(null);
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
   const [voidminationActive, setVoidminationActive] = useState(
@@ -896,8 +920,8 @@ export function BattlePanel(props: {
   const voidminationBadgeRef = useRef<HTMLDivElement | null>(null);
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
-    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
-    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType };
+    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType; chargeMultiplier?: number };
+    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType; chargeMultiplier?: number };
   }>({ me: {}, enemy: {} });
   // True while the turn-result reveal/damage animation is playing. Used to keep
   // the action buttons locked for the whole animation, not just until the
@@ -1069,14 +1093,28 @@ export function BattlePanel(props: {
         if (isActorMe) {
           // meがactor: meにmotionType、enemyにtargetMotionType（例：バリア割れ）
           setActivePhaseMotions({
-            me: { motionType: phase.motionType, sourceActionType: phase.sourceActionType },
+            me: {
+              motionType: phase.motionType,
+              sourceActionType: phase.sourceActionType,
+              chargeMultiplier: Math.max(
+                playersById[phase.actorId]?.chargeMultiplier ?? 1,
+                ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
+              ),
+            },
             enemy: { motionType: phase.targetMotionType },
           });
         } else {
           // enemyがactor: enemyにmotionType、meにtargetMotionType
           setActivePhaseMotions({
             me: { motionType: phase.targetMotionType },
-            enemy: { motionType: phase.motionType, sourceActionType: phase.sourceActionType },
+            enemy: {
+              motionType: phase.motionType,
+              sourceActionType: phase.sourceActionType,
+              chargeMultiplier: Math.max(
+                playersById[phase.actorId]?.chargeMultiplier ?? 1,
+                ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
+              ),
+            },
           });
         }
 
@@ -1130,8 +1168,15 @@ export function BattlePanel(props: {
 
         if (successfulHits.length > 0) {
           const phaseHitIds = new Set(successfulHits.map((event) => event.to));
+          const phaseStrongHitIds = new Set(
+            successfulHits
+              .filter((event) => event.chargeMultiplier > 1 || heavyHits.includes(event))
+              .map((event) => event.to),
+          );
           setHitIds(phaseHitIds);
+          setStrongHitIds(phaseStrongHitIds);
           schedule(() => setHitIds(new Set()), HIT_FLASH_DURATION_MS);
+          schedule(() => setStrongHitIds(new Set()), HIT_FLASH_DURATION_MS);
           setImpactEffects((prev) => ({
             ...prev,
             ...Object.fromEntries(
@@ -1879,6 +1924,7 @@ export function BattlePanel(props: {
             isLoser={myIsLoser}
             isShaking={shakingIds.has(props.me.id)}
             isHit={hitIds.has(props.me.id)}
+            isStrongHit={strongHitIds.has(props.me.id)}
             drainDesaturate={showColorDrainPulse}
             revealedAction={revealedActions ? revealedActions[props.me.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.me.id)}
@@ -1887,6 +1933,7 @@ export function BattlePanel(props: {
             motionType={activePhaseMotions.me.motionType}
             targetMotionType={activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
             sourceActionType={activePhaseMotions.me.sourceActionType}
+            motionChargeMultiplier={activePhaseMotions.me.chargeMultiplier}
             side="left"
           />
           <div
@@ -1967,6 +2014,7 @@ export function BattlePanel(props: {
             isLoser={enemyIsLoser}
             isShaking={shakingIds.has(props.enemy.id)}
             isHit={hitIds.has(props.enemy.id)}
+            isStrongHit={strongHitIds.has(props.enemy.id)}
             transformPulse={showTypeChangePulse}
             revealedAction={revealedActions ? revealedActions[props.enemy.id] : null}
             suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(props.enemy.id)}
@@ -1975,6 +2023,7 @@ export function BattlePanel(props: {
             motionType={activePhaseMotions.enemy.motionType}
             targetMotionType={activePhaseMotions.enemy.motionType === undefined ? activePhaseMotions.enemy.targetMotionType : undefined}
             sourceActionType={activePhaseMotions.enemy.sourceActionType}
+            motionChargeMultiplier={activePhaseMotions.enemy.chargeMultiplier}
             side="right"
           />
         </div>
