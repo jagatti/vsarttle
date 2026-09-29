@@ -58,7 +58,8 @@ test("getTurnAnimationPhases keeps reflected damage on the magic caster's phase"
   assert.equal(phases[0].actorId, "enemy");
   assert.equal(phases[0].damageEvents.length, 0);
   assert.equal(phases[1].actorId, "me");
-  assert.deepEqual(phases[1].damageEvents, turnResult.damageEvents);
+  assert.equal(phases[1].damageEvents.length, 0);
+  assert.deepEqual(phases[2].damageEvents, turnResult.damageEvents);
 });
 
 test("getTurnAnimationPhases keeps barrier counter damage on the charging player's phase", () => {
@@ -161,7 +162,89 @@ test("getTurnAnimationPhases assigns attackLunge to attacker and barrierWall+bar
   const enemyPhase = phases.find((p) => p.actorId === "enemy");
   assert.equal(mePhase?.motionType, "attackLunge");
   assert.equal(enemyPhase?.motionType, "barrierWall");
-  assert.equal(enemyPhase?.targetMotionType, "barrierBreak");
+  assert.equal(phases[2].targetMotionType, "barrierBreak");
+});
+
+for (const action of ["attack", "magicWeak"] as const) {
+  for (const barrierSide of ["me", "enemy"] as const) {
+    for (const barrierIsFaster of [true, false]) {
+      test(`${action} vs barrier: ${barrierSide} barrier ${barrierIsFaster ? "faster" : "slower"} deploys before the strike and hit`, () => {
+        const me = makePlayer("me", { stats: { ...makePlayer("me").stats, speed: barrierIsFaster === (barrierSide === "me") ? 9 : 2 } });
+        const enemy = makePlayer("enemy", { stats: { ...makePlayer("enemy").stats, speed: barrierIsFaster === (barrierSide === "enemy") ? 9 : 2 } });
+        const barrierId = barrierSide;
+        const attackerId = barrierSide === "me" ? "enemy" : "me";
+        const result = makeTurnResult({ me, enemy }, { [barrierId]: "barrier", [attackerId]: action });
+        result.actionOrder = me.stats.speed > enemy.stats.speed ? ["me", "enemy"] : ["enemy", "me"];
+        result.damageEvents = [{
+          from: action === "attack" ? attackerId : barrierId,
+          to: action === "attack" ? barrierId : attackerId,
+          amount: 18,
+          avoided: false,
+          reason: action === "attack" ? "こうげき" : "バリア反射",
+        }];
+        result.nextStates = {
+          me: { ...me, currentPp: attackerId === "me" && action === "magicWeak" ? 30 : me.currentPp },
+          enemy: { ...enemy, currentPp: attackerId === "enemy" && action === "magicWeak" ? 30 : enemy.currentPp },
+        };
+
+        const phases = getTurnAnimationPhases(result, me, enemy);
+        assert.deepEqual(phases.map((phase) => phase.actorId), [barrierId, attackerId, attackerId]);
+        assert.deepEqual(phases.map((phase) => phase.motionType), ["barrierWall", action === "attack" ? "attackLunge" : "magicReflect", "none"]);
+        assert.equal(phases[1].targetMotionType, "barrierWall");
+        assert.deepEqual(phases.map((phase) => phase.damageEvents.length), [0, 0, 1]);
+        assert.equal(phases[2].targetMotionType, action === "attack" ? "barrierBreak" : undefined);
+
+        const players = { me, enemy };
+        const afterBarrier = applyAnimationPhaseToDisplayResources(buildDisplayBattleResources([me, enemy]), players, phases[0]);
+        const afterAttack = applyAnimationPhaseToDisplayResources(afterBarrier, players, phases[1]);
+        const afterHit = applyAnimationPhaseToDisplayResources(afterAttack, players, phases[2]);
+        assert.deepEqual(afterAttack, afterBarrier);
+        assert.equal(afterHit[result.damageEvents[0].to].currentHp, 82);
+        assert.equal(afterHit[attackerId].currentPp, action === "magicWeak" ? 30 : 40);
+      });
+    }
+  }
+}
+
+test("reflected damage and pain share follow the barrier, magic and hit phases; misses have no successful hit", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const result = makeTurnResult({ me, enemy }, { me: "magicStrong", enemy: "barrier" });
+  result.damageEvents = [
+    { from: "enemy", to: "me", amount: 18, avoided: false, reason: "バリア反射" },
+    { from: "me", to: "enemy", amount: 3, avoided: false, reason: "ペインシェア" },
+  ];
+  const phases = getTurnAnimationPhases(result, me, enemy);
+  assert.deepEqual(phases.map((phase) => phase.damageEvents.map((event) => event.reason)), [[], [], ["バリア反射"], ["ペインシェア"]]);
+  result.damageEvents = [{ from: "enemy", to: "me", amount: 0, avoided: true, reason: "バリア反射" }];
+  const missPhases = getTurnAnimationPhases(result, me, enemy);
+  assert.deepEqual(missPhases.map((phase) => phase.damageEvents.length), [0, 0, 1]);
+  const display = buildDisplayBattleResources([me, enemy]);
+  assert.deepEqual(applyAnimationPhaseToDisplayResources(display, { me, enemy }, missPhases[2]), display);
+});
+
+test("attack vs barrier delays pain share until after the barrier breaks and takes damage", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const result = makeTurnResult({ me, enemy }, { me: "attack", enemy: "barrier" });
+  result.damageEvents = [
+    { from: "me", to: "enemy", amount: 18, avoided: false, reason: "こうげき" },
+    { from: "enemy", to: "me", amount: 3, avoided: false, reason: "ペインシェア" },
+  ];
+  const phases = getTurnAnimationPhases(result, me, enemy);
+  assert.deepEqual(phases.map((phase) => phase.damageEvents.map((event) => event.reason)), [[], [], ["こうげき"], ["ペインシェア"]]);
+  assert.equal(phases[2].targetMotionType, "barrierBreak");
+});
+
+test("voidmination status changes do not reveal final PP before the cut-in", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const result = makeTurnResult({ me, enemy }, { me: "magicWeak", enemy: "barrier" });
+  result.nextStates = { me: { ...me, currentPp: 12 }, enemy };
+  result.voidminationTriggered = true;
+  const phases = getTurnAnimationPhases(result, me, enemy);
+  const display = buildDisplayBattleResources([me, enemy]);
+  assert.equal(applyAnimationPhaseToDisplayResources(display, { me, enemy }, phases[2]).me.currentPp, 40);
 });
 
 test("getTurnAnimationPhases assigns barrierClash to both when barrier vs barrier", () => {

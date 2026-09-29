@@ -29,22 +29,22 @@ export function getMotionDirection(side: BattleSide): 1 | -1 {
 }
 
 /**
- * 向きは `--dir` で切り替え、左右共通のコマ送り animation を返す。
+ * 向きは `--dir` で切り替え、左右共通のポーズ animation を返す。
  */
 export function getPortraitAnimation(motionType: MoveMotionType, _side: BattleSide, active: boolean): string {
   if (!active) return "";
   switch (motionType) {
     case "attackLunge":
-      return "attackLunge 0.72s steps(1, end) forwards";
+      return "attackLunge 0.72s ease-out forwards";
     case "chargeConcentration":
-      return "chargeConcentration 0.8s steps(1, end) forwards";
+      return "chargeConcentration 0.8s ease-out forwards";
     case "magicBlast":
     case "magicReflect":
-      return "magicCast 0.82s steps(1, end) forwards";
+      return "magicCast 0.82s ease-out forwards";
     case "barrierWall":
     case "barrierBreak":
     case "barrierClash":
-      return "barrierBrace 0.75s steps(1, end) forwards";
+      return "barrierBrace 0.75s ease-out forwards";
     default:
       return "";
   }
@@ -65,7 +65,7 @@ export function getPortraitMotionStyle(
 
 export function getHitPortraitAnimation(_side: BattleSide, active: boolean): string {
   if (!active) return "";
-  return "hitRecoil 0.72s steps(1, end) forwards";
+  return "hitRecoil 0.72s ease-out forwards";
 }
 
 export function getHitPortraitStyle(side: BattleSide, active: boolean, heavy = false) {
@@ -112,8 +112,8 @@ export function MagicBullet({
         background: "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
         boxShadow: isStrongMagic ? "0 0 18px 6px rgba(167,139,250,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
         animation: isReflect
-          ? "barrierReflect 0.52s steps(1, end) 0.3s forwards"
-          : `magicBlast 0.52s steps(1, end) 0.3s forwards${isStrongMagic ? ", chargeGlow 0.9s ease-in-out infinite" : ""}`,
+          ? "barrierReflect 0.52s ease-out 0.3s forwards"
+          : `magicBlast 0.52s ease-out 0.3s forwards${isStrongMagic ? ", chargeGlow 0.9s ease-in-out infinite" : ""}`,
         // CSS カスタムプロパティで弾の移動距離を渡す
         ["--blast-dx" as string]: `${dx}px`,
         pointerEvents: "none",
@@ -245,7 +245,7 @@ export function BarrierWallEffect({
         boxShadow:
           "0 0 14px 4px #fbbf2488, inset 0 0 8px #fde68a66",
         transformOrigin: "bottom center",
-        animation: `${animationName} ${duration} steps(1, end) forwards`,
+        animation: `${animationName} ${duration} ease-out forwards`,
         ["--clash-dx" as string]: `${clashDx}px`,
         zIndex: 12,
         pointerEvents: "none",

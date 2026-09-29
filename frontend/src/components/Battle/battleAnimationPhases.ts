@@ -37,6 +37,8 @@ export interface TurnAnimationPhase {
   sourceActionType?: ActionType;
   /** actor 以外のプレイヤーに適用する追加モーション（例：バリア割れ） */
   targetMotionType?: MoveMotionType;
+  /** まほうの消費 PP を着弾時に反映する */
+  ppAfter?: number;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -115,11 +117,9 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     else if (myCategory === "attack" && enemyCategory === "barrier") {
       phaseByActor[me.id].motionType = "attackLunge";
       phaseByActor[enemy.id].motionType = "barrierWall";
-      phaseByActor[enemy.id].targetMotionType = "barrierBreak";
     } else if (enemyCategory === "attack" && myCategory === "barrier") {
       phaseByActor[enemy.id].motionType = "attackLunge";
       phaseByActor[me.id].motionType = "barrierWall";
-      phaseByActor[me.id].targetMotionType = "barrierBreak";
     }
     // まほう対こうげき: まほう側のみ弾を放ち、こうげき側は専用モーションなし
     else if (myCategory === "magic" && enemyCategory === "attack") {
@@ -166,6 +166,33 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     };
   });
 
+  const barrierId = actionCategory(myAction) === "barrier" ? me.id
+    : actionCategory(enemyAction) === "barrier" ? enemy.id : null;
+  const attackerId = barrierId === me.id ? enemy.id : me.id;
+  const attackerCategory = actionCategory(turnResult.actions[attackerId]);
+  if (barrierId && (attackerCategory === "attack" || attackerCategory === "magic")) {
+    const barrierPhase = phaseByActor[barrierId];
+    const attackPhase = phaseByActor[attackerId];
+    const damageEvents = [...barrierPhase.damageEvents, ...attackPhase.damageEvents];
+    barrierPhase.damageEvents = [];
+    attackPhase.damageEvents = [];
+    attackPhase.targetMotionType = "barrierWall";
+    const impactPhase: TurnAnimationPhase = {
+      actorId: attackerId,
+      damageEvents: damageEvents.filter((event) => event.reason !== "ペインシェア"),
+      chargeEvents: [],
+      motionType: "none",
+      targetMotionType: attackerCategory === "attack" ? "barrierBreak" : undefined,
+      ppAfter: attackerCategory === "magic" && !turnResult.voidminationTriggered && !turnResult.voidminationStatusText
+        ? turnResult.nextStates[attackerId]?.currentPp
+        : undefined,
+    };
+    const additionalPhases: TurnAnimationPhase[] = damageEvents
+      .filter((event) => event.reason === "ペインシェア")
+      .map((event) => ({ actorId: event.from, damageEvents: [event], chargeEvents: [], motionType: "none" }));
+    return [...chargePhases, barrierPhase, attackPhase, impactPhase, ...additionalPhases];
+  }
+
   return [...chargePhases, phaseByActor[firstId], phaseByActor[secondId]];
 }
 
@@ -205,6 +232,10 @@ export function applyAnimationPhaseToDisplayResources(
       ...next[damageEvent.to],
       currentHp: clamp(next[damageEvent.to].currentHp - damageEvent.amount, 0, player.stats.maxHp),
     };
+  }
+
+  if (phase.ppAfter !== undefined) {
+    next[phase.actorId] = { ...next[phase.actorId], currentPp: phase.ppAfter };
   }
 
   return next;
