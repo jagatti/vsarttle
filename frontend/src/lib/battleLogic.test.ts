@@ -273,6 +273,24 @@ test("resolveTurn: tie-ban suppresses the affected player's own same-category ac
   assert.deepEqual(result.suppressedByTieBanIds, ["a"]);
 });
 
+test("resolveTurn: barrier still damages a tie-banned barrier opponent", () => {
+  const a = makePlayer("a");
+  const b = makePlayer("b");
+  a.tieBanActive = true;
+  const result = resolveTurn({
+    turn: 1,
+    players: { a, b },
+    actions: { a: "barrier", b: "barrier" },
+    rng: () => 0.99,
+  });
+  assert.deepEqual(result.suppressedByTieBanIds, ["a"]);
+  assert.equal(result.damageEvents.length, 1);
+  assert.equal(result.damageEvents[0]?.from, "b");
+  assert.equal(result.damageEvents[0]?.to, "a");
+  assert.equal(result.nextStates.a.currentHp, 37);
+  assert.equal(result.nextStates.b.currentHp, 100);
+});
+
 test("getDamageMultiplier changes at >15 and >20 turns", () => {
   assert.equal(getDamageMultiplier(15), 1);
   assert.equal(getDamageMultiplier(16), 2);
@@ -806,6 +824,7 @@ test("roguelike void-domination floor 17 keeps the first form for three full tur
   });
   assert.equal(turn1.voidminationTriggered, true);
   assert.equal(turn1.nextStates.boss.voidminationForm, "attack");
+  assert.equal(turn1.nextStates.boss.characterType, "attack");
   assert.equal(turn1.nextStates.boss.voidminationFormTurnsRemaining, 3);
 
   const turn2 = resolveTurn({
@@ -835,6 +854,7 @@ test("roguelike void-domination floor 17 keeps the first form for three full tur
     roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
   });
   assert.notEqual(turn4.nextStates.boss.voidminationForm, "attack");
+  assert.equal(turn4.nextStates.boss.characterType, turn4.nextStates.boss.voidminationForm);
   assert.equal(turn4.nextStates.boss.voidminationFormTurnsRemaining, 3);
 });
 

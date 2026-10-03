@@ -256,6 +256,7 @@ export function resolveTurn(params: {
       const baseStats = bossState.voidminationBaseStats ?? structuredClone(bossState.stats);
       bossState.voidminationBaseStats = structuredClone(baseStats);
       bossState.voidminationForm = form;
+      bossState.characterType = form;
       bossState.voidminationFormTurnsRemaining = 3;
       const nextStats = mergeVoidminationBossFormStats(bossState.stats, baseStats, form);
       bossState.stats = nextStats;
@@ -483,9 +484,9 @@ export function resolveTurn(params: {
   if (leftActionSuppressed && rightActionSuppressed) {
     // no-op
   } else if (leftActionSuppressed) {
-    processStrike(right, rightAction, left, undefined);
+    processStrike(right, rightAction, left, leftAction);
   } else if (rightActionSuppressed) {
-    processStrike(left, leftAction, right, undefined);
+    processStrike(left, leftAction, right, rightAction);
   } else if (leftCategory === "magic" && rightCategory === "barrier") {
     consumePp(left, leftAction);
     const dealt = applyDamage(
@@ -550,6 +551,7 @@ export function resolveTurn(params: {
       const nextStats = mergeVoidminationBossFormStats(bossState.stats, baseStats, nextForm);
       bossState.voidminationBaseStats = structuredClone(baseStats);
       bossState.voidminationForm = nextForm;
+      bossState.characterType = nextForm;
       bossState.voidminationFormTurnsRemaining = 3;
       bossState.stats = nextStats;
       bossState.currentPp = Math.min(bossState.currentPp, nextStats.maxPp);

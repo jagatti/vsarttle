@@ -107,6 +107,12 @@ input {
   50% { transform: scale(1.08) rotate(2deg); filter: drop-shadow(0 0 32px rgba(255,200,0,1)); }
 }
 
+@keyframes perfectVictoryReveal {
+  from { transform: scale(0.45) rotate(-5deg); opacity: 0; }
+  70% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 @keyframes fadeInScale {
   from { transform: scale(0.5); opacity: 0; }
   to { transform: scale(1); opacity: 1; }

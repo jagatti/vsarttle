@@ -12,6 +12,20 @@ export const ROGUELIKE_PLAYER_INITIAL_STATS: CharacterStats = {
   evasion: 0.01,
 };
 
+export function applyPerfectVictoryBuff(stats: CharacterStats): CharacterStats {
+  const increase = (value: number) => Math.max(1, Math.ceil(Number((value * 1.1).toFixed(8))));
+  return {
+    hp: increase(stats.hp),
+    maxHp: increase(stats.maxHp),
+    pp: increase(stats.pp),
+    maxPp: increase(stats.maxPp),
+    attack: increase(stats.attack),
+    defense: increase(stats.defense),
+    speed: increase(stats.speed),
+    evasion: Math.min(0.95, Number((stats.evasion * 1.1).toFixed(4))),
+  };
+}
+
 export interface RoguelikeFloorBand {
   floors: number[];
   base: { hp: number; pp: number; attack: number; defense: number; speed: number; evasion: number };

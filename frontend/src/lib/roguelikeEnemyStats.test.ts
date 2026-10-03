@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   applyBossMultiplyUpgrade,
   applyBossUpgrade,
+  applyPerfectVictoryBuff,
   applyTypeCorrection,
   applyUpgrade,
   buildWeakEnemyStats,
@@ -71,6 +72,20 @@ test("applyUpgrade updates target stats", () => {
   assert.deepEqual(applyUpgrade(baseStats, "pp", 10), { ...baseStats, pp: 50, maxPp: 50 });
   assert.deepEqual(applyUpgrade(baseStats, "attack", 5), { ...baseStats, attack: 25 });
   assert.equal(applyUpgrade({ ...baseStats, evasion: 0.94 }, "evasion", 0.05).evasion, 0.95);
+});
+
+test("applyPerfectVictoryBuff increases every stat by 10% with upward rounding", () => {
+  assert.deepEqual(applyPerfectVictoryBuff(baseStats), {
+    hp: 110,
+    maxHp: 110,
+    pp: 44,
+    maxPp: 44,
+    attack: 22,
+    defense: 33,
+    speed: 5,
+    evasion: 0.11,
+  });
+  assert.equal(applyPerfectVictoryBuff({ ...baseStats, evasion: 0.9 }).evasion, 0.95);
 });
 
 test("applyBossUpgrade applies floor-specific multipliers", () => {

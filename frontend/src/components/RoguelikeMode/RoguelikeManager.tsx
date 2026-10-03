@@ -17,6 +17,7 @@ import {
   ROGUELIKE_TOTAL_FLOORS,
   applyBossMultiplyUpgrade,
   applyBossUpgrade,
+  applyPerfectVictoryBuff,
   applyUpgrade,
   buildWeakEnemyStats,
   isWeakFloor,
@@ -101,6 +102,50 @@ function formatUpgradeAmount(key: UpgradeStatKey, amount: number): string {
   return `+${amount}`;
 }
 
+function applyPerfectVictoryToPlayer(player: PlayerBattleState): PlayerBattleState {
+  const stats = applyPerfectVictoryBuff(player.stats);
+  return {
+    ...player,
+    stats,
+    currentHp: Math.min(stats.maxHp, Math.ceil(player.currentHp * 1.1)),
+    currentPp: Math.min(stats.maxPp, Math.ceil(player.currentPp * 1.1)),
+  };
+}
+
+function PerfectVictoryNotice(props: { floor: number; onDismiss: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="完全勝利ボーナスを閉じる"
+      onClick={props.onDismiss}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        border: 0,
+        background: "radial-gradient(ellipse, rgba(234,179,8,0.3), rgba(2,6,23,0.82) 70%)",
+        color: "#fef3c7",
+        cursor: "pointer",
+        animation: "perfectVictoryReveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both",
+      }}
+    >
+      <span style={{ fontSize: "clamp(18px, 3vw, 30px)" }}>✨ 第{props.floor}層 ✨</span>
+      <strong style={{ fontSize: "clamp(42px, 9vw, 92px)", fontWeight: 1000, color: "#fde047", textShadow: "0 0 18px #f59e0b, 0 0 42px #facc15", animation: "youWinPulse 1s ease-in-out infinite" }}>
+        完全勝利！
+      </strong>
+      <span style={{ fontSize: "clamp(20px, 4vw, 38px)", fontWeight: 900, color: "#bbf7d0", textShadow: "0 0 16px #22c55e" }}>
+        全ステータス +10%
+      </span>
+      <span style={{ fontSize: 14, color: "#e2e8f0" }}>タップして閉じる</span>
+    </button>
+  );
+}
+
 export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfile: { playerId: string; nickname: string } }) {
   const [rlStage, setRlStage] = useState<RlStage>("drawing");
   const [floor, setFloor] = useState(1);
@@ -123,12 +168,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [roguelikeTransitionBossUrl, setRoguelikeTransitionBossUrl] = useState<string | null>(null);
   const [roguelikeLimitBreakStatusLines, setRoguelikeLimitBreakStatusLines] = useState<string[]>([]);
   const [visibleRoguelikeLimitBreakStatCount, setVisibleRoguelikeLimitBreakStatCount] = useState(0);
+  const [perfectVictoryFloor, setPerfectVictoryFloor] = useState<number | null>(null);
   const [rlDebugEnabled, setRlDebugEnabled] = useState(false);
   const [debugConfig, setDebugConfig] = useState<RoguelikeDebugConfig>(ROGUELIKE_DEBUG_DEFAULT_CONFIG);
 
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
   const turnRef = useRef(1);
   const floorRef = useRef(1);
+  const floorDamageTakenRef = useRef(0);
   const playerStatsRef = useRef<CharacterStats>(ROGUELIKE_PLAYER_INITIAL_STATS);
   const playerCharacterTypeRef = useRef<CharacterType | null>(null);
   const playerDrawingRef = useRef<string | null>(null);
@@ -170,6 +217,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   useEffect(() => {
     acquiredWeakMagicKindsRef.current = acquiredWeakMagicKinds;
   }, [acquiredWeakMagicKinds]);
+  useEffect(() => {
+    if (perfectVictoryFloor === null || roguelikeBossTransforming || roguelikeLimitBreaking || preparingFloor) return;
+    const timeout = window.setTimeout(() => setPerfectVictoryFloor(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [perfectVictoryFloor, preparingFloor, roguelikeBossTransforming, roguelikeLimitBreaking]);
 
   const currentEnemyState = useMemo(() => {
     const enemyId = enemyBattleIdRef.current;
@@ -255,6 +307,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     const characterType = playerCharacterTypeRef.current;
     if (!drawing || !characterType) return;
 
+    floorDamageTakenRef.current = 0;
     setPreparingFloor(true);
     setLoadError(null);
     retryActionRef.current = () => {
@@ -386,6 +439,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     });
 
     const resolvedPlayer = result.nextStates[playerId];
+    floorDamageTakenRef.current += result.damageEvents.reduce(
+      (damage, event) => damage + (event.to === playerId ? event.amount : 0),
+      0,
+    );
     if (resolvedPlayer && (
       resolvedPlayer.stats.maxHp !== playerStatsRef.current.maxHp
       || resolvedPlayer.stats.maxPp !== playerStatsRef.current.maxPp
@@ -405,12 +462,25 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       if (!nextPlayer || !nextEnemy) return;
 
       if (nextEnemy.currentHp <= 0) {
+        const isPerfectVictory = floorDamageTakenRef.current === 0;
+        floorDamageTakenRef.current = 0;
+        let clearedPlayer = nextPlayer;
+        if (isPerfectVictory) {
+          clearedPlayer = applyPerfectVictoryToPlayer(nextPlayer);
+          setPlayerStats(clearedPlayer.stats);
+          playerStatsRef.current = clearedPlayer.stats;
+          setPerfectVictoryFloor(floorRef.current);
+          const clearedBattle = { ...nextStates, [playerId]: clearedPlayer };
+          battleStateRef.current = clearedBattle;
+          setBattleState(clearedBattle);
+        }
+
         if (floorRef.current === ROGUELIKE_TOTAL_FLOORS) {
           finalizeRun({
             floorReached: floorRef.current,
             cleared: true,
             winnerId: playerId,
-            playerState: nextPlayer,
+            playerState: clearedPlayer,
             enemyState: nextEnemy,
             turnCount: turnNumber,
             finalHpRatio: calculateFinalHpRatio(playerId, nextStates),
@@ -423,7 +493,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
         // Floors 18 and 19 transition seamlessly to the next boss (no YOU WIN, no upgrade)
         if (floorRef.current === 18 || floorRef.current === 19) {
-          startSeamlessNextBoss(floorRef.current + 1, nextPlayer, nextEnemy);
+          startSeamlessNextBoss(floorRef.current + 1, clearedPlayer, nextEnemy);
           return;
         }
 
@@ -507,6 +577,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState, currentEnemy?: PlayerBattleState) {
     clearTimers();
+    floorDamageTakenRef.current = 0;
 
     if (nextFloor === 19) {
       // 18→19: show 変身 overlay, then heal player and start floor 19
@@ -625,6 +696,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     }
     soundManager.playSe("/sounds/se/button.mp3");
     isDebugRunRef.current = false;
+    floorDamageTakenRef.current = 0;
     submittedMatchRef.current = false;
     setRunResult(null);
     setAcquiredWeakMagicKinds([]);
@@ -776,6 +848,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         <div style={{ color: "#fde68a", fontSize: 18, fontWeight: "bold" }}>
           ボスの姿が変化していく…
         </div>
+        {perfectVictoryFloor !== null && (
+          <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
+        )}
       </div>
     );
   }
@@ -897,6 +972,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             );
           })}
         </div>
+        {perfectVictoryFloor !== null && (
+          <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
+        )}
       </div>
     );
   }
@@ -1302,6 +1380,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             )}
           </div>
         )}
+        {perfectVictoryFloor !== null && (
+          <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
+        )}
       </div>
     );
   }
@@ -1364,6 +1445,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             タイトルへ戻る
           </button>
         </div>
+        {perfectVictoryFloor !== null && (
+          <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
+        )}
       </section>
     );
   }
