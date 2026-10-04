@@ -5,6 +5,10 @@ export const VS_SCREEN_DURATION_MS = 3600;
 export const VS_SCREEN_FADE_OUT_MS = 450;
 export const TITLE_BGM_PATH = "/sounds/bgm/arttle-OP-.mp3";
 
+export function isTitleBgmPath(path: string | null): boolean {
+  return path === TITLE_BGM_PATH;
+}
+
 export type SinglePlayBgmStage =
   | "difficulty_select"
   | "drawing"
