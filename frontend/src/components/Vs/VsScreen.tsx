@@ -10,7 +10,7 @@ import {
   RADAR_STAT_LABELS,
   type RadarStatKey,
 } from "@/components/Vs/statRadar";
-import { safeImageUrl } from "@/lib/imageUrl";
+import { CharacterImage } from "@/components/Battle/CharacterImage";
 import { getDrawingTagByLabel } from "@/lib/drawingTags";
 import { soundManager } from "@/lib/soundManager";
 import { VS_SCREEN_DURATION_MS, VS_SCREEN_FADE_OUT_MS } from "@/lib/vsTransition";
@@ -209,9 +209,8 @@ function VsPortrait({
             filter: "blur(10px)",
           }}
         />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={safeImageUrl(player.imageDataUrl)}
+        <CharacterImage
+          src={player.imageDataUrl}
           alt={player.nickname}
           style={{
             position: "relative",

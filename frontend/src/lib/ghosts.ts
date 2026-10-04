@@ -1,8 +1,13 @@
 import { SEED_GHOSTS } from "@/data/seed-ghosts";
+import { FALLBACK_CHARACTER_IMAGE_URL, resolveCharacterImageUrl } from "@/lib/imageUrl";
 import type { GhostRecord, MatchRecord } from "@/lib/persistenceTypes";
 import type { GhostPoolEntry } from "@/lib/server/persistenceStore";
 
 const MIN_ARCHIVE_GHOST_CANDIDATES = 3;
+
+function hasVisibleThumbnail(thumbnail: string): boolean {
+  return resolveCharacterImageUrl(thumbnail) !== FALLBACK_CHARACTER_IMAGE_URL;
+}
 
 export function listArchiveGhosts(matches: MatchRecord[], excludePlayerId?: string): GhostRecord[] {
   const candidates: GhostRecord[] = [];
@@ -10,6 +15,7 @@ export function listArchiveGhosts(matches: MatchRecord[], excludePlayerId?: stri
     for (const player of match.players) {
       if (!player.playerId) continue;
       if (excludePlayerId && player.playerId === excludePlayerId) continue;
+      if (!hasVisibleThumbnail(player.drawingThumbnail)) continue;
       candidates.push({
         source: "archive",
         seedId: null,
@@ -50,9 +56,9 @@ export function pickRandomGhostFromPool(
   } = {},
 ): GhostRecord {
   const random = options.random ?? Math.random;
-  const candidates = options.excludePlayerId
-    ? pool.filter((e) => e.ownerPlayerId !== options.excludePlayerId)
-    : pool;
+  const candidates = pool.filter(
+    (e) => (!options.excludePlayerId || e.ownerPlayerId !== options.excludePlayerId) && hasVisibleThumbnail(e.drawingThumbnail),
+  );
   if (candidates.length >= MIN_ARCHIVE_GHOST_CANDIDATES) {
     const entry = candidates[Math.floor(random() * candidates.length)]!;
     return {

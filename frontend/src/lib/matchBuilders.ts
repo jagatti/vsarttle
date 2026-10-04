@@ -1,4 +1,5 @@
 import { createThumbnailFromImageSource } from "@/lib/imageThumbnail";
+import { resolveCharacterImageUrl } from "@/lib/imageUrl";
 import type { MatchPlayerRecord } from "@/lib/persistenceTypes";
 import type { PlayerBattleState } from "@/types/game";
 
@@ -15,7 +16,9 @@ export async function createMatchPlayerRecord(input: {
     nickname: input.nickname,
     characterType: input.characterType,
     stats: input.stats,
-    drawingThumbnail: await createThumbnailFromImageSource(input.drawingSource),
+    // Blank drawings (e.g. time ran out before drawing) must not become
+    // invisible ghosts, so they are stored as the fallback silhouette.
+    drawingThumbnail: await createThumbnailFromImageSource(resolveCharacterImageUrl(input.drawingSource)),
     drawingTags: input.drawingTags,
   };
 }
