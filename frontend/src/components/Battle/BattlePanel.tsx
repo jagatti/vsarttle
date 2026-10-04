@@ -22,12 +22,14 @@ import {
   AttackTrailEffect,
   BarrierWallEffect,
   ChargeAuraEffect,
+  FinalBossAuraEffect,
   MagicBullet,
   MagicRuneEffect,
   getHitPortraitStyle,
   getPortraitMotionStyle,
 } from "./MoveMotionOverlay";
 import { MATCHUP_TONE_COLORS, getMatchupCommentary } from "./matchupCommentary";
+import { getBossPortraitKind, getBossPortraitSize, getFinalBossEffect } from "./bossPresentation";
 
 const ACTION_SE: Record<ActionType, string> = {
   attack: "/sounds/se/attack.mp3",
@@ -372,20 +374,33 @@ function PortraitBlock({
     !!isActing,
     motionChargeMultiplier ?? player.chargeMultiplier,
   );
+  const portraitKind = getBossPortraitKind(player.imageDataUrl);
+  const finalBossEffect = portraitKind === "final"
+    ? getFinalBossEffect(motionType ?? "none", !!isActing, sourceActionType)
+    : null;
+  if (finalBossEffect) {
+    portraitMotionStyle.animation = `finalBoss${finalBossEffect === "attack" ? "Lunge" : "Cast"} 0.82s ease-out forwards`;
+  }
   const portraitHitStyle = getHitPortraitStyle(side, !!isHit, !!isStrongHit);
+  if (portraitKind !== "normal") {
+    portraitHitStyle["--hit-distance"] = isStrongHit ? "min(32px, 4cqw)" : "min(24px, 3cqw)";
+  }
   const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
   const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
   // Size against the available stage, leaving room for labels and damage above.
   // The px floor keeps fighters visible even if the stage container collapses.
-  const baseSize = `max(${PORTRAIT_MIN_SIZE_PX}px, min(24cqw, 55cqh, 28dvh))`;
-  const chargedSize = `max(${PORTRAIT_MIN_SIZE_PX}px, min(26cqw, 60cqh, 30dvh))`;
+  const baseSize = getBossPortraitSize(portraitKind, false, PORTRAIT_MIN_SIZE_PX);
+  const chargedSize = getBossPortraitSize(portraitKind, true, PORTRAIT_MIN_SIZE_PX);
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
   const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
 
   return (
-    <div className="battle-portrait" style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className="battle-portrait" data-boss-kind={portraitKind} style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ position: "relative" }}>
+        {portraitKind === "final" && (
+          <FinalBossAuraEffect effect={finalBossEffect} charged={isCharged} />
+        )}
         {floaters.map((f, idx) => {
           const big = !f.avoided && (f.amount > 100 || (f.chargeMultiplier ?? 1) > 1);
           const charged = f.type === "damage" && (f.chargeMultiplier ?? 1) > 1;
@@ -429,10 +444,10 @@ function PortraitBlock({
                 zIndex: 12,
                 color,
                 fontWeight: 900,
-                fontSize,
+                fontSize: portraitKind === "normal" ? fontSize : `min(${fontSize}, clamp(20px, 8cqh, 32px))`,
                 WebkitTextStroke: `${charged || big ? 5 : 4}px #14161f`,
                 textShadow: `0 3px 0 #14161f, 0 0 14px ${glowColor}`,
-                animation: "damageStickerPop 1.25s cubic-bezier(0.18, 1.4, 0.4, 1) forwards",
+                animation: `${portraitKind === "normal" ? "damageStickerPop" : "bossDamageStickerPop"} 1.25s cubic-bezier(0.18, 1.4, 0.4, 1) forwards`,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
               }}
@@ -494,7 +509,7 @@ function PortraitBlock({
         />
         {/* 待機モーション。四角い画像ではなく、ふわふわ生きているラクガキに見せる。 */}
         <div
-          className="portrait-idle"
+          className={`portrait-idle${portraitKind !== "normal" ? " boss-portrait-idle" : ""}`}
           style={{
             animation: isLoser
               ? "none"
@@ -537,7 +552,7 @@ function PortraitBlock({
                             isCharged ? "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)" : "",
                           ].filter(Boolean).join(" "),
                           transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
-                          transform: isActing ? "scale(1.08)" : "scale(1)",
+                          transform: isActing && portraitKind === "normal" ? "scale(1.08)" : "scale(1)",
                           cursor: "pointer",
                         }}
                       />
@@ -550,7 +565,7 @@ function PortraitBlock({
         </div>        {/* まほう弾エフェクト */}
         <AttackTrailEffect side={side} active={!!isActing && motionType === "attackLunge"} charged={(motionChargeMultiplier ?? player.chargeMultiplier) > 1} />
         <ChargeAuraEffect active={!!isActing && motionType === "chargeConcentration"} />
-        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
+        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} finalBoss={portraitKind === "final"} />
         <MagicRuneEffect side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
         {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
         <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
@@ -1349,6 +1364,12 @@ export function BattlePanel(props: {
     }
     return null;
   })();
+  const finalBossStageEffects = [props.me, props.enemy].flatMap((player) => {
+    if (getBossPortraitKind(player.imageDataUrl) !== "final") return [];
+    const motion = player.id === props.me.id ? activePhaseMotions.me : activePhaseMotions.enemy;
+    const effect = getFinalBossEffect(motion.motionType ?? "none", actingPlayerId === player.id, motion.sourceActionType);
+    return effect ? [{ playerId: player.id, effect }] : [];
+  });
 
   return (
     <div className="battle-panel-shell" style={{ position: "relative" }}>
@@ -1720,7 +1741,7 @@ export function BattlePanel(props: {
       )}
 
       <section
-        className="battle-panel-card"
+        className={`battle-panel-card${finalBossStageEffects.some(({ effect }) => effect === "attack") ? " final-boss-impact" : ""}`}
         style={{
           // 木目調のRPG枠から、スケッチブックのページを切り取ったような
           // 「インクの枠」に変更。主役であるラクガキが枠に負けないようにする。
@@ -1752,6 +1773,9 @@ export function BattlePanel(props: {
               : undefined;
           })()}
         >
+        {finalBossStageEffects.map(({ playerId, effect }) => (
+          <div key={playerId} className="final-boss-stage-wash" data-effect={effect} aria-hidden="true" />
+        ))}
         {/* Header bar */}
         <div
           style={{
