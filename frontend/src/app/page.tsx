@@ -913,9 +913,19 @@ export default function Home() {
 
   // Keep the same container ratio as single play so battle layouts don't stretch unnaturally.
   const containerMaxWidthClass = "max-w-5xl";
+  const useViewportBattleLayout = stage === "battle";
+  const useViewportGameLayout = stage === "singleplay" || stage === "ghostmatch";
 
   return (
-    <main className={`mx-auto flex min-h-screen w-full ${containerMaxWidthClass} flex-col gap-4 p-4`}>
+    <main
+      className={`mx-auto flex w-full ${containerMaxWidthClass} flex-col ${
+        useViewportBattleLayout
+          ? "app-battle-shell"
+          : useViewportGameLayout
+            ? "app-game-shell"
+            : "min-h-screen gap-4 p-4"
+      }`}
+    >
       {/* Peer-returned-to-title overlay (visible regardless of stage) */}
       {peerReturnMsg && (
         <div

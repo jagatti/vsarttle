@@ -3,11 +3,16 @@ import test from "node:test";
 
 import type { TurnResult } from "@/types/game";
 import {
+  SELECTABLE_ACTIONS,
   getVoidminationCutInOverlayStyle,
   getVoidminationTooltipEvasionDisplay,
   shouldResetBattlePanelTransientState,
   VOIDMINATION_CUT_IN_DURATION_MS,
 } from "@/components/Battle/BattlePanel";
+
+test("selectable actions follow the two-column battle grid order", () => {
+  assert.deepEqual(SELECTABLE_ACTIONS, ["attack", "magicWeak", "barrier", "magicStrong", "charge"]);
+});
 
 test("voidmination cut-in duration is 3900ms", () => {
   assert.equal(VOIDMINATION_CUT_IN_DURATION_MS, 3900);

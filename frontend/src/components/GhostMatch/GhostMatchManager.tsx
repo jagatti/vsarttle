@@ -410,7 +410,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     );
 
     return (
-      <div>
+      <div className="battle-manager-shell">
         <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-xs text-violet-200">
           ゴーストマッチはCPU戦のため、通常の対人戦績（勝敗/連勝）には反映されません。
         </div>

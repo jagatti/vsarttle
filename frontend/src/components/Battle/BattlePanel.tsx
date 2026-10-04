@@ -57,7 +57,7 @@ const ACTION_COLORS: Record<ActionType, string> = {
 };
 
 // まひは自動付与される状態であり、プレイヤーが選択するボタンとしては表示しない。
-const SELECTABLE_ACTIONS: ActionType[] = ["attack", "magicWeak", "magicStrong", "barrier", "charge"];
+export const SELECTABLE_ACTIONS: ActionType[] = ["attack", "magicWeak", "barrier", "magicStrong", "charge"];
 
 // Border colors for the name/HP/PP box, based on the character type detected from the drawing.
 // こうげき型＝赤、まほう型＝青、バリア型（defense）＝オレンジ、バランス型＝グレー
@@ -377,8 +377,8 @@ function PortraitBlock({
   // Portrait size scales with BOTH viewport width and height (via vh), so it
   // shrinks to fit short browser windows too instead of only reacting to
   // width and forcing the page to scroll to reach the action buttons.
-  const baseSize = "clamp(90px, min(13vw, 20vh), 190px)";
-  const chargedSize = "clamp(100px, min(14.5vw, 22vh), 210px)";
+  const baseSize = "clamp(72px, min(13vw, 20dvh), 190px)";
+  const chargedSize = "clamp(80px, min(14.5vw, 22dvh), 210px)";
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
   const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
@@ -810,7 +810,7 @@ function ActionButtonsRow({
   weakMagicButtonTitle?: string;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" }}>
+    <div className="battle-action-grid">
       {SELECTABLE_ACTIONS.map((action, index) => {
         const canUse = actions.includes(action);
         const isSelected = selectedAction === action;
@@ -834,8 +834,8 @@ function ActionButtonsRow({
             style={{
               ["--doodle-tilt" as string]: index % 2 === 0 ? "-1deg" : "1deg",
               padding: readOnly
-                ? "clamp(4px, 0.5vw, 7px) clamp(7px, 0.9vw, 11px)"
-                : "clamp(8px, 0.95vw, 13px) clamp(11px, 1.4vw, 18px)",
+                ? "clamp(4px, 0.5vw, 7px) 4px"
+                : "clamp(7px, 0.8vw, 10px) 4px",
               borderColor: canUse ? color : "#374151",
               background: canUse ? (isSelected ? color : "rgba(8,10,18,0.82)") : "rgba(20,24,34,0.9)",
               color: canUse ? (isSelected ? "#fff" : color) : "#6b7280",
@@ -1350,13 +1350,7 @@ export function BattlePanel(props: {
   })();
 
   return (
-    // Note: no forced minHeight here (unlike a previous revision). Forcing the
-    // panel to be at least 100vh tall caused the whole page to exceed the
-    // viewport on typical browser window sizes, pushing the action buttons
-    // below the fold and requiring a scroll to reach them. Instead, every
-    // element below sizes itself with clamp()s that account for vh as well
-    // as vw, so the layout naturally fits within the visible area.
-    <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
+    <div className="battle-panel-shell" style={{ position: "relative" }}>
       {/* Matchup modal */}
       {showMatchupModal && <MatchupModal onClose={() => setShowMatchupModal(false)} />}
 
@@ -1725,6 +1719,7 @@ export function BattlePanel(props: {
       )}
 
       <section
+        className="battle-panel-card"
         style={{
           // 木目調のRPG枠から、スケッチブックのページを切り取ったような
           // 「インクの枠」に変更。主役であるラクガキが枠に負けないようにする。
@@ -1733,7 +1728,6 @@ export function BattlePanel(props: {
           borderRadius: 18,
           border: "4px solid #f8fafc",
           boxShadow: "0 8px 0 rgba(15,23,42,0.9), 0 18px 36px rgba(0,0,0,0.6)",
-          overflow: "hidden",
           animation: screenShake
             ? `${screenShake === "charged" ? "screenShakeCharged" : "screenShake"} ${screenShake === "charged" ? "0.36s" : "0.22s"} ease-in-out`
             : "none",
@@ -1741,6 +1735,7 @@ export function BattlePanel(props: {
       >
         {/* Arena background wrapper */}
         <div
+          className="battle-arena"
           style={(() => {
             const resolvedUrl =
               props.backgroundImageUrl ??
@@ -1901,6 +1896,7 @@ export function BattlePanel(props: {
 
         {/* Portraits + timer */}
         <div
+          className="battle-portrait-row"
           style={{
             display: "flex",
             gap: "clamp(8px, 1.2vw, 14px)",
@@ -2043,17 +2039,21 @@ export function BattlePanel(props: {
         </div>{/* end arena background wrapper */}
 
         {/* Turn result damage log */}
-        {props.turnResult && !revealedActions && (
-          <div
-            style={{
-              margin: "10px clamp(12px, 1.6vw, 18px) 6px",
-              background: "rgba(6,8,16,0.72)",
-              borderRadius: 12,
-              border: "3px solid rgba(248,250,252,0.8)",
-              padding: "8px 14px",
-              animation: "slideInFromBottom 0.4s ease-out",
-            }}
-          >
+        <div
+          className="battle-result-log"
+          style={{ visibility: props.turnResult && !revealedActions ? "visible" : "hidden" }}
+          aria-live="polite"
+        >
+          {props.turnResult && !revealedActions && (
+            <div
+              style={{
+                background: "rgba(6,8,16,0.72)",
+                borderRadius: 12,
+                border: "3px solid rgba(248,250,252,0.8)",
+                padding: "6px 12px",
+                animation: "slideInFromBottom 0.4s ease-out",
+              }}
+            >
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
               {props.turnResult.damageEvents.map((event, i) => (
                 <li
@@ -2071,15 +2071,17 @@ export function BattlePanel(props: {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* Action buttons (hidden while finished) */}
         {!battleEnded && (
-          <div style={{ padding: "10px clamp(12px, 1.6vw, 18px) 16px", display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ flex: 1 }}>
+          <div className="battle-actions">
+            <div className="battle-action-side">
               {/* どちらの手なのかを明示。視聴者が「何を選んだか」を追えるようにする。 */}
               <div
+                className="battle-action-label"
                 style={{
                   color: "#fde68a",
                   fontWeight: 900,
@@ -2096,12 +2098,8 @@ export function BattlePanel(props: {
                    turn being finalized, or next-turn countdown not yet reset). Structurally
                    removing the buttons here ensures no click can slip through even if the
                    isAnimating / pendingAnimation guards fail due to a state timing race. */
-                <div
+                <div className="battle-action-placeholder"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: "clamp(36px, 4vw, 52px)",
                     color: "#9ca3af",
                     fontWeight: "bold",
                     fontSize: "clamp(11px, 1vw, 14px)",
@@ -2124,8 +2122,9 @@ export function BattlePanel(props: {
                 />
               )}
             </div>
-            <div style={{ flex: 1 }}>
+            <div className="battle-action-side">
               <div
+                className="battle-action-label"
                 style={{
                   color: "#94a3b8",
                   fontWeight: 800,

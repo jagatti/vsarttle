@@ -29,7 +29,7 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text-primary);
   font-family: var(--font-doodle);
   /* Unified dark background: a deep navy/indigo radial glow over a near-black
@@ -43,6 +43,218 @@ body {
     radial-gradient(ellipse 1000px 800px at 50% 120%, rgba(56, 189, 248, 0.10), transparent 60%),
     repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 42px);
   background-attachment: fixed;
+}
+
+.app-battle-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) max(env(safe-area-inset-right), 8px)
+    env(safe-area-inset-bottom) max(env(safe-area-inset-left), 8px);
+}
+
+.app-game-shell {
+  height: 100dvh;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: env(safe-area-inset-top) max(env(safe-area-inset-right), 8px)
+    env(safe-area-inset-bottom) max(env(safe-area-inset-left), 8px);
+}
+
+.battle-panel-shell {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+}
+
+.battle-manager-shell {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.battle-panel-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  border-radius: clamp(8px, 1.2vw, 18px);
+  overflow: hidden;
+}
+
+.battle-arena {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.battle-arena > :not(.battle-portrait-row) {
+  flex-shrink: 0;
+}
+
+.battle-portrait-row {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.battle-result-log {
+  display: flex;
+  flex: 0 0 clamp(42px, 6dvh, 56px);
+  align-items: center;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 3px clamp(8px, 1.6vw, 18px);
+  overflow: hidden;
+}
+
+.battle-actions {
+  display: grid;
+  flex: 0 0 clamp(184px, 24dvh, 216px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(6px, 1vw, 12px);
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 6px clamp(8px, 1.6vw, 18px) 8px;
+}
+
+.battle-action-side {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.battle-action-label {
+  flex: 0 0 auto;
+  min-height: 22px;
+  margin-bottom: 4px !important;
+}
+
+.battle-action-grid {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(44px, 1fr);
+  align-content: center;
+  gap: clamp(4px, 0.6vw, 7px);
+}
+
+.battle-action-grid .doodle-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.battle-action-placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  font-size: clamp(11px, 1vw, 14px);
+}
+
+@media (max-width: 600px) {
+  .battle-panel-card {
+    border-width: 3px !important;
+  }
+
+  .battle-actions {
+    flex-basis: clamp(184px, 24dvh, 210px);
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .battle-action-label {
+    font-size: 10px !important;
+    letter-spacing: 0 !important;
+  }
+
+  .battle-portrait-row {
+    gap: 4px !important;
+    padding: 6px 8px 4px !important;
+  }
+
+  .battle-result-log {
+    flex-basis: 44px;
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-battle-shell {
+    padding-top: max(env(safe-area-inset-top), 4px);
+    padding-bottom: max(env(safe-area-inset-bottom), 4px);
+  }
+
+  .battle-actions {
+    flex-basis: 174px;
+    padding-top: 3px;
+    padding-bottom: 4px;
+  }
+
+  .battle-action-label {
+    min-height: 18px;
+    margin-bottom: 2px !important;
+  }
+
+  .battle-result-log {
+    position: absolute;
+    right: 6px;
+    bottom: 174px;
+    left: 6px;
+    z-index: 2;
+    flex-basis: 0;
+    height: 38px;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .battle-arena > div:first-child {
+    padding: 2px 8px !important;
+  }
+
+  .battle-arena > div:nth-child(3) {
+    padding: 2px 6px 0 !important;
+  }
+
+  .battle-arena > div:nth-child(3) > div {
+    min-width: 0 !important;
+    padding: 3px 6px !important;
+    border-width: 2px !important;
+  }
+
+  .battle-portrait-row {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .battle-portrait-row img[alt$="のキャラクター"] {
+    width: clamp(38px, 11dvh, 56px) !important;
+    height: clamp(38px, 11dvh, 56px) !important;
+  }
+
+  .battle-arena > div:last-child {
+    height: 8px !important;
+    flex-basis: 8px;
+  }
 }
 
 button,
