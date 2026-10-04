@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
@@ -21,7 +21,7 @@ import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { analyzeDrawing } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
-import { getMultiplayerStageBgm } from "@/lib/vsTransition";
+import { getMultiplayerStageBgm, isTitleBgmPath } from "@/lib/vsTransition";
 import type {
   ActionType,
   BattleMode,
@@ -71,6 +71,7 @@ type WireMessage =
   | { type: "return_to_title"; payload: Record<string, never> };
 
 export default function Home() {
+  const bgmPath = useSyncExternalStore(soundManager.subscribeBgm, soundManager.getBgmPath, () => null);
   const peerRef = useRef<PeerType | null>(null);
   const connRef = useRef<DataConnection | null>(null);
   const myIdRef = useRef("");
@@ -909,7 +910,7 @@ export default function Home() {
 
   const useViewportBattleLayout = stage === "battle";
   const useViewportGameLayout = stage === "singleplay" || stage === "ghostmatch";
-  const containerMaxWidthClass = useViewportBattleLayout || useViewportGameLayout ? "" : "max-w-5xl";
+  const containerMaxWidthClass = useViewportBattleLayout || useViewportGameLayout || stage === "title" ? "" : "max-w-5xl";
 
   return (
     <main
@@ -918,8 +919,10 @@ export default function Home() {
           ? "app-battle-shell"
           : useViewportGameLayout
             ? "app-game-shell"
-            : "min-h-screen gap-4 p-4"
-      }`}
+            : stage === "title"
+              ? "app-title-shell"
+              : "min-h-screen gap-4 p-4"
+      }${isTitleBgmPath(bgmPath) ? " title-bgm-active" : ""}`}
     >
       {/* Peer-returned-to-title overlay (visible regardless of stage) */}
       {peerReturnMsg && (

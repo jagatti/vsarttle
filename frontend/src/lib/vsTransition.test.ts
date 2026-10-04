@@ -5,6 +5,7 @@ import {
   getMultiplayerStageBgm,
   getRoguelikeStageBgm,
   getSinglePlayStageBgm,
+  isTitleBgmPath,
   VS_SCREEN_DURATION_MS,
 } from "@/lib/vsTransition";
 
@@ -19,6 +20,9 @@ test("multiplayer vs stage keeps bgm silent until battle", () => {
 
 test("title stage uses the title BGM", () => {
   assert.equal(getMultiplayerStageBgm("title"), "/sounds/bgm/arttle-OP-.mp3");
+  assert.equal(isTitleBgmPath(getMultiplayerStageBgm("title")), true);
+  assert.equal(isTitleBgmPath(getMultiplayerStageBgm("drawing")), false);
+  assert.equal(isTitleBgmPath(null), false);
 });
 
 test("single play vs stage keeps bgm silent until battle", () => {

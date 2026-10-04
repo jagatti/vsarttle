@@ -9,6 +9,7 @@ class SoundManager {
   private _bgmVolume: number = DEFAULT_BGM_VOLUME;
   private _seVolume: number = DEFAULT_SE_VOLUME;
   private initialized = false;
+  private readonly bgmListeners = new Set<() => void>();
   private readonly retryEvents = ["pointerdown", "touchstart", "keydown"] as const;
   private readonly retryBgmOnInteraction = () => {
     const audio = this.bgmAudio;
@@ -36,14 +37,22 @@ class SoundManager {
       if (this.bgmAudio.paused) this.startBgmPlayback(this.bgmAudio);
       return;
     }
-    this.stopBgm();
+    this.clearBgm();
     const audio = new Audio(path);
     audio.loop = true;
     audio.volume = this._bgmVolume;
     this.bgmAudio = audio;
     this.bgmPath = path;
+    this.notifyBgmChange();
     this.startBgmPlayback(audio);
   }
+
+  subscribeBgm = (listener: () => void) => {
+    this.bgmListeners.add(listener);
+    return () => this.bgmListeners.delete(listener);
+  };
+
+  getBgmPath = () => this.bgmPath;
 
   private startBgmPlayback(audio: HTMLAudioElement) {
     this.addAutoplayRetry();
@@ -64,6 +73,12 @@ class SoundManager {
   }
 
   stopBgm() {
+    if (!this.bgmAudio && !this.bgmPath) return;
+    this.clearBgm();
+    this.notifyBgmChange();
+  }
+
+  private clearBgm() {
     this.removeAutoplayRetry();
     if (this.bgmAudio) {
       this.bgmAudio.pause();
@@ -71,6 +86,10 @@ class SoundManager {
       this.bgmAudio = null;
     }
     this.bgmPath = null;
+  }
+
+  private notifyBgmChange() {
+    this.bgmListeners.forEach((listener) => listener());
   }
 
   playSe(path: string) {

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { OptionsPanel } from "@/components/Options/OptionsPanel";
-import { TitleDoodleBackdrop, TitleHowItWorksStrip } from "@/components/Title/TitleDoodles";
+import { FALLBACK_CHARACTER_IMAGE_URL, resolveCharacterImageUrl } from "@/lib/imageUrl";
+import { loadSlots } from "@/lib/drawingSlots";
 import { soundManager } from "@/lib/soundManager";
 
 interface TitleMenuItem {
@@ -11,8 +13,6 @@ interface TitleMenuItem {
   label: string;
   sub: string;
   color: string;
-  textColor: string;
-  tilt: number;
   onClick: () => void;
 }
 
@@ -23,6 +23,15 @@ export function TitleScreen(props: {
   onProfile: () => void;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [savedDoodles, setSavedDoodles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const thumbnails = loadSlots()
+      .flatMap((slot) => (slot?.thumbnail ? [resolveCharacterImageUrl(slot.thumbnail)] : []))
+      .filter((thumbnail) => thumbnail !== FALLBACK_CHARACTER_IMAGE_URL)
+      .slice(0, 2);
+    setSavedDoodles(thumbnails);
+  }, []);
 
   const withClickSe = (handler: () => void) => () => {
     soundManager.playSe("/sounds/se/button.mp3");
@@ -35,9 +44,7 @@ export function TitleScreen(props: {
       icon: "🎮",
       label: "シングルプレイ",
       sub: "ひとりでボスに挑む",
-      color: "#fbbf24",
-      textColor: "#fff7db",
-      tilt: -0.8,
+      color: "#e99a24",
       onClick: withClickSe(props.onSinglePlay),
     },
     {
@@ -45,9 +52,7 @@ export function TitleScreen(props: {
       icon: "👥",
       label: "マルチプレイ",
       sub: "友だちとラクガキ対戦",
-      color: "#60a5fa",
-      textColor: "#e0f2fe",
-      tilt: 0.7,
+      color: "#438ed0",
       onClick: withClickSe(props.onMultiPlay),
     },
     {
@@ -55,9 +60,7 @@ export function TitleScreen(props: {
       icon: "👻",
       label: "ゴーストマッチ",
       sub: "誰かのラクガキと戦う",
-      color: "#c084fc",
-      textColor: "#f3e8ff",
-      tilt: -0.5,
+      color: "#9662c6",
       onClick: withClickSe(props.onGhostMatch),
     },
     {
@@ -65,9 +68,7 @@ export function TitleScreen(props: {
       icon: "📜",
       label: "プロフィール",
       sub: "戦績とラクガキ帳",
-      color: "#2dd4bf",
-      textColor: "#ccfbf1",
-      tilt: 0.6,
+      color: "#278d81",
       onClick: withClickSe(props.onProfile),
     },
     {
@@ -75,121 +76,58 @@ export function TitleScreen(props: {
       icon: "⚙️",
       label: "オプション",
       sub: "音量などの設定",
-      color: "#94a3b8",
-      textColor: "#e2e8f0",
-      tilt: -0.4,
+      color: "#787b82",
       onClick: withClickSe(() => setOptionsOpen(true)),
     },
   ];
 
   return (
     <>
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "88vh",
-          gap: 22,
-          overflow: "hidden",
-        }}
-      >
-        <TitleDoodleBackdrop />
-
-        {/* ロゴ（既存の方向性を尊重しつつ、手描きのマーカー下線を足す） */}
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-          <div
-            style={{
-              fontSize: "clamp(56px, 10vw, 120px)",
-              fontWeight: "900",
-              letterSpacing: "0.05em",
-              lineHeight: 1,
-              background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 40%, #8b5cf6 80%, #3b82f6 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              textShadow: "none",
-              filter: "drop-shadow(0 4px 24px rgba(239,68,68,0.4))",
-              animation: "titlePulse 3s ease-in-out infinite",
-            }}
-          >
-            arttle
-          </div>
-          <svg
-            viewBox="0 0 300 18"
-            preserveAspectRatio="none"
+      <section className="title-screen" aria-label="arttle タイトル">
+        {savedDoodles.map((thumbnail, index) => (
+          <Image
+            key={`${index}-${thumbnail.slice(0, 32)}`}
+            className={`title-saved-doodle title-saved-doodle-${index + 1}`}
+            src={thumbnail}
+            alt=""
             aria-hidden="true"
-            style={{ display: "block", width: "min(74vw, 420px)", height: 14, margin: "2px auto 0" }}
-          >
-            <path
-              d="M6 12c48-7 96-9 144-5 46 4 92 1 146-4"
-              stroke="#fbbf24"
-              strokeWidth="5"
-              strokeLinecap="round"
-              fill="none"
-              opacity="0.85"
-            />
-          </svg>
-        </div>
+            draggable={false}
+            width={120}
+            height={120}
+            unoptimized
+            onError={(event) => {
+              event.currentTarget.hidden = true;
+            }}
+          />
+        ))}
 
-        {/* キャッチコピー：このゲームが何なのかを一行で伝える */}
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            color: "#f8fafc",
-            fontSize: "clamp(15px, 2.2vw, 26px)",
-            fontWeight: 900,
-            letterSpacing: "0.08em",
-            textShadow: "0 2px 0 rgba(0,0,0,0.6), 0 0 18px rgba(148,163,184,0.35)",
-          }}
-        >
-          描いたラクガキが、戦う。
-        </div>
+        <header className="title-heading">
+          <p className="title-kicker">らくがきから、ぼうけんがはじまる</p>
+          <h1 className="title-logo">arttle</h1>
+          <p className="title-tagline">描いたラクガキで戦う</p>
+        </header>
 
-        <TitleHowItWorksStrip />
-
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            width: "100%",
-            maxWidth: 360,
-            marginTop: 6,
-          }}
-        >
-          {menuItems.map((item) => (
+        <nav className="title-menu" aria-label="メインメニュー">
+          {menuItems.map((item, index) => (
             <button
               key={item.key}
-              className="doodle-btn"
+              className="title-menu-button"
               onClick={item.onClick}
               style={{
-                ["--doodle-tilt" as string]: `${item.tilt}deg`,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 18px",
-                textAlign: "left",
-                borderColor: item.color,
-                background: "rgba(9,11,20,0.72)",
-                color: item.textColor,
-                boxShadow: `0 4px 0 ${item.color}66, 0 10px 22px rgba(0,0,0,0.45)`,
+                ["--menu-accent" as string]: item.color,
+                ["--menu-delay" as string]: `${index * 90}ms`,
               }}
             >
-              <span style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{item.icon}</span>
-              <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
-                <span style={{ fontSize: "clamp(15px, 1.8vw, 20px)", letterSpacing: "0.04em" }}>{item.label}</span>
-                <span style={{ fontSize: "clamp(10px, 1.05vw, 13px)", color: "#94a3b8", fontWeight: 700 }}>{item.sub}</span>
+              <span className="title-menu-icon" aria-hidden="true">{item.icon}</span>
+              <span className="title-menu-copy">
+                <span className="title-menu-label">{item.label}</span>
+                <span className="title-menu-sub">{item.sub}</span>
               </span>
+              <span className="title-menu-arrow" aria-hidden="true">›</span>
             </button>
           ))}
-        </div>
-      </div>
+        </nav>
+      </section>
       <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
     </>
   );

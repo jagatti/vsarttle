@@ -19,6 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="preload" as="image" href="/arttle_back/title.png" />
+      </head>
       <body>{children}</body>
     </html>
   );
