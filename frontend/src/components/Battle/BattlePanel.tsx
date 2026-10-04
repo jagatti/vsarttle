@@ -220,7 +220,7 @@ function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; 
   return (
     <div
       title={title}
-      className="doodle-frame"
+      className="doodle-frame battle-status"
       style={{
         background: "rgba(6,8,16,0.78)",
         border: `3px solid ${borderColor}`,
@@ -374,17 +374,15 @@ function PortraitBlock({
   const portraitHitStyle = getHitPortraitStyle(side, !!isHit, !!isStrongHit);
   const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
   const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
-  // Portrait size scales with BOTH viewport width and height (via vh), so it
-  // shrinks to fit short browser windows too instead of only reacting to
-  // width and forcing the page to scroll to reach the action buttons.
-  const baseSize = "clamp(72px, min(13vw, 20dvh), 190px)";
-  const chargedSize = "clamp(80px, min(14.5vw, 22dvh), 210px)";
+  // Size against the available stage, leaving room for labels and damage above.
+  const baseSize = "min(24cqw, 55cqh, 28dvh)";
+  const chargedSize = "min(26cqw, 60cqh, 30dvh)";
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
   const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
 
   return (
-    <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className="battle-portrait" style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ position: "relative" }}>
         {floaters.map((f, idx) => {
           const big = !f.avoided && (f.amount > 100 || (f.chargeMultiplier ?? 1) > 1);
@@ -410,10 +408,10 @@ function PortraitBlock({
               ? "#60a5fa"
               : big ? "#dc2626" : "#f87171";
           const fontSize = charged
-            ? "clamp(30px, 3.6vw, 52px)"
+            ? "clamp(22px, 2.4vw, 36px)"
             : big
-            ? "clamp(26px, 3vw, 44px)"
-            : "clamp(20px, 2.2vw, 34px)";
+            ? "clamp(20px, 2vw, 32px)"
+            : "clamp(18px, 1.8vw, 28px)";
           // Spread multiple simultaneous floaters horizontally to avoid overlap.
           // Center index so even counts straddle the midpoint.
           const total = floaters.length;
@@ -424,7 +422,7 @@ function PortraitBlock({
               className="sticker-text"
               style={{
                 position: "absolute",
-                top: -10,
+                bottom: "calc(100% + 38px)",
                 left: `calc(50% + ${offset}px)`,
                 zIndex: 12,
                 color,
@@ -459,7 +457,7 @@ function PortraitBlock({
             className="doodle-frame"
             style={{
               position: "absolute",
-              top: -22,
+              bottom: "calc(100% + 8px)",
               left: "50%",
               transform: "translateX(-50%) rotate(-2deg)",
               zIndex: 13,
@@ -810,7 +808,7 @@ function ActionButtonsRow({
   weakMagicButtonTitle?: string;
 }) {
   return (
-    <div className="battle-action-grid">
+    <div className={`battle-action-grid${readOnly ? " battle-action-grid-enemy" : ""}`}>
       {SELECTABLE_ACTIONS.map((action, index) => {
         const canUse = actions.includes(action);
         const isSelected = selectedAction === action;
@@ -818,6 +816,7 @@ function ActionButtonsRow({
         return (
           <button
             key={action}
+            data-action={action}
             className="doodle-btn"
             title={action === "magicWeak" ? weakMagicButtonTitle : undefined}
             disabled={!!readOnly}
@@ -846,7 +845,7 @@ function ActionButtonsRow({
                 : canUse
                 ? `0 4px 0 ${color}55`
                 : "none",
-              fontSize: readOnly ? "clamp(9px, 0.8vw, 12px)" : "clamp(12px, 1.1vw, 16px)",
+              fontSize: readOnly ? "clamp(9px, 0.75vw, 12px)" : "clamp(11px, 0.9vw, 14px)",
               opacity: canUse ? 1 : 0.4,
               pointerEvents: readOnly ? "none" : "auto",
             }}
@@ -1884,7 +1883,7 @@ export function BattlePanel(props: {
         </div>
 
         {/* Name / HP / PP boxes, colored by character type */}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
+        <div className="battle-status-row" style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
           <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} />
           <NameHpBox
             player={{ ...props.enemy, ...displayEnemy }}
