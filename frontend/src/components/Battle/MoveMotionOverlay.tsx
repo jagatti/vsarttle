@@ -3,6 +3,26 @@
 import type { ActionType } from "@/types/game";
 import type { CSSProperties } from "react";
 import type { MoveMotionType } from "./battleAnimationPhases";
+import type { getFinalBossEffect } from "./bossPresentation";
+
+export function FinalBossAuraEffect({
+  effect,
+  charged,
+}: {
+  effect: ReturnType<typeof getFinalBossEffect>;
+  charged: boolean;
+}) {
+  if (!effect && !charged) return null;
+  return (
+    <div className="final-boss-aura" data-effect={effect ?? "charged"} aria-hidden="true">
+      <span className="final-boss-ring" />
+      <span className="final-boss-ring final-boss-ring-inner" />
+      {effect && Array.from({ length: effect === "magicStrong" ? 8 : 4 }, (_, index) => (
+        <i key={index} style={{ "--particle-angle": `${index * (360 / (effect === "magicStrong" ? 8 : 4))}deg` } as CSSProperties} />
+      ))}
+    </div>
+  );
+}
 
 /**
  * わざモーション用のオーバーレイコンポーネント群。
@@ -83,11 +103,13 @@ export function MagicBullet({
   motionType,
   sourceActionType,
   active,
+  finalBoss = false,
 }: {
   side: BattleSide;
   motionType: MoveMotionType;
   sourceActionType?: ActionType;
   active: boolean;
+  finalBoss?: boolean;
 }) {
   if (!active) return null;
   if (motionType !== "magicBlast" && motionType !== "magicReflect") return null;
@@ -100,14 +122,14 @@ export function MagicBullet({
   return (
     <div
       aria-hidden="true"
-      className="magic-bullet-effect"
+      className={`magic-bullet-effect${finalBoss ? " final-boss-magic-bullet" : ""}`}
       style={{
         position: "absolute",
         top: "40%",
         left: side === "left" ? "80%" : "20%",
         zIndex: 15,
-        width: isStrongMagic ? 36 : 24,
-        height: isStrongMagic ? 36 : 24,
+        width: finalBoss ? isStrongMagic ? "32%" : "22%" : isStrongMagic ? 36 : 24,
+        height: finalBoss ? isStrongMagic ? "32%" : "22%" : isStrongMagic ? 36 : 24,
         borderRadius: "50%",
         background: "radial-gradient(circle, #c4b5fd, #7c3aed 60%, #4c1d95)",
         boxShadow: isStrongMagic ? "0 0 18px 6px rgba(167,139,250,0.55), 0 0 28px 10px rgba(124,58,237,0.35)" : "0 0 12px 4px #a78bfa88",
@@ -115,7 +137,7 @@ export function MagicBullet({
           ? "barrierReflect 0.52s ease-out 0.3s forwards"
           : `magicBlast 0.52s ease-out 0.3s forwards${isStrongMagic ? ", chargeGlow 0.9s ease-in-out infinite" : ""}`,
         // CSS カスタムプロパティで弾の移動距離を渡す
-        ["--blast-dx" as string]: `${dx}px`,
+        ["--blast-dx" as string]: finalBoss ? `calc(${getMotionDirection(side)} * min(28cqw, 32dvw))` : `${dx}px`,
         pointerEvents: "none",
       }}
     />
