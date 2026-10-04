@@ -63,6 +63,10 @@ body {
     env(safe-area-inset-bottom) max(env(safe-area-inset-left), 8px);
 }
 
+.app-game-shell:has(.battle-panel-shell) {
+  overflow: hidden;
+}
+
 .battle-panel-shell {
   display: flex;
   flex: 1;
@@ -104,7 +108,38 @@ body {
 .battle-portrait-row {
   flex: 1 1 0;
   min-height: 0;
+  container-type: size;
   overflow: visible;
+  padding-top: clamp(40px, 5dvh, 64px) !important;
+  padding-bottom: 16px !important;
+}
+
+.battle-status-row {
+  gap: 12px;
+  padding-top: 6px !important;
+}
+
+.battle-status {
+  width: clamp(140px, 24vw, 360px);
+  min-width: 0 !important;
+  padding: 4px 8px !important;
+}
+
+.battle-status > div:first-child {
+  gap: 4px !important;
+}
+
+.battle-status > div:first-child > span:first-child {
+  min-width: 0;
+  font-size: clamp(12px, 1.2vw, 20px) !important;
+}
+
+.battle-status > div:first-child > span:not(:first-child) {
+  flex-shrink: 0;
+}
+
+.battle-status > div:first-child > span:nth-child(3) {
+  display: none;
 }
 
 .battle-result-log {
@@ -119,9 +154,9 @@ body {
 
 .battle-actions {
   display: grid;
-  flex: 0 0 clamp(184px, 24dvh, 216px);
+  flex: 0 0 176px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(6px, 1vw, 12px);
+  gap: clamp(24px, 8vw, 240px);
   min-height: 0;
   box-sizing: border-box;
   padding: 6px clamp(8px, 1.6vw, 18px) 8px;
@@ -132,11 +167,19 @@ body {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
+  width: min(100%, clamp(160px, 28vw, 360px));
+}
+
+.battle-action-side:last-child {
+  justify-self: end;
 }
 
 .battle-action-label {
   flex: 0 0 auto;
-  min-height: 22px;
+  min-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   margin-bottom: 4px !important;
 }
 
@@ -145,9 +188,29 @@ body {
   flex: 1;
   min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(44px, 1fr);
+  grid-template-rows: repeat(3, 44px);
   align-content: center;
-  gap: clamp(4px, 0.6vw, 7px);
+  gap: 6px;
+}
+
+.battle-action-grid-enemy [data-action="attack"] {
+  grid-area: 1 / 2;
+}
+
+.battle-action-grid-enemy [data-action="magicWeak"] {
+  grid-area: 1 / 1;
+}
+
+.battle-action-grid-enemy [data-action="barrier"] {
+  grid-area: 2 / 2;
+}
+
+.battle-action-grid-enemy [data-action="magicStrong"] {
+  grid-area: 2 / 1;
+}
+
+.battle-action-grid-enemy [data-action="charge"] {
+  grid-area: 3 / 2;
 }
 
 .battle-action-grid .doodle-btn {
@@ -176,7 +239,6 @@ body {
   }
 
   .battle-actions {
-    flex-basis: clamp(184px, 24dvh, 210px);
     padding-right: 6px;
     padding-left: 6px;
   }
@@ -188,7 +250,8 @@ body {
 
   .battle-portrait-row {
     gap: 4px !important;
-    padding: 6px 8px 4px !important;
+    padding-right: 8px !important;
+    padding-left: 8px !important;
   }
 
   .battle-result-log {
@@ -204,10 +267,26 @@ body {
     padding-bottom: max(env(safe-area-inset-bottom), 4px);
   }
 
+  .battle-panel-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 38vw, 340px);
+    grid-template-rows: minmax(0, 1fr) 40px;
+  }
+
+  .battle-arena {
+    grid-area: 1 / 1;
+  }
+
   .battle-actions {
-    flex-basis: 174px;
-    padding-top: 3px;
-    padding-bottom: 4px;
+    grid-area: 1 / 2 / 3 / 3;
+    align-content: center;
+    gap: 20px;
+    padding: 8px;
+    border-left: 2px solid rgba(248,250,252,0.35);
+  }
+
+  .battle-action-side {
+    height: 166px;
   }
 
   .battle-action-label {
@@ -216,39 +295,27 @@ body {
   }
 
   .battle-result-log {
-    position: absolute;
-    right: 6px;
-    bottom: 174px;
-    left: 6px;
-    z-index: 2;
-    flex-basis: 0;
-    height: 38px;
-    padding: 0;
-    pointer-events: none;
+    grid-area: 2 / 1;
+    padding: 0 6px;
   }
 
   .battle-arena > div:first-child {
     padding: 2px 8px !important;
   }
 
-  .battle-arena > div:nth-child(3) {
+  .battle-status-row {
     padding: 2px 6px 0 !important;
   }
 
-  .battle-arena > div:nth-child(3) > div {
+  .battle-status {
     min-width: 0 !important;
     padding: 3px 6px !important;
     border-width: 2px !important;
   }
 
   .battle-portrait-row {
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-  }
-
-  .battle-portrait-row img[alt$="のキャラクター"] {
-    width: clamp(38px, 11dvh, 56px) !important;
-    height: clamp(38px, 11dvh, 56px) !important;
+    padding-top: 36px !important;
+    padding-bottom: 10px !important;
   }
 
   .battle-arena > div:last-child {

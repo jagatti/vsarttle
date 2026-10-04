@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
-import type { TurnResult } from "@/types/game";
+import type { PlayerBattleState, TurnResult } from "@/types/game";
 import {
+  BattlePanel,
   SELECTABLE_ACTIONS,
   getVoidminationCutInOverlayStyle,
   getVoidminationTooltipEvasionDisplay,
@@ -12,6 +16,60 @@ import {
 
 test("selectable actions follow the two-column battle grid order", () => {
   assert.deepEqual(SELECTABLE_ACTIONS, ["attack", "magicWeak", "barrier", "magicStrong", "charge"]);
+});
+
+const player: PlayerBattleState = {
+  id: "me",
+  nickname: "ジャガっち",
+  imageDataUrl: "/arttle_boss/stickman.png",
+  stats: { hp: 100, maxHp: 100, pp: 100, maxPp: 100, attack: 20, defense: 20, speed: 20, evasion: 0 },
+  characterType: "balanced",
+  currentHp: 100,
+  currentPp: 100,
+  chargeMultiplier: 1,
+  lastActionCategory: null,
+};
+
+function renderBattle(isResolvingTurn = false) {
+  return renderToStaticMarkup(createElement(BattlePanel, {
+    me: player,
+    enemy: { ...player, id: "enemy", nickname: "スティックマン" },
+    role: "host",
+    turn: 1,
+    turnResult: null,
+    countdown: 30,
+    onActionSelect: () => {},
+    onRematchSame: () => {},
+    onRematchRedraw: () => {},
+    isResolvingTurn,
+  }));
+}
+
+test("only the enemy action grid is mirrored, with all five choices retained", () => {
+  const markup = renderBattle();
+  assert.equal((markup.match(/class="battle-action-grid"/g) ?? []).length, 1);
+  assert.equal((markup.match(/class="battle-action-grid battle-action-grid-enemy"/g) ?? []).length, 1);
+  for (const action of SELECTABLE_ACTIONS) {
+    assert.equal((markup.match(new RegExp(`data-action="${action}"`, "g")) ?? []).length, 2);
+  }
+});
+
+test("resolving replaces player buttons without removing the fixed layout regions", () => {
+  const markup = renderBattle(true);
+  for (const region of ["battle-arena", "battle-status-row", "battle-portrait-row", "battle-result-log", "battle-actions", "battle-action-placeholder"]) {
+    assert.ok(markup.includes(`class="${region}"`), region);
+  }
+  assert.equal((markup.match(/data-action=/g) ?? []).length, 5);
+  assert.equal((markup.match(/battle-status"/g) ?? []).length, 2);
+});
+
+test("enemy CSS mirrors both columns and puts charge below barrier", () => {
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const positions = { attack: "1 / 2", magicWeak: "1 / 1", barrier: "2 / 2", magicStrong: "2 / 1", charge: "3 / 2" };
+  for (const [action, position] of Object.entries(positions)) {
+    const rule = css.split(`.battle-action-grid-enemy [data-action="${action}"] {`)[1]?.split("}")[0];
+    assert.ok(rule?.includes(`grid-area: ${position};`), action);
+  }
 });
 
 test("voidmination cut-in duration is 3900ms", () => {

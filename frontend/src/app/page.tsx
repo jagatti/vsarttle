@@ -911,10 +911,9 @@ export default function Home() {
     setStatus("ルームを作成するか入室してください");
   };
 
-  // Keep the same container ratio as single play so battle layouts don't stretch unnaturally.
-  const containerMaxWidthClass = "max-w-5xl";
   const useViewportBattleLayout = stage === "battle";
   const useViewportGameLayout = stage === "singleplay" || stage === "ghostmatch";
+  const containerMaxWidthClass = useViewportBattleLayout || useViewportGameLayout ? "" : "max-w-5xl";
 
   return (
     <main

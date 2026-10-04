@@ -1250,7 +1250,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     };
 
     return (
-      <div>
+      <div className="battle-manager-shell">
         <BattlePanel
           me={currentPlayerState}
           enemy={currentEnemyState}
