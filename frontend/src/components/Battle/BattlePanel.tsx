@@ -243,6 +243,7 @@ function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; 
         }}
       >
         <span
+          title={player.nickname}
           style={{
             color: "#fff",
             fontWeight: 900,
@@ -1367,6 +1368,9 @@ export function BattlePanel(props: {
     }
     return null;
   })();
+  const damageAnnouncement = upcomingDamageAnnouncement
+    ? `${upcomingDamageAnnouncement}${currentDamageMultiplier > 1 ? `（現在${currentDamageMultiplier}倍）` : ""}`
+    : currentDamageMultiplier > 1 ? `現在ダメージ${currentDamageMultiplier}倍中` : "";
   const finalBossStageEffects = [props.me, props.enemy].flatMap((player) => {
     if (getBossPortraitKind(player.imageDataUrl) !== "final") return [];
     const motion = player.id === props.me.id ? activePhaseMotions.me : activePhaseMotions.enemy;
@@ -1593,7 +1597,8 @@ export function BattlePanel(props: {
           }}
         >
           <div
-            className="doodle-frame"
+            className="doodle-frame battle-status-banner"
+            title={props.turnResult.voidminationStatusText}
             style={{
               display: "inline-block",
               background: "rgba(15,23,42,0.92)",
@@ -1781,14 +1786,11 @@ export function BattlePanel(props: {
         ))}
         {/* Header bar */}
         <div
+          className="battle-header"
           style={{
             background: "linear-gradient(to right, rgba(3,6,14,0.92), rgba(15,23,42,0.92), rgba(3,6,14,0.92))",
             padding: "clamp(5px, 0.8vw, 9px) clamp(12px, 1.6vw, 20px)",
             borderBottom: "3px solid #f8fafc",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
           }}
         >
           {/* ターン数は視聴者が「どれくらい競っているか」を掴む基準になるので、
@@ -1807,15 +1809,12 @@ export function BattlePanel(props: {
             <span style={{ fontSize: "clamp(10px, 0.9vw, 13px)", color: "#cbd5e1" }}>ターン</span>
             <span style={{ fontSize: "clamp(20px, 2.1vw, 30px)", lineHeight: 1, textShadow: "0 3px 0 rgba(0,0,0,0.7)" }}>{props.limitBreakMode ? "？？？" : props.turn}</span>
           </span>
-          {upcomingDamageAnnouncement && (
-            <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: "clamp(11px, 1vw, 13px)", textShadow: "0 0 8px #f59e0b99" }}>
-              {upcomingDamageAnnouncement}
-            </span>
-          )}
           {voidminationActive && voidminationSpec && (
-            <div ref={voidminationBadgeRef} style={{ position: "relative", display: "flex", justifyContent: "center", flex: 1 }}>
+            <div ref={voidminationBadgeRef} className="battle-boss-badge">
               <button
                 type="button"
+                className="battle-boss-badge-button"
+                title={`ヴォイドミネーション：${voidminationSpec.badgeText}`}
                 onMouseEnter={() => setShowVoidminationBadgeTooltip(true)}
                 onMouseLeave={() => setShowVoidminationBadgeTooltip(false)}
                 onClick={() => setShowVoidminationBadgeTooltip((visible) => !visible)}
@@ -1851,7 +1850,10 @@ export function BattlePanel(props: {
                     top: "calc(100% + 8px)",
                     left: "50%",
                     transform: "translateX(-50%)",
-                    width: "min(88vw, 360px)",
+                    width: "min(92%, 360px)",
+                    maxHeight: "min(40dvh, 240px)",
+                    overflowY: "auto",
+                    overflowWrap: "anywhere",
                     zIndex: 40,
                     padding: "10px 12px",
                     borderRadius: 10,
@@ -1874,7 +1876,7 @@ export function BattlePanel(props: {
             </div>
           )}
           <button
-            className="doodle-btn"
+            className="doodle-btn battle-matchup-button"
             onClick={() => setShowMatchupModal(true)}
             style={{
               ["--doodle-tilt" as string]: "1deg",
@@ -1889,6 +1891,9 @@ export function BattlePanel(props: {
           >
             相性表
           </button>
+          <div className="battle-damage-announcement" role="status" title={damageAnnouncement || undefined}>
+            {damageAnnouncement}
+          </div>
         </div>
 
         {/* 優劣バー: どちらがHPで有利かを配信視聴者にも一目で伝える */}
@@ -1963,20 +1968,6 @@ export function BattlePanel(props: {
               gap: 6,
             }}
           >
-            {currentDamageMultiplier > 1 && (
-              <div
-                style={{
-                  color: "#fde68a",
-                  fontWeight: "bold",
-                  fontSize: "clamp(11px, 1vw, 13px)",
-                  textShadow: "0 0 8px #f59e0b",
-                  animation: "fadeInScale 0.25s ease-out, countdownPulse 1.2s ease-in-out infinite",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                現在ダメージ{currentDamageMultiplier}倍中
-              </div>
-            )}
             {/* 残り時間: 数字＋減っていくバー。緊張感の主役になるので大きめに置く。 */}
             <div
               className="doodle-frame"
