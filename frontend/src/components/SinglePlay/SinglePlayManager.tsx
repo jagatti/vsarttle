@@ -690,8 +690,6 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
     );
     if (bgm) {
       soundManager.playBgm(bgm);
-    } else {
-      soundManager.stopBgm();
     }
   }, [spStage, floor, bossPhase, limitBreaking, limitBreakUsed]);
 

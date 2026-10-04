@@ -274,7 +274,6 @@ export function VsScreen({ me, enemy, onComplete }: VsScreenProps) {
   const vsWidth = compact ? "min(28vw, 130px)" : "min(34vw, 260px)";
 
   useEffect(() => {
-    soundManager.stopBgm();
     soundManager.playSe("/sounds/se/vs.mp3");
     const fadeTimer = window.setTimeout(() => setIsFadingOut(true), VS_SCREEN_DURATION_MS - VS_SCREEN_FADE_OUT_MS);
     const completeTimer = window.setTimeout(() => onComplete(), VS_SCREEN_DURATION_MS);

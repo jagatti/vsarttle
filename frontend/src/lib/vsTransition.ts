@@ -3,6 +3,7 @@ import type { Stage } from "@/types/game";
 
 export const VS_SCREEN_DURATION_MS = 3600;
 export const VS_SCREEN_FADE_OUT_MS = 450;
+export const TITLE_BGM_PATH = "/sounds/bgm/arttle-OP-.mp3";
 
 export type SinglePlayBgmStage =
   | "difficulty_select"
@@ -16,6 +17,7 @@ export type SinglePlayBgmStage =
   | "result_roll";
 
 export function getMultiplayerStageBgm(stage: Stage): string | null {
+  if (stage === "title") return TITLE_BGM_PATH;
   if (stage === "drawing") return "/sounds/bgm/oekaki_loop.mp3";
   if (stage === "battle") return "/sounds/bgm/battle_loop.mp3";
   return null;

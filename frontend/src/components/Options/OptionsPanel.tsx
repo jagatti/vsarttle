@@ -5,7 +5,6 @@ import { soundManager } from "@/lib/soundManager";
 
 const DEFAULT_BGM_VOLUME = 0.08;
 const DEFAULT_SE_VOLUME = 0.12;
-const BGM_PREVIEW_PATH = "/sounds/bgm/oekaki_loop.mp3";
 const SE_PREVIEW_PATH = "/sounds/se/barrier.mp3";
 const SE_PREVIEW_DEBOUNCE_MS = 100;
 
@@ -42,7 +41,6 @@ export function OptionsPanel(props: {
       clearTimeout(sePreviewTimeoutRef.current);
       sePreviewTimeoutRef.current = null;
     }
-    soundManager.stopBgm();
   }, [open]);
 
   useEffect(() => {
@@ -50,14 +48,12 @@ export function OptionsPanel(props: {
       if (sePreviewTimeoutRef.current) {
         clearTimeout(sePreviewTimeoutRef.current);
       }
-      soundManager.stopBgm();
     };
   }, []);
 
   const handleBgmChange = (v: number) => {
     setBgmVol(v);
     soundManager.setBgmVolume(v);
-    soundManager.playBgm(BGM_PREVIEW_PATH);
   };
 
   const handleSeChange = (v: number) => {

@@ -251,9 +251,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       : null;
     if (bgm) {
       soundManager.playBgm(bgm);
-      return;
     }
-    soundManager.stopBgm();
   }, [currentEnemyState?.limitBreakActive, floor, rlStage]);
 
   // Reveal limit-break status lines one by one (mirrors SinglePlay behaviour).

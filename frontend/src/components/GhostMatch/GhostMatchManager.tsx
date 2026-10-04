@@ -107,9 +107,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     }
     if (stage === "battle") {
       soundManager.playBgm("/sounds/bgm/battle_loop.mp3");
-      return;
     }
-    soundManager.stopBgm();
   }, [stage]);
 
   function finalizeTurn(turnNumber: number, selectedAction: ActionType | null) {

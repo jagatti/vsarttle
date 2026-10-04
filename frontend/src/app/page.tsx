@@ -820,11 +820,7 @@ export default function Home() {
       return;
     }
     const bgm = getMultiplayerStageBgm(stage);
-    if (bgm) {
-      soundManager.playBgm(bgm);
-    } else {
-      soundManager.stopBgm();
-    }
+    if (bgm) soundManager.playBgm(bgm);
   }, [stage]);
 
   const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {

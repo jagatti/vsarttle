@@ -9,6 +9,15 @@ class SoundManager {
   private _bgmVolume: number = DEFAULT_BGM_VOLUME;
   private _seVolume: number = DEFAULT_SE_VOLUME;
   private initialized = false;
+  private readonly retryEvents = ["pointerdown", "touchstart", "keydown"] as const;
+  private readonly retryBgmOnInteraction = () => {
+    const audio = this.bgmAudio;
+    if (!audio) return;
+    audio.play().then(
+      () => this.removeAutoplayRetry(),
+      () => {},
+    );
+  };
 
   private init() {
     if (this.initialized) return;
@@ -23,20 +32,37 @@ class SoundManager {
   playBgm(path: string) {
     this.init();
     if (typeof window === "undefined") return;
-    if (this.bgmPath === path && this.bgmAudio && !this.bgmAudio.paused) return;
+    if (this.bgmPath === path && this.bgmAudio) {
+      if (this.bgmAudio.paused) this.startBgmPlayback(this.bgmAudio);
+      return;
+    }
     this.stopBgm();
     const audio = new Audio(path);
     audio.loop = true;
     audio.volume = this._bgmVolume;
     this.bgmAudio = audio;
     this.bgmPath = path;
+    this.startBgmPlayback(audio);
+  }
+
+  private startBgmPlayback(audio: HTMLAudioElement) {
     audio.play().catch(() => {
-      // Autoplay policy: browser may block until user interaction.
-      // The BGM will remain queued and can be retried on next user action.
+      if (this.bgmAudio === audio) this.addAutoplayRetry();
     });
   }
 
+  private addAutoplayRetry() {
+    if (typeof document === "undefined") return;
+    this.retryEvents.forEach((event) => document.addEventListener(event, this.retryBgmOnInteraction));
+  }
+
+  private removeAutoplayRetry() {
+    if (typeof document === "undefined") return;
+    this.retryEvents.forEach((event) => document.removeEventListener(event, this.retryBgmOnInteraction));
+  }
+
   stopBgm() {
+    this.removeAutoplayRetry();
     if (this.bgmAudio) {
       this.bgmAudio.pause();
       this.bgmAudio.currentTime = 0;
