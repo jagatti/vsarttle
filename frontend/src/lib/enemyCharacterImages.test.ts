@@ -8,7 +8,7 @@ import { FALLBACK_CHARACTER_IMAGE_URL, resolveCharacterImageUrl } from "@/lib/im
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { isBossFloor, isWeakFloor, ROGUELIKE_TOTAL_FLOORS } from "@/lib/roguelikeEnemyStats";
 
-const PUBLIC_DIR = path.resolve(__dirname, "../../public");
+const PUBLIC_DIR = path.resolve(process.cwd(), "public");
 
 function assertVisibleCharacterImage(url: string, label: string) {
   const resolved = resolveCharacterImageUrl(url);

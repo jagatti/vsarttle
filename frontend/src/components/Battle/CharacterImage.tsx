@@ -11,10 +11,24 @@ const BLANK_CHECK_MAX_SIZE = 512;
  * or erased strokes). Any failure is treated as "not blank" so a real
  * drawing is never replaced by mistake.
  */
-function isLoadedImageBlank(image: HTMLImageElement): boolean {
+const blankCheckCache = new Map<string, boolean>();
+
+function isLoadedImageBlank(image: HTMLImageElement, src: string): boolean {
+  const cached = blankCheckCache.get(src);
+  if (cached !== undefined) return cached;
+  const blank = detectBlankPixels(image);
+  if (blankCheckCache.size > 64) blankCheckCache.clear();
+  blankCheckCache.set(src, blank);
+  return blank;
+}
+
+function detectBlankPixels(image: HTMLImageElement): boolean {
   try {
-    const width = Math.min(image.naturalWidth || BLANK_CHECK_MAX_SIZE, BLANK_CHECK_MAX_SIZE);
-    const height = Math.min(image.naturalHeight || BLANK_CHECK_MAX_SIZE, BLANK_CHECK_MAX_SIZE);
+    const naturalWidth = image.naturalWidth || BLANK_CHECK_MAX_SIZE;
+    const naturalHeight = image.naturalHeight || BLANK_CHECK_MAX_SIZE;
+    const scale = Math.min(1, BLANK_CHECK_MAX_SIZE / Math.max(naturalWidth, naturalHeight));
+    const width = Math.max(1, Math.round(naturalWidth * scale));
+    const height = Math.max(1, Math.round(naturalHeight * scale));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -60,7 +74,7 @@ export function CharacterImage({ src, onError, onLoad, alt, ...rest }: Character
 
   const handleLoad = (event: SyntheticEvent<HTMLImageElement, Event>) => {
     const image = event.currentTarget;
-    if (displaySrc !== FALLBACK_CHARACTER_IMAGE_URL && isLoadedImageBlank(image)) {
+    if (displaySrc !== FALLBACK_CHARACTER_IMAGE_URL && isLoadedImageBlank(image, displaySrc)) {
       if (process.env.NODE_ENV !== "production") {
         console.warn("[CharacterImage] image has no visible pixels; showing fallback", { alt });
       }

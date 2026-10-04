@@ -109,3 +109,22 @@ test("battle panel transient state does not reset during an active voidmination 
 test("battle panel transient state does not reset while turn animation result is present", () => {
   assert.equal(shouldResetBattlePanelTransientState(1, { turn: 1 } as TurnResult, false, false), false);
 });
+
+test("enemy with a blank/missing image still renders a visible fallback character", () => {
+  for (const imageDataUrl of ["", "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E"]) {
+    const markup = renderToStaticMarkup(createElement(BattlePanel, {
+      me: player,
+      enemy: { ...player, id: "enemy", nickname: "第6層のAnima", imageDataUrl },
+      role: "host",
+      turn: 1,
+      turnResult: null,
+      countdown: 30,
+      onActionSelect: () => {},
+      onRematchSame: () => {},
+      onRematchRedraw: () => {},
+    }));
+    const enemyImg = markup.match(/<img[^>]*alt="第6層のAnima のキャラクター"[^>]*>/)?.[0] ?? "";
+    assert.ok(enemyImg.includes('data-fallback="true"'), enemyImg);
+    assert.ok(enemyImg.includes("%3Ccircle"), "fallback silhouette should be drawn");
+  }
+});

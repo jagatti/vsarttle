@@ -5,6 +5,8 @@ import type { GhostPoolEntry } from "@/lib/server/persistenceStore";
 
 const MIN_ARCHIVE_GHOST_CANDIDATES = 3;
 
+// Blank/invalid thumbnails (including drawings stored as the fallback
+// silhouette) are skipped so ghost opponents always show a real drawing.
 function hasVisibleThumbnail(thumbnail: string): boolean {
   return resolveCharacterImageUrl(thumbnail) !== FALLBACK_CHARACTER_IMAGE_URL;
 }
