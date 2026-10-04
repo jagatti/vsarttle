@@ -143,9 +143,10 @@ function getRankTextStyle(rank: BasicRank | ScoreRank): React.CSSProperties {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function DifficultySelectScreen(props: {
+export function DifficultySelectScreen(props: {
   onSelect: (difficulty: Difficulty) => void;
   onSelectRoguelike: () => void;
+  onBackToTitle: () => void;
   playerProfile: { playerId: string; nickname: string };
 }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -177,143 +178,62 @@ function DifficultySelectScreen(props: {
   const roguelikeReady = !loadingUnlock && unlocked;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "70vh",
-        gap: 40,
-      }}
-    >
-      <div
-        style={{
-          color: "#fde68a",
-          fontSize: "clamp(22px, 3vw, 36px)",
-          fontWeight: "bold",
-          letterSpacing: "0.05em",
-        }}
-      >
+    <section className="difficulty-screen" aria-labelledby="difficulty-heading">
+      <h2 id="difficulty-heading" className="difficulty-heading">
         難易度を選択してください
-      </div>
+      </h2>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 20,
-          width: "100%",
-          maxWidth: 340,
-        }}
-      >
+      <div className="difficulty-menu">
         <button
+          className="title-menu-button difficulty-button difficulty-normal"
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             props.onSelect("normal");
           }}
-          style={{
-            padding: "18px 32px",
-            borderRadius: 12,
-            border: "2px solid #22c55e",
-            background: "linear-gradient(135deg, rgba(34,197,94,0.2), rgba(16,185,129,0.2))",
-            color: "#86efac",
-            fontWeight: "bold",
-            fontSize: "clamp(16px, 2vw, 22px)",
-            cursor: "pointer",
-            letterSpacing: "0.05em",
-            boxShadow: "0 0 20px rgba(34,197,94,0.3)",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(34,197,94,0.4), rgba(16,185,129,0.4))";
-            e.currentTarget.style.transform = "scale(1.04)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(34,197,94,0.2), rgba(16,185,129,0.2))";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
         >
-          🌿 ノーマルモード
+          <span aria-hidden="true">🌿</span> ノーマルモード
         </button>
 
         <button
+          className="title-menu-button difficulty-button difficulty-hard"
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             props.onSelect("hard");
           }}
-          style={{
-            padding: "18px 32px",
-            borderRadius: 12,
-            border: "2px solid #ef4444",
-            background: "linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.2))",
-            color: "#fca5a5",
-            fontWeight: "bold",
-            fontSize: "clamp(16px, 2vw, 22px)",
-            cursor: "pointer",
-            letterSpacing: "0.05em",
-            boxShadow: "0 0 20px rgba(239,68,68,0.3)",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(239,68,68,0.4), rgba(245,158,11,0.4))";
-            e.currentTarget.style.transform = "scale(1.04)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.2))";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
         >
-          🔥 ハードモード
+          <span aria-hidden="true">🔥</span> ハードモード
         </button>
 
         <button
+          className="title-menu-button difficulty-button difficulty-roguelike"
           disabled={!roguelikeReady}
+          aria-describedby="roguelike-status"
           onClick={() => {
             if (!roguelikeReady) return;
             soundManager.playSe("/sounds/se/button.mp3");
             props.onSelectRoguelike();
           }}
-          style={{
-            padding: "18px 32px",
-            borderRadius: 12,
-            border: roguelikeReady ? "2px solid #a855f7" : "2px solid #4b5563",
-            background: roguelikeReady
-              ? "linear-gradient(135deg, rgba(168,85,247,0.22), rgba(59,130,246,0.18))"
-              : "linear-gradient(135deg, rgba(75,85,99,0.45), rgba(31,41,55,0.7))",
-            color: roguelikeReady ? "#ddd6fe" : "#9ca3af",
-            fontWeight: "bold",
-            fontSize: "clamp(16px, 2vw, 22px)",
-            cursor: roguelikeReady ? "pointer" : "not-allowed",
-            letterSpacing: "0.05em",
-            boxShadow: roguelikeReady ? "0 0 20px rgba(168,85,247,0.28)" : "none",
-            transition: "all 0.2s ease",
-            opacity: loadingUnlock ? 0.8 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!roguelikeReady) return;
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.38), rgba(59,130,246,0.3))";
-            e.currentTarget.style.transform = "scale(1.04)";
-          }}
-          onMouseLeave={(e) => {
-            if (!roguelikeReady) return;
-            e.currentTarget.style.background = "linear-gradient(135deg, rgba(168,85,247,0.22), rgba(59,130,246,0.18))";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
         >
-          🗡️ ローグライクモード
+          <span aria-hidden="true">{roguelikeReady ? "🗡️" : "🔒"}</span> ローグライクモード
         </button>
-        {roguelikeReady ? (
-          <div style={{ color: "#c4b5fd", fontSize: 12, textAlign: "center" }}>解禁済み</div>
-        ) : (
-          <div style={{ color: "#9ca3af", fontSize: 12, textAlign: "center", lineHeight: 1.6 }}>
-            {loadingUnlock
+        <p id="roguelike-status" className="difficulty-note" role="status">
+          {roguelikeReady
+            ? "解禁済み"
+            : loadingUnlock
               ? "解禁条件を確認中…"
               : "ノーマルまたはハードモードをAランク以上でクリアすると解禁されます"}
-          </div>
-        )}
+        </p>
+        <button
+          className="title-menu-button difficulty-back"
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            props.onBackToTitle();
+          }}
+        >
+          タイトルへ戻る
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1522,6 +1442,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       <DifficultySelectScreen
         onSelect={handleDifficultySelect}
         onSelectRoguelike={() => setRoguelikeMode(true)}
+        onBackToTitle={props.onBackToTitle}
         playerProfile={props.playerProfile}
       />
     );

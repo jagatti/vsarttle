@@ -204,8 +204,7 @@ export function ProfileScreen(props: {
           {profile && <p className="text-xs text-amber-200">保存先: {profile.storageBackend === "vercel-kv" ? "Vercel KV" : "ローカル開発ストレージ"}</p>}
         </div>
         <button
-          className="rounded border-2 px-3 py-2 font-semibold"
-          style={{ borderColor: "#6b7280", background: "rgba(30,30,30,0.9)", color: "#9ca3af" }}
+          className="title-menu-button"
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             props.onBack();
