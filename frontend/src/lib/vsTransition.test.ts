@@ -17,6 +17,10 @@ test("multiplayer vs stage keeps bgm silent until battle", () => {
   assert.equal(getMultiplayerStageBgm("battle"), "/sounds/bgm/battle_loop.mp3");
 });
 
+test("title stage uses the title BGM", () => {
+  assert.equal(getMultiplayerStageBgm("title"), "/sounds/bgm/arttle-OP-.mp3");
+});
+
 test("single play vs stage keeps bgm silent until battle", () => {
   assert.equal(getSinglePlayStageBgm("vs", 1, 1, false, false), null);
 });
