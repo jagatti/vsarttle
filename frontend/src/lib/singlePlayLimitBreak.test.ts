@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getAvailableActions } from "@/lib/battleLogic";
 import type { PlayerBattleState } from "@/types/game";
 import {
   applySinglePlayLimitBreak,
@@ -7,6 +8,7 @@ import {
   getSinglePlayLimitBreakDisplayDurationMs,
   getSinglePlayLimitBreakStatusLines,
   LIMIT_BREAK_SURVIVE_HP,
+  resetSinglePlayLimitBreakPlayerActions,
 } from "@/lib/singlePlayLimitBreak";
 
 const makeEnemy = (): PlayerBattleState => ({
@@ -69,6 +71,34 @@ test("applySinglePlayLimitBreakSurvive leaves the boss at 1 HP with the charge g
   assert.equal(survived.stats.maxHp, 999);
   assert.equal(survived.limitBreakUsed, undefined);
   assert.equal(survived.limitBreakActive, undefined);
+});
+
+test("resetSinglePlayLimitBreakPlayerActions unlocks actions and clears temporary restrictions", () => {
+  const player = makeEnemy();
+  player.lastActionCategory = "magic";
+  player.chargedPreviousTurn = true;
+  player.paralyzedNextTurn = true;
+  player.tieBanActive = true;
+  player.attackBanTurns = 2;
+  player.barrierBanTurns = 2;
+  player.chargeBanTurns = 2;
+  player.magicBanTurns = 2;
+
+  const reset = resetSinglePlayLimitBreakPlayerActions(player);
+  assert.equal(reset.lastActionCategory, null);
+  assert.equal(reset.currentPp, reset.stats.maxPp);
+  assert.equal(reset.chargeMultiplier, 1);
+  assert.equal(reset.chargedPreviousTurn, false);
+  assert.equal(reset.paralyzedNextTurn, false);
+  assert.equal(reset.tieBanActive, false);
+  assert.equal(reset.attackBanTurns, 0);
+  assert.equal(reset.barrierBanTurns, 0);
+  assert.equal(reset.chargeBanTurns, 0);
+  assert.equal(reset.magicBanTurns, 0);
+  assert.deepEqual(
+    getAvailableActions(reset, 2).sort(),
+    ["attack", "magicWeak", "magicStrong", "barrier", "charge"].sort(),
+  );
 });
 
 test("getSinglePlayLimitBreakDisplayDurationMs waits 3 seconds after the final reveal", () => {

@@ -30,13 +30,14 @@ const player: PlayerBattleState = {
   lastActionCategory: null,
 };
 
-function renderBattle(isResolvingTurn = false) {
+function renderBattle(isResolvingTurn = false, limitBreakMode = false) {
   return renderToStaticMarkup(createElement(BattlePanel, {
     me: player,
     enemy: { ...player, id: "enemy", nickname: "スティックマン" },
     role: "host",
     turn: 1,
     turnResult: null,
+    limitBreakMode,
     countdown: 30,
     onActionSelect: () => {},
     onRematchSame: () => {},
@@ -44,6 +45,12 @@ function renderBattle(isResolvingTurn = false) {
     isResolvingTurn,
   }));
 }
+
+test("limit-break header hides the turn count and announces triple damage", () => {
+  const markup = renderBattle(false, true);
+  assert.ok(markup.includes("？？？"));
+  assert.ok(markup.includes("現在ダメージ3倍中"));
+});
 
 test("only the enemy action grid is mirrored, with all five choices retained", () => {
   const markup = renderBattle();
