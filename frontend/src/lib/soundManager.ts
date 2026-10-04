@@ -46,9 +46,11 @@ class SoundManager {
   }
 
   private startBgmPlayback(audio: HTMLAudioElement) {
-    audio.play().catch(() => {
-      if (this.bgmAudio === audio) this.addAutoplayRetry();
-    });
+    this.addAutoplayRetry();
+    audio.play().then(
+      () => this.removeAutoplayRetry(),
+      () => {},
+    );
   }
 
   private addAutoplayRetry() {
