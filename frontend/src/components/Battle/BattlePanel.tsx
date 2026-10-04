@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
 import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
-import { safeImageUrl } from "@/lib/imageUrl";
+import { CharacterImage } from "@/components/Battle/CharacterImage";
 import {
   getRoguelikeVoidDominationSpec,
   getVoidminationFormLabel,
@@ -79,6 +79,7 @@ export const VOIDMINATION_CUT_IN_DURATION_MS = 3900;
 export const HEAVY_DAMAGE_HP_RATIO = 0.33;
 export const HIT_FLASH_DURATION_MS = 720;
 export const IMPACT_EFFECT_DURATION_MS = 520;
+export const PORTRAIT_MIN_SIZE_PX = 64;
 const SCREEN_SHAKE_DURATION_MS = 220;
 const CHARGED_SCREEN_SHAKE_DURATION_MS = 360;
 
@@ -375,8 +376,9 @@ function PortraitBlock({
   const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
   const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
   // Size against the available stage, leaving room for labels and damage above.
-  const baseSize = "min(24cqw, 55cqh, 28dvh)";
-  const chargedSize = "min(26cqw, 60cqh, 30dvh)";
+  // The px floor keeps fighters visible even if the stage container collapses.
+  const baseSize = `max(${PORTRAIT_MIN_SIZE_PX}px, min(24cqw, 55cqh, 28dvh))`;
+  const chargedSize = `max(${PORTRAIT_MIN_SIZE_PX}px, min(26cqw, 60cqh, 30dvh))`;
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
   const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
@@ -514,8 +516,8 @@ function PortraitBlock({
                     style={{ animation: transformPulse ? "voidTypeShift 1.05s ease-in-out" : "none" }}
                   >
                     <div className="portrait-magic-glow" style={{ animation: magicGlowAnimation }}>
-                      <img
-                        src={safeImageUrl(player.imageDataUrl)}
+                      <CharacterImage
+                        src={player.imageDataUrl}
                         alt={`${player.nickname} のキャラクター`}
                         onMouseEnter={() => setTooltipVisible(true)}
                         onMouseLeave={() => setTooltipVisible(false)}
