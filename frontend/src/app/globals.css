@@ -119,6 +119,11 @@ body {
   padding-top: 6px !important;
 }
 
+/* 大きいボスでも技名とダメージ数字がステータス枠に重ならない余白。 */
+.battle-portrait-row:has([data-boss-kind="boss"], [data-boss-kind="final"]) {
+  padding-top: clamp(96px, 12dvh, 112px) !important;
+}
+
 .battle-status {
   width: clamp(140px, 24vw, 360px);
   min-width: 0 !important;
@@ -916,6 +921,13 @@ input {
   38% { transform: translateX(-50%) scale(1) rotate(-3deg); }
   70% { transform: translateX(-50%) translateY(-26px) scale(1) rotate(-3deg); opacity: 1; }
   100% { transform: translateX(-50%) translateY(-64px) scale(0.9) rotate(-3deg); opacity: 0; }
+}
+
+@keyframes bossDamageStickerPop {
+  0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
+  22% { transform: translateX(-50%) scale(1.12); opacity: 1; }
+  70% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.95); opacity: 0; }
 }
 
 /* コミック風のヒットバースト（ギザギザの爆発） */

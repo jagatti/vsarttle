@@ -444,10 +444,10 @@ function PortraitBlock({
                 zIndex: 12,
                 color,
                 fontWeight: 900,
-                fontSize,
+                fontSize: portraitKind === "normal" ? fontSize : `min(${fontSize}, clamp(20px, 8cqh, 32px))`,
                 WebkitTextStroke: `${charged || big ? 5 : 4}px #14161f`,
                 textShadow: `0 3px 0 #14161f, 0 0 14px ${glowColor}`,
-                animation: "damageStickerPop 1.25s cubic-bezier(0.18, 1.4, 0.4, 1) forwards",
+                animation: `${portraitKind === "normal" ? "damageStickerPop" : "bossDamageStickerPop"} 1.25s cubic-bezier(0.18, 1.4, 0.4, 1) forwards`,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
               }}

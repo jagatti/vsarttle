@@ -86,3 +86,14 @@ test("reduced motion disables final boss shake, movement, screen wash and partic
   assert.ok(reducedMotion.includes("animation: none !important;"));
   assert.match(reducedMotion, /\.final-boss-stage-wash,\s*\.final-boss-aura i,\s*\.final-boss-magic-bullet\s*\{\s*display: none;/);
 });
+
+test("boss battles reserve label clearance and damage pop stays in that clearance", () => {
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const clearance = css.split('.battle-portrait-row:has([data-boss-kind="boss"], [data-boss-kind="final"]) {')[1]?.split("}")[0];
+  assert.ok(clearance?.includes("padding-top: clamp(96px, 12dvh, 112px) !important;"));
+  const damagePop = css.split("@keyframes bossDamageStickerPop {")[1]?.split("\n}")[0];
+  assert.ok(damagePop?.includes("scale(1.12)"));
+  assert.equal(damagePop?.includes("translateY"), false);
+  const panel = readFileSync(new URL("./BattlePanel.tsx", import.meta.url), "utf8");
+  assert.ok(panel.includes('portraitKind === "normal" ? "damageStickerPop" : "bossDamageStickerPop"'));
+});
