@@ -294,7 +294,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
 
   if (stage === "loading") {
     return (
-      <section className="rounded-lg border border-violet-500/40 bg-slate-900/50 p-6 text-center text-violet-100">
+      <section className="app-panel p-6 text-center text-violet-100">
         <p className="text-lg font-bold">👻 ゴーストマッチ準備中…</p>
         <p className="mt-2 text-sm text-violet-200/80">このモードは過去プレイヤー作品とのCPU対戦です（対人戦ではありません）</p>
       </section>
@@ -303,18 +303,18 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
 
   if (stage === "error") {
     return (
-      <section className="rounded-lg border border-rose-500/40 bg-slate-900/60 p-6 text-center text-rose-100">
+      <section className="app-panel p-6 text-center text-rose-100">
         <p className="text-base font-bold">{errorMessage}</p>
         <div className="mt-4 flex justify-center gap-3">
           <button
             onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); void fetchGhost(); }}
-            className="rounded border border-violet-400 bg-violet-500/20 px-4 py-2 font-bold text-violet-100"
+            className="title-menu-button"
           >
             再試行
           </button>
           <button
             onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); props.onBackToTitle(); }}
-            className="rounded border border-slate-400 bg-slate-700/30 px-4 py-2 font-bold text-slate-100"
+            className="title-menu-button"
           >
             タイトルへ戻る
           </button>
@@ -326,7 +326,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   if (stage === "drawing") {
     return (
       <div>
-        <div className="mb-3 rounded-lg border border-violet-500/40 bg-slate-900/60 p-3 text-violet-100">
+        <div className="app-panel mb-3 p-3 text-violet-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-bold">👻 ゴーストマッチ（CPU戦）</div>
             <button
@@ -334,15 +334,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
                 soundManager.playSe("/sounds/se/button.mp3");
                 props.onBackToTitle();
               }}
-              style={{
-                border: "2px solid #6b7280",
-                background: "rgba(30,30,30,0.9)",
-                color: "#9ca3af",
-                borderRadius: 10,
-                padding: "8px 14px",
-                fontWeight: "bold",
-                cursor: "pointer",
-              }}
+              className="title-menu-button"
             >
               タイトルへ戻る
             </button>

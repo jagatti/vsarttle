@@ -102,7 +102,6 @@ export function TitleScreen(props: {
         ))}
 
         <header className="title-heading">
-          <p className="title-kicker">らくがきから、ぼうけんがはじまる</p>
           <h1 className="title-logo">arttle</h1>
           <p className="title-tagline">描いたラクガキで戦う</p>
         </header>

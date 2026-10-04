@@ -58,11 +58,10 @@ export function RoomPanel(props: {
               <button
                 key={mode}
                 type="button"
-                className="min-w-[180px] rounded border px-3 py-2 text-left transition"
+                className="title-menu-button room-mode-button"
+                aria-pressed={selected}
                 style={{
-                  borderColor: selected ? "#fbbf24" : "#4b5563",
-                  background: selected ? "rgba(251,191,36,0.15)" : "rgba(17,24,39,0.7)",
-                  color: selected ? "#fef3c7" : "#e5e7eb",
+                  ["--menu-accent" as string]: selected ? "#a66b13" : "#787b82",
                 }}
                 onClick={() => {
                   soundManager.playSe("/sounds/se/button.mp3");
@@ -70,7 +69,7 @@ export function RoomPanel(props: {
                 }}
               >
                 <div className="font-semibold">{label}</div>
-                <div className="text-sm text-gray-300">{description}</div>
+                <div className="text-sm">{description}</div>
               </button>
             );
           })}
@@ -78,18 +77,14 @@ export function RoomPanel(props: {
       </div>
       <div className="flex flex-wrap gap-2">
         <button
-          className="rounded border-2 px-3 py-2 font-semibold transition"
-          style={{
-            borderColor: "#6b7280",
-            background: "rgba(30,30,30,0.9)",
-            color: "#9ca3af",
-          }}
+          className="title-menu-button"
           onClick={handleBackToTitle}
         >
           タイトルへ戻る
         </button>
         <button
-          className="rounded bg-indigo-500 px-3 py-2 font-semibold text-white shadow-[0_0_12px_rgba(99,102,241,0.5)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
+          className="title-menu-button"
+          style={{ ["--menu-accent" as string]: "#5261b0" }}
           disabled={!props.canUseSignaling || !props.nickname.trim()}
           onClick={handleCreate}
         >
@@ -103,7 +98,8 @@ export function RoomPanel(props: {
           onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, ""))}
         />
         <button
-          className="rounded bg-sky-500 px-3 py-2 font-semibold text-white shadow-[0_0_12px_rgba(14,165,233,0.5)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:opacity-70 disabled:shadow-none"
+          className="title-menu-button"
+          style={{ ["--menu-accent" as string]: "#3276a0" }}
           disabled={!props.canUseSignaling || !props.nickname.trim() || joinCode.length !== 6}
           onClick={handleJoin}
         >

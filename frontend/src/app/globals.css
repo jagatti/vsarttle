@@ -1349,15 +1349,6 @@ main.app-title-shell {
   animation: titleLogoArrive 900ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
 
-.title-kicker {
-  margin: 0 0 2px;
-  color: #514532;
-  font-size: clamp(11px, 1.6vw, 15px);
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  text-shadow: 0 1px 0 rgba(255, 250, 230, 0.85);
-}
-
 .title-logo {
   margin: -8px 0 -5px;
   background: linear-gradient(115deg, #b45b10 4%, #d23d3d 38%, #7742a5 68%, #2873a7 96%);
@@ -1393,6 +1384,8 @@ main.app-title-shell {
 }
 
 .title-menu-button {
+  --menu-accent: #787b82;
+  --menu-delay: 0ms;
   display: flex;
   min-width: 0;
   min-height: 54px;
@@ -1402,7 +1395,7 @@ main.app-title-shell {
   padding: 7px 14px;
   border: 2px solid var(--menu-accent);
   border-radius: 18px 13px 17px 14px / 13px 18px 12px 17px;
-  background: rgba(255, 250, 238, 0.94);
+  background: #fffaee;
   color: #29261f;
   text-align: left;
   box-shadow: 0 3px 0 color-mix(in srgb, var(--menu-accent) 48%, transparent),
@@ -1413,7 +1406,7 @@ main.app-title-shell {
   -webkit-tap-highlight-color: transparent;
 }
 
-.title-menu-button:hover {
+.title-menu-button:hover:not(:disabled) {
   background: #fffdf7;
   box-shadow: 0 5px 0 color-mix(in srgb, var(--menu-accent) 48%, transparent),
     0 9px 20px rgba(54, 43, 24, 0.2);
@@ -1421,7 +1414,7 @@ main.app-title-shell {
   transform: translateY(-2px) rotate(-0.35deg);
 }
 
-.title-menu-button:active {
+.title-menu-button:active:not(:disabled) {
   box-shadow: 0 1px 0 color-mix(in srgb, var(--menu-accent) 48%, transparent),
     0 3px 8px rgba(54, 43, 24, 0.16);
   transform: translateY(2px) scale(0.99);
@@ -1430,6 +1423,124 @@ main.app-title-shell {
 .title-menu-button:focus-visible {
   outline: 3px solid #28251f;
   outline-offset: 3px;
+}
+
+.title-menu-button:disabled {
+  --menu-accent: #787b82;
+  background: #e8e2d6;
+  color: #57534e;
+  box-shadow: none;
+  cursor: not-allowed;
+  animation: none;
+  opacity: 1;
+}
+
+.difficulty-screen {
+  width: min(100%, 520px);
+  box-sizing: border-box;
+  margin: auto;
+  padding: clamp(16px, 3vw, 28px);
+  border: 2px solid #8b7352;
+  border-radius: 18px 13px 17px 14px / 13px 18px 12px 17px;
+  background: #fffaee;
+  color: #29261f;
+  box-shadow: 0 6px 0 rgba(79, 61, 31, 0.3), 0 12px 32px rgba(54, 43, 24, 0.2);
+}
+
+.difficulty-heading {
+  margin: 0 0 20px;
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 900;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.difficulty-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.difficulty-button,
+.difficulty-back {
+  width: 100%;
+  flex: none;
+  justify-content: center;
+  font-weight: 900;
+  animation: none;
+}
+
+.difficulty-button {
+  font-size: clamp(16px, 2vw, 22px);
+}
+
+.difficulty-normal {
+  --menu-accent: #27834b;
+}
+
+.difficulty-hard {
+  --menu-accent: #bc3d35;
+}
+
+.difficulty-roguelike {
+  --menu-accent: #8050aa;
+}
+
+.difficulty-note {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #b7a78b;
+  border-radius: 10px;
+  background: #f2eadb;
+  color: #514532;
+  font-size: 15px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+main.title-bgm-active .app-panel {
+  background: #191c2b;
+}
+
+main.title-bgm-active > h1 {
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: #fffaee;
+  color: #29261f;
+  text-align: center;
+}
+
+main.title-bgm-active .app-panel button,
+main.title-bgm-active .app-panel input {
+  min-height: 44px;
+}
+
+main.title-bgm-active .app-panel .title-menu-button {
+  animation: none;
+}
+
+main.title-bgm-active .app-panel .text-gray-500 {
+  color: #9ca3af;
+}
+
+.room-mode-button {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.room-mode-button[aria-pressed="true"] {
+  background: #f7e4b4;
+  box-shadow: inset 0 0 0 1px #a66b13, 0 3px 0 #a66b13;
+}
+
+.options-close-button {
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  padding: 4px;
+  animation: none;
 }
 
 .title-menu-icon {
@@ -1562,6 +1673,28 @@ main.app-title-shell {
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
+  .difficulty-screen {
+    padding: 12px 20px;
+  }
+
+  .difficulty-heading {
+    margin-bottom: 10px;
+    font-size: 20px;
+  }
+
+  .difficulty-menu {
+    gap: 8px;
+  }
+
+  .difficulty-menu .title-menu-button {
+    min-height: 44px;
+  }
+
+  .difficulty-note {
+    padding: 8px;
+    line-height: 1.5;
+  }
+
   main.app-title-shell {
     padding-block: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-bottom));
   }
@@ -1569,10 +1702,6 @@ main.app-title-shell {
   .title-screen {
     gap: 4px;
     padding-block: 2px;
-  }
-
-  .title-kicker {
-    display: none;
   }
 
   .title-logo {

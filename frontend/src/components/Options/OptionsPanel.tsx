@@ -107,15 +107,8 @@ export function OptionsPanel(props: {
           </span>
           <button
             onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#9ca3af",
-              fontSize: 16,
-              cursor: "pointer",
-              lineHeight: 1,
-              padding: 0,
-            }}
+            className="title-menu-button options-close-button"
+            aria-label="閉じる"
             title="閉じる"
           >
             ✕
@@ -132,7 +125,7 @@ export function OptionsPanel(props: {
             max={100}
             value={Math.round(bgmVol * 100)}
             onChange={(e) => handleBgmChange(Number(e.target.value) / 100)}
-            style={{ width: "100%", accentColor: "#fde68a" }}
+            style={{ width: "100%", minHeight: 44, accentColor: "#fde68a" }}
           />
         </div>
 
@@ -146,7 +139,7 @@ export function OptionsPanel(props: {
             max={100}
             value={Math.round(seVol * 100)}
             onChange={(e) => handleSeChange(Number(e.target.value) / 100)}
-            style={{ width: "100%", accentColor: "#fde68a" }}
+            style={{ width: "100%", minHeight: 44, accentColor: "#fde68a" }}
           />
         </div>
       </div>
