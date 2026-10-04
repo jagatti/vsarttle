@@ -881,6 +881,8 @@ export function BattlePanel(props: {
   role: "host" | "guest";
   turn: number;
   turnResult: TurnResult | null;
+  /** Show the single-play final boss's unknown turn and forced 3× damage. */
+  limitBreakMode?: boolean;
   countdown: number;
   onActionSelect: (action: ActionType) => void;
   /**
@@ -1352,8 +1354,9 @@ export function BattlePanel(props: {
         };
       })()
     : null;
-  const currentDamageMultiplier = getDamageMultiplier(props.turn);
+  const currentDamageMultiplier = props.limitBreakMode ? 3 : getDamageMultiplier(props.turn);
   const upcomingDamageAnnouncement = (() => {
+    if (props.limitBreakMode) return null;
     const milestones = [
       { turn: 16, multiplier: 2 },
       { turn: 21, multiplier: 3 },
@@ -1802,7 +1805,7 @@ export function BattlePanel(props: {
             }}
           >
             <span style={{ fontSize: "clamp(10px, 0.9vw, 13px)", color: "#cbd5e1" }}>ターン</span>
-            <span style={{ fontSize: "clamp(20px, 2.1vw, 30px)", lineHeight: 1, textShadow: "0 3px 0 rgba(0,0,0,0.7)" }}>{props.turn}</span>
+            <span style={{ fontSize: "clamp(20px, 2.1vw, 30px)", lineHeight: 1, textShadow: "0 3px 0 rgba(0,0,0,0.7)" }}>{props.limitBreakMode ? "？？？" : props.turn}</span>
           </span>
           {upcomingDamageAnnouncement && (
             <span style={{ color: "#fde68a", fontWeight: "bold", fontSize: "clamp(11px, 1vw, 13px)", textShadow: "0 0 8px #f59e0b99" }}>

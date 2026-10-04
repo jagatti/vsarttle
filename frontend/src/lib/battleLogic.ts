@@ -162,6 +162,8 @@ export function resolveTurn(params: {
   actions: Record<string, ActionType>;
   weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection>>;
   rng?: () => number;
+  /** Use the late-battle 3× multiplier independently of the elapsed turn. */
+  forceTripleDamage?: boolean;
   /** When true, voidmination trigger is suppressed (e.g. single-play mode). */
   disableVoidmination?: boolean;
   /**
@@ -183,7 +185,7 @@ export function resolveTurn(params: {
   const right = structuredClone(params.players[rightId]);
   const leftAction = left.forceMagicStrongAction ? ("magicStrong" as ActionType) : params.actions[leftId];
   const rightAction = right.forceMagicStrongAction ? ("magicStrong" as ActionType) : params.actions[rightId];
-  const damageMultiplier = getDamageMultiplier(params.turn);
+  const damageMultiplier = params.forceTripleDamage ? 3 : getDamageMultiplier(params.turn);
 
   // Capture whether each player charged on the previous turn (before any new
   // charge this turn can overwrite the flag). The 1.5x multiplier expires at

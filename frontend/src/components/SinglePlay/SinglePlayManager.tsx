@@ -17,6 +17,7 @@ import {
   getSinglePlayLimitBreakStatusLines,
   LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS,
   LIMIT_BREAK_SURVIVE_GLOW_MS,
+  resetSinglePlayLimitBreakPlayerActions,
 } from "@/lib/singlePlayLimitBreak";
 import { soundManager } from "@/lib/soundManager";
 import { getSinglePlayStageBgm } from "@/lib/vsTransition";
@@ -962,6 +963,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           [enemyIdParam]: cpuAction,
         },
         disableVoidmination: true,
+        forceTripleDamage: !!currentBattle[enemyIdParam].limitBreakActive,
       });
 
       // If this hit would defeat the floor 5 phase 2 boss for the first time,
@@ -1016,7 +1018,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             const survivingEnemy = { ...nextStates[enemyIdParam], chargeMultiplier: 1 };
             const limitBrokenEnemy = applySinglePlayLimitBreak(survivingEnemy);
             const newBattle = {
-              [playerIdParam]: nextStates[playerIdParam],
+              [playerIdParam]: resetSinglePlayLimitBreakPlayerActions(nextStates[playerIdParam]),
               [enemyIdParam]: limitBrokenEnemy,
             };
             battleStateRef.current = newBattle;
@@ -1668,6 +1670,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         role="host"
         turn={turn}
         turnResult={turnResult}
+        limitBreakMode={!!enemyState.limitBreakActive}
         countdown={turnCountdown}
         onActionSelect={spStage === "battle" ? onActionSelect : () => {}}
         finishResult={battleFinish}

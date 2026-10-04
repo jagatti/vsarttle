@@ -47,6 +47,22 @@ export function applySinglePlayLimitBreak(enemy: PlayerBattleState): PlayerBattl
   };
 }
 
+export function resetSinglePlayLimitBreakPlayerActions(player: PlayerBattleState): PlayerBattleState {
+  return {
+    ...player,
+    currentPp: player.stats.maxPp,
+    chargeMultiplier: 1,
+    lastActionCategory: null,
+    chargedPreviousTurn: false,
+    paralyzedNextTurn: false,
+    tieBanActive: false,
+    attackBanTurns: 0,
+    barrierBanTurns: 0,
+    chargeBanTurns: 0,
+    magicBanTurns: 0,
+  };
+}
+
 export function getSinglePlayLimitBreakStatusLines(enemy: Pick<PlayerBattleState, "currentHp" | "currentPp" | "stats">): string[] {
   return [
     `HP ${enemy.currentHp}/${enemy.stats.maxHp}`,

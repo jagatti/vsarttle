@@ -311,6 +311,29 @@ test("resolveTurn applies global damage multiplier on long turns", () => {
   assert.equal(turn21.damageEvents[0].amount, 237);
 });
 
+test("resolveTurn can use the triple-damage multiplier before turn 21", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, maxPp: 999, pp: 999 };
+  player.currentPp = 999;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, hp: 999, maxHp: 999, pp: 999, maxPp: 999, defense: 999 };
+  boss.currentHp = 999;
+  boss.currentPp = 999;
+
+  const result = resolveTurn({
+    turn: 6,
+    players: { player, boss },
+    actions: { player: "barrier", boss: "magicStrong" },
+    forceTripleDamage: true,
+    rng: () => 0.99,
+  });
+
+  const reflection = result.damageEvents.find((event) => event.to === "boss" && event.reason === "バリア反射");
+  assert.equal(reflection?.amount, 1386);
+  assert.equal(result.winnerId, "player");
+  assert.equal(result.nextStates.boss.currentHp, 0);
+});
+
 test("resolveTurn: barrier vs paralyzed gives counter damage with the shared defense scaling", () => {
   const a = makePlayer("a"); // uses barrier
   const b = makePlayer("b"); // paralyzed
