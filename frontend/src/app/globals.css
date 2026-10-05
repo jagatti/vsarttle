@@ -1593,37 +1593,43 @@ main.title-bgm-active .app-panel .text-gray-500 {
 .title-doodle-stage {
   position: absolute;
   z-index: 0;
-  inset: auto 0 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
   height: calc(var(--doodle-size, 0px) + 18px);
   pointer-events: none;
+  overflow: hidden;
 }
 
 .title-doodle-lane {
   position: absolute;
   bottom: 8px;
-  display: flex;
-  width: 30%;
+  left: 0;
+  width: 100%;
   height: calc(var(--doodle-size) + 10px);
-  align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
 }
-
-.title-doodle-lane-1 { left: 0; }
-.title-doodle-lane-2 { right: 0; }
 
 .title-doodle-actor {
   --doodle-facing: 1;
-  --doodle-offset: 0%;
-  position: relative;
+  --doodle-position: 0.12;
+  position: absolute;
+  bottom: 0;
   width: var(--doodle-size);
-  max-width: 80%;
-  transform: translateX(var(--doodle-offset));
+  transform: translateX(calc(var(--doodle-position) * var(--doodle-travel, calc(100vw - var(--doodle-size)))));
   transition: transform var(--doodle-duration, 1600ms) ease-in-out;
 }
 
 .title-doodle-actor[hidden] { display: none; }
-.title-doodle-lane-2 .title-doodle-actor { --doodle-facing: -1; }
+.title-doodle-lane-2 .title-doodle-actor {
+  --doodle-facing: -1;
+  --doodle-position: 0.88;
+}
+
+.title-doodle-stage[data-paused="true"] * {
+  animation: none !important;
+  transition: none !important;
+}
 
 .title-doodle-motion,
 .title-doodle-facing {
@@ -1631,6 +1637,7 @@ main.title-bgm-active .app-panel .text-gray-500 {
 }
 
 .title-doodle-facing { transform: scaleX(var(--doodle-facing)); }
+.title-doodle-motion { --doodle-direction: var(--doodle-facing); }
 
 .title-doodle-image {
   display: block;
@@ -1672,6 +1679,15 @@ main.title-bgm-active .app-panel .text-gray-500 {
   animation-name: titleDoodleShadow;
 }
 
+.title-doodle-actor[data-action="walk"] .title-doodle-motion,
+.title-doodle-actor[data-action="walk"] .title-doodle-shadow {
+  animation-duration: 650ms;
+  animation-iteration-count: infinite;
+}
+
+.title-doodle-actor[data-action="attack"] .title-doodle-shadow { animation-name: titleDoodleAttackShadow; }
+.title-doodle-actor[data-action="retreat"] .title-doodle-shadow { animation-name: titleDoodleRetreatShadow; }
+
 @keyframes titleDoodleSway {
   0%, 100% { transform: none; }
   50% { transform: translate(1px, -2px) rotate(1deg) scale(1.015, 0.99); }
@@ -1683,18 +1699,18 @@ main.title-bgm-active .app-panel .text-gray-500 {
 }
 @keyframes titleDoodleWalk {
   0%, 100% { transform: none; }
-  25% { transform: translate(3%, -2px) rotate(-2deg); }
-  50% { transform: translate(6%, 0) rotate(2deg); }
-  75% { transform: translate(3%, -2px) rotate(-1deg); }
+  25%, 75% { transform: translateY(-2px) rotate(-2deg); }
+  50% { transform: rotate(2deg); }
 }
 @keyframes titleDoodleHop {
   0%, 100% { transform: none; }
   20%, 75% { transform: scale(1.035, 0.96); }
-  45% { transform: translateY(-7px) scale(0.98, 1.025); }
+  45% { transform: translateY(-6px) scale(0.98, 1.025); }
 }
 @keyframes titleDoodleRetreat {
   0%, 100% { transform: none; }
-  45% { transform: translateX(-6%) rotate(-3deg) scale(0.98, 1.02); }
+  35% { transform: translate(calc(var(--doodle-direction) * -12%), -3px) rotate(calc(var(--doodle-direction) * -9deg)); }
+  65% { transform: translateX(calc(var(--doodle-direction) * -5%)) rotate(calc(var(--doodle-direction) * 4deg)); }
 }
 @keyframes titleDoodleTilt {
   0%, 100% { transform: none; }
@@ -1702,12 +1718,24 @@ main.title-bgm-active .app-panel .text-gray-500 {
 }
 @keyframes titleDoodleAttack {
   0%, 100% { transform: none; }
-  35% { transform: rotate(-4deg) scale(1.025, 0.975); }
-  55% { transform: translateX(4%) rotate(4deg); }
+  30% { transform: translateX(calc(var(--doodle-direction) * -5%)) rotate(calc(var(--doodle-direction) * -8deg)) scale(1.025, 0.975); }
+  55% { transform: translateX(calc(var(--doodle-direction) * 14%)) rotate(calc(var(--doodle-direction) * 9deg)); }
 }
 @keyframes titleDoodleMagic {
   0%, 100% { transform: none; }
-  50% { transform: translateY(-3px) rotate(3deg) scale(1.025); }
+  20%, 40% { transform: rotate(-3deg) scale(1.025); }
+  30%, 50% { transform: rotate(3deg) scale(1.025); }
+  70% { transform: translateY(-4px) rotate(-2deg) scale(0.98, 1.01); }
+}
+@keyframes titleDoodleAttackShadow {
+  0%, 100% { transform: none; }
+  30% { transform: translateX(calc(var(--doodle-facing) * -8%)); }
+  55% { transform: translateX(calc(var(--doodle-facing) * 22%)); }
+}
+@keyframes titleDoodleRetreatShadow {
+  0%, 100% { transform: none; opacity: 1; }
+  35% { transform: translateX(calc(var(--doodle-facing) * -19%)) scale(0.93); opacity: 0.75; }
+  65% { transform: translateX(calc(var(--doodle-facing) * -8%)); }
 }
 @keyframes titleDoodleShadow {
   0%, 100% { opacity: 1; transform: none; }
