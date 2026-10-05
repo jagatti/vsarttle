@@ -190,6 +190,7 @@ test("stage stays decorative and frameless in a clipped ground strip below the m
   const hook = readFileSync(new URL("./useDoodleBehavior.ts", import.meta.url), "utf8");
   assert.match(hook, /!document.hidden && !reducedMotion.matches/);
   assert.match(hook, /pendingReaction.current && poses.every/);
+  assert.match(hook, /if \(reaction\) pendingReaction.current = reaction;/);
   assert.match(hook, /observer.disconnect\(\)/);
   assert.match(css, /\.title-doodle-stage\[data-paused="true"\] \* \{[^}]*animation: none !important;[^}]*transition: none !important;/);
 });

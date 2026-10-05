@@ -8,7 +8,7 @@ export function useDoodleBehavior(count: number, reaction: DoodleReaction, pause
   const pendingReaction = useRef<DoodleReaction>(null);
 
   useEffect(() => {
-    pendingReaction.current = reaction;
+    if (reaction) pendingReaction.current = reaction;
   }, [reaction]);
 
   useEffect(() => {
