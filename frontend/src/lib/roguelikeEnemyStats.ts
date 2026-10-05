@@ -1,4 +1,4 @@
-import type { CharacterStats, CharacterType } from "@/types/game";
+import type { CharacterStats, CharacterType, WeakMagicEffectKind } from "@/types/game";
 
 export const ROGUELIKE_TOTAL_FLOORS = 20;
 export const ROGUELIKE_PLAYER_INITIAL_STATS: CharacterStats = {
@@ -11,6 +11,13 @@ export const ROGUELIKE_PLAYER_INITIAL_STATS: CharacterStats = {
   speed: 1,
   evasion: 0.01,
 };
+
+export function getEnemyWeakMagicKindsByType(characterType?: string): WeakMagicEffectKind[] {
+  if (characterType === "attack") return ["tieBan", "magicBan"];
+  if (characterType === "defense") return ["attackBan", "chargeBan"];
+  if (characterType === "balanced") return ["paralysis", "tieBan", "chargeBan"];
+  return ["paralysis", "barrierBan", "chargeBan"];
+}
 
 export function applyPerfectVictoryBuff(stats: CharacterStats): CharacterStats {
   const increase = (value: number) => Math.max(1, Math.ceil(Number((value * 1.1).toFixed(8))));
@@ -128,13 +135,12 @@ export function applyBossUpgrade(stats: CharacterStats, floor: number): Characte
   return stats;
 }
 
-export type BossMultiplyKey = "hp" | "defense" | "evasion";
+export type BossMultiplyKey = "hp" | "defense";
 
 /** For floor 17's 3-choice upgrade: multiply a single chosen stat by 2. */
 export function applyBossMultiplyUpgrade(stats: CharacterStats, key: BossMultiplyKey): CharacterStats {
   if (key === "hp") return { ...stats, hp: stats.hp * 2, maxHp: stats.maxHp * 2 };
   if (key === "defense") return { ...stats, defense: stats.defense * 2 };
-  if (key === "evasion") return { ...stats, evasion: Math.min(0.95, stats.evasion * 2) };
   return stats;
 }
 

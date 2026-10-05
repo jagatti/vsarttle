@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { healPlayerFully } from "@/lib/roguelikeTransition";
+import { applyPlayerStats, carryOverPlayerState, healPlayerFully } from "@/lib/roguelikeTransition";
+import { applyBossMultiplyUpgrade, applyBossUpgrade, applyPerfectVictoryBuff, applyUpgrade } from "@/lib/roguelikeEnemyStats";
+import { applyColorDrain } from "@/lib/roguelikeVoidDomination";
+import { calculateFinalHpRatio } from "@/lib/matchBuilders";
 import type { PlayerBattleState } from "@/types/game";
 
 function makePlayer(overrides: Partial<PlayerBattleState> = {}): PlayerBattleState {
@@ -65,22 +68,96 @@ test("healPlayerFully with already-full HP still returns max", () => {
   assert.equal(healed.currentPp, 50);
 });
 
-test("healPlayerFully 18→19 transition: player HP/PP restored to maxHp/maxPp", () => {
+test("carryOverPlayerState 18→19 transition preserves HP/PP", () => {
   // Simulate 18→19 transition: player took damage during floor 18 battle
   const player = makePlayer({ currentHp: 12, currentPp: 3 });
-  const healed = healPlayerFully(player);
-  assert.equal(healed.currentHp, player.stats.maxHp, "HP should be fully restored");
-  assert.equal(healed.currentPp, player.stats.maxPp, "PP should be fully restored");
+  const carried = carryOverPlayerState(player);
+  assert.equal(carried.currentHp, 12);
+  assert.equal(carried.currentPp, 3);
 });
 
-test("healPlayerFully 19→20 transition: player HP/PP restored to maxHp/maxPp", () => {
+test("carryOverPlayerState 19→20 transition preserves HP/PP", () => {
   // Simulate 19→20 (limit break) transition
   const player = makePlayer({
     currentHp: 45,
     currentPp: 0,
     stats: { hp: 200, maxHp: 200, pp: 80, maxPp: 80, attack: 120, defense: 100, speed: 10, evasion: 0 },
   });
-  const healed = healPlayerFully(player);
-  assert.equal(healed.currentHp, 200);
-  assert.equal(healed.currentPp, 80);
+  const carried = carryOverPlayerState(player);
+  assert.equal(carried.currentHp, 45);
+  assert.equal(carried.currentPp, 0);
+});
+
+test("carryOverPlayerState resets battle effects without changing stats or resources", () => {
+  const player = makePlayer();
+  const snapshot = structuredClone(player);
+  const carried = carryOverPlayerState(player);
+  assert.deepEqual(carried, { ...healPlayerFully(player), currentHp: 30, currentPp: 10 });
+  assert.deepEqual(player, snapshot);
+  assert.equal(calculateFinalHpRatio(player.id, { [player.id]: carried }), 0.3);
+  assert.equal(carryOverPlayerState(makePlayer({ currentHp: 0 })).currentHp, 0);
+});
+
+test("perfect victory restores only the increase in maximum HP/PP", () => {
+  const player = makePlayer({
+    stats: { ...makePlayer().stats, hp: 250, maxHp: 250 },
+  });
+  const buffed = applyPlayerStats(player, applyPerfectVictoryBuff(player.stats));
+  assert.equal(buffed.currentHp, 55);
+  assert.equal(buffed.currentPp, 15);
+  assert.equal(buffed.stats.maxHp, 275);
+  assert.equal(buffed.stats.maxPp, 55);
+  assert.equal(buffed.chargeMultiplier, player.chargeMultiplier);
+});
+
+test("normal HP/PP upgrades restore the maximum increase on the next floor", () => {
+  const player = makePlayer();
+  const hp = carryOverPlayerState(player, applyUpgrade(player.stats, "hp", 35));
+  assert.equal(hp.currentHp, 65);
+  assert.equal(hp.currentPp, 10);
+  const pp = carryOverPlayerState(player, applyUpgrade(player.stats, "pp", 9));
+  assert.equal(pp.currentHp, 30);
+  assert.equal(pp.currentPp, 19);
+  const attack = carryOverPlayerState(player, applyUpgrade(player.stats, "attack", 14));
+  assert.equal(attack.currentHp, 30);
+  assert.equal(attack.currentPp, 10);
+});
+
+test("boss HP/PP multipliers restore the maximum increase, not all missing resources", () => {
+  const player = makePlayer();
+  for (const stats of [applyBossUpgrade(player.stats, 16), applyBossMultiplyUpgrade(player.stats, "hp")]) {
+    const carried = carryOverPlayerState(player, stats);
+    assert.equal(carried.currentHp, 130);
+    assert.equal(carried.currentPp, 10);
+  }
+  const pp = carryOverPlayerState(player, applyBossUpgrade(player.stats, 10));
+  assert.equal(pp.currentHp, 30);
+  assert.equal(pp.currentPp, 60);
+});
+
+test("maximum reductions clamp resources without subtracting from already-low values", () => {
+  const player = makePlayer();
+  const stats = { ...player.stats, hp: 20, maxHp: 20, pp: 5, maxPp: 5 };
+  const clamped = applyPlayerStats(player, stats);
+  assert.equal(clamped.currentHp, 20);
+  assert.equal(clamped.currentPp, 5);
+  const low = applyPlayerStats(makePlayer({ currentHp: 12, currentPp: 3 }), stats);
+  assert.equal(low.currentHp, 12);
+  assert.equal(low.currentPp, 3);
+  const full = carryOverPlayerState(makePlayer({ currentHp: 100, currentPp: 50 }), applyPerfectVictoryBuff(player.stats));
+  assert.equal(full.currentHp, full.stats.maxHp);
+  assert.equal(full.currentPp, full.stats.maxPp);
+});
+
+test("color drain reductions persist across floors without restoring drained maxima", () => {
+  const player = makePlayer({ currentHp: 100, currentPp: 50 });
+  const drained = applyColorDrain(player, makePlayer({ id: "boss" })).player;
+  const carried = carryOverPlayerState(drained);
+  assert.equal(carried.stats.maxHp, 85);
+  assert.equal(carried.currentHp, 85);
+  assert.equal(carried.stats.maxPp, 43);
+  assert.equal(carried.currentPp, 43);
+  const damaged = carryOverPlayerState({ ...drained, currentHp: 12, currentPp: 3 });
+  assert.equal(damaged.currentHp, 12);
+  assert.equal(damaged.currentPp, 3);
 });

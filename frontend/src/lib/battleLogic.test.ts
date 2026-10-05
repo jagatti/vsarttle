@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { applyDefense, DEFENSE_SCALE, getAvailableActions, getDamageMultiplier, resolveTurn } from "@/lib/battleLogic";
+import { getEnemyWeakMagicKindsByType } from "@/lib/roguelikeEnemyStats";
 import type { ActionType, PlayerBattleState, WeakMagicEffectSelection } from "@/types/game";
 
 const makePlayer = (id: string): PlayerBattleState => ({
@@ -825,6 +826,32 @@ test("roguelike void-domination floor 18 color drain permanently lowers the play
   assert.equal(result.nextStates.player.stats.maxPp, 43);
   assert.equal(result.nextStates.boss.currentHp, 631);
   assert.equal(result.nextStates.boss.currentPp, 107);
+});
+
+test("roguelike floor 17 weak magic uses the form reached during the same turn", () => {
+  const player = makePlayer("player");
+  player.stats = { ...player.stats, speed: 10, maxHp: 500, hp: 500 };
+  player.currentHp = 500;
+  const boss = makePlayer("boss");
+  boss.stats = { ...boss.stats, speed: 1 };
+  boss.currentHp = 70;
+  boss.voidminationSourceFloor = 17;
+  const rngValues = [0.99, 0, 0.99, 0];
+  const result = resolveTurn({
+    turn: 1,
+    players: { player, boss },
+    actions: { player: "magicStrong", boss: "magicWeak" },
+    weakMagicSelections: {
+      boss: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
+    },
+    rng: () => rngValues.shift() ?? 0.99,
+    roguelikeBossBattle: { floor: 17, bossId: "boss", playerId: "player" },
+  });
+  assert.equal(result.voidminationTriggered, true);
+  assert.equal(result.nextStates.boss.characterType, "attack");
+  assert.equal(result.nextStates.player.tieBanActive, true);
+  assert.equal(result.nextStates.player.paralyzedNextTurn, false);
+  assert.equal(result.magicEffectEvents[0]?.effectName, "あいこ禁止");
 });
 
 test("roguelike void-domination floor 17 keeps the first form for three full turns before rotating", () => {

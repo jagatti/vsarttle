@@ -2,11 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getRoguelikeUpgradeAddAmountsByRarity,
+  getRoguelikeBossUpgradeChoices,
   pickRandomAvailableWeakMagicEffect,
   pickRoguelikeWeakFloorUpgradeSlots,
   rollRoguelikeUpgradeRarity,
 } from "@/lib/roguelikeUpgrades";
 import type { WeakMagicEffectKind } from "@/types/game";
+
+test("boss floors offer their original upgrade and full HP/PP recovery", () => {
+  for (const [floor, label] of [[5, "攻撃 ×2"], [10, "PP ×2"], [13, "防御 ×2"], [16, "HP ×2"]] as const) {
+    assert.deepEqual(getRoguelikeBossUpgradeChoices(floor), [
+      { kind: "boss", floor, label },
+      { kind: "full-heal", label: "HPとPP全回復" },
+    ]);
+  }
+});
+
+test("floor 17 offers HP, defense, and full recovery instead of evasion", () => {
+  assert.deepEqual(getRoguelikeBossUpgradeChoices(17), [
+    { kind: "boss-multiply", key: "hp", label: "HP ×2" },
+    { kind: "boss-multiply", key: "defense", label: "防御 ×2" },
+    { kind: "full-heal", label: "HPとPP全回復" },
+  ]);
+});
+
+test("floors without boss rewards still offer no boss upgrades", () => {
+  for (const floor of [1, 18, 19, 20]) {
+    assert.deepEqual(getRoguelikeBossUpgradeChoices(floor), []);
+  }
+});
 
 test("getRoguelikeUpgradeAddAmountsByRarity halves ★1 values with ceil for integers", () => {
   const amounts = getRoguelikeUpgradeAddAmountsByRarity(1);
