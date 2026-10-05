@@ -32,9 +32,17 @@ test("buildRoguelikeDebugRunInit uses the default config to reproduce the roguel
     evasion: 0.01,
   });
   assert.deepEqual(init.acquiredWeakMagicKinds, []);
+  assert.deepEqual(init.acquiredSkills, {});
   assert.equal(init.playerDrawingDataUrl, ROGUELIKE_DEBUG_PLACEHOLDER_DRAWING_DATA_URL);
   assert.equal(init.playerCharacterType, ROGUELIKE_DEBUG_PLACEHOLDER_CHARACTER_TYPE);
   assert.equal(init.isDebugRun, true);
+});
+
+test("debug skills exclude consumables and clamp finite stacks to registry limits", () => {
+  const skills = { attackResistance: 20, magicResistance: 2.9, filter: 3, ppAbsorb: -1, hpRegen: Number.NaN, smallHeal: 1 } as const;
+  const init = buildRoguelikeDebugRunInit({ ...ROGUELIKE_DEBUG_DEFAULT_CONFIG, acquiredSkills: skills });
+  assert.deepEqual(init.acquiredSkills, { attackResistance: 3, magicResistance: 2, filter: 1 });
+  assert.deepEqual(skills, { attackResistance: 20, magicResistance: 2.9, filter: 3, ppAbsorb: -1, hpRegen: Number.NaN, smallHeal: 1 });
 });
 
 test("buildRoguelikeDebugRunInit applies custom stats, floor, and acquired weak-magic kinds", () => {

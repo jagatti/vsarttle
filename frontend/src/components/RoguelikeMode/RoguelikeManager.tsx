@@ -34,7 +34,15 @@ import {
   pickRoguelikeWeakFloorUpgradeSlots,
   type RoguelikeBossUpgradeChoice,
   type RoguelikeUpgradeRarity,
+  type RoguelikeSkillUpgradeSlot,
 } from "@/lib/roguelikeUpgrades";
+import {
+  ROGUELIKE_SKILLS,
+  applyRoguelikeSkillReward,
+  buildRoguelikeSkillEffects,
+  buildRoguelikeSkillsTooltip,
+  type AcquiredSkills,
+} from "@/lib/roguelikeSkills";
 import {
   ROGUELIKE_DEBUG_DEFAULT_CONFIG,
   ROGUELIKE_DEBUG_WEAK_MAGIC_OPTIONS,
@@ -63,6 +71,7 @@ type RlStage = "drawing" | "debug-setup" | "vs" | "battle" | "win" | "upgrade" |
 type UpgradeChoice =
   | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
   | { kind: "weak-magic"; rarity: 3; effectKind: WeakMagicEffectKind; effectName: string }
+  | RoguelikeSkillUpgradeSlot
   | RoguelikeBossUpgradeChoice;
 
 interface RunResultSummary {
@@ -141,6 +150,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
   const [upgradeChoices, setUpgradeChoices] = useState<UpgradeChoice[]>([]);
   const [acquiredWeakMagicKinds, setAcquiredWeakMagicKinds] = useState<WeakMagicEffectKind[]>([]);
+  const [acquiredSkills, setAcquiredSkills] = useState<AcquiredSkills>({});
   const [runResult, setRunResult] = useState<RunResultSummary | null>(null);
   const [preparingFloor, setPreparingFloor] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -172,6 +182,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const submittedMatchRef = useRef(false);
   const retryActionRef = useRef<(() => void) | null>(null);
   const acquiredWeakMagicKindsRef = useRef<WeakMagicEffectKind[]>([]);
+  const acquiredSkillsRef = useRef<AcquiredSkills>({});
   const isDebugRunRef = useRef(false);
 
   useEffect(() => {
@@ -407,6 +418,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         [playerId]: { kinds: weakMagicPool },
         [enemyId]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
+      skillEffects: { [playerId]: buildRoguelikeSkillEffects(acquiredSkillsRef.current) },
       disableVoidmination: true,
       ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
       roguelikeBossBattle: !isWeakFloor(floorRef.current)
@@ -483,15 +495,16 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             floorRef.current,
             acquiredWeakMagicKindsRef.current,
             3,
+            Math.random,
+            {
+              acquiredSkills: acquiredSkillsRef.current,
+              currentHp: clearedPlayer.currentHp,
+              maxHp: clearedPlayer.stats.maxHp,
+            },
           ).map((slot): UpgradeChoice =>
             slot.kind === "stat"
               ? { kind: "weak-stat", rarity: slot.rarity, key: slot.key, amount: slot.amount }
-              : {
-                  kind: "weak-magic",
-                  rarity: 3,
-                  effectKind: slot.effectKind,
-                  effectName: slot.effectName,
-                },
+              : slot,
           );
           setUpgradeChoices(choices);
           setRlStage("win");
@@ -660,6 +673,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     setRunResult(null);
     setAcquiredWeakMagicKinds([]);
     acquiredWeakMagicKindsRef.current = [];
+    setAcquiredSkills({});
+    acquiredSkillsRef.current = {};
     setPlayerStats(ROGUELIKE_PLAYER_INITIAL_STATS);
     playerStatsRef.current = ROGUELIKE_PLAYER_INITIAL_STATS;
     void prepareFloor(1, ROGUELIKE_PLAYER_INITIAL_STATS);
@@ -677,6 +692,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     setRunResult(null);
     setAcquiredWeakMagicKinds(init.acquiredWeakMagicKinds);
     acquiredWeakMagicKindsRef.current = init.acquiredWeakMagicKinds;
+    setAcquiredSkills(init.acquiredSkills);
+    acquiredSkillsRef.current = init.acquiredSkills;
     setPlayerCharacterType(init.playerCharacterType);
     playerCharacterTypeRef.current = init.playerCharacterType;
     setPlayerDrawingDataUrl(init.playerDrawingDataUrl);
@@ -698,6 +715,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     if (!currentPlayer) return;
     soundManager.playSe("/sounds/se/button.mp3");
     let nextStats = playerStatsRef.current;
+    let nextPlayer = currentPlayer;
     if (choice.kind === "weak-stat") {
       nextStats = applyUpgrade(playerStatsRef.current, choice.key, choice.amount);
     } else if (choice.kind === "weak-magic") {
@@ -707,6 +725,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         acquiredWeakMagicKindsRef.current = next;
         return next;
       });
+    } else if (choice.kind === "skill") {
+      const reward = applyRoguelikeSkillReward(currentPlayer, choice.skillId, acquiredSkillsRef.current);
+      nextPlayer = reward.player;
+      setAcquiredSkills(reward.acquiredSkills);
+      acquiredSkillsRef.current = reward.acquiredSkills;
     } else if (choice.kind === "boss-multiply") {
       nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key);
     } else if (choice.kind === "boss") {
@@ -715,7 +738,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     setPlayerStats(nextStats);
     playerStatsRef.current = nextStats;
     setUpgradeChoices([]);
-    const nextPlayer = choice.kind === "full-heal" ? healPlayerFully(currentPlayer) : currentPlayer;
+    if (choice.kind === "full-heal") nextPlayer = healPlayerFully(currentPlayer);
     void prepareFloor(floorRef.current + 1, nextStats, nextPlayer);
   }
 
@@ -1152,6 +1175,27 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             ))}
           </div>
         </div>
+        <div className="mt-6">
+          <div className="mb-2 text-sm text-slate-300">初期スキル（スタック数）</div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            {Object.values(ROGUELIKE_SKILLS).filter((skill) => !skill.consumable).map((skill) => (
+              <label key={skill.id} title={skill.description} className="text-sm text-slate-200">
+                {skill.label}
+                <input
+                  type="number"
+                  min={0}
+                  max={skill.maxStacks}
+                  value={debugConfig.acquiredSkills?.[skill.id] ?? 0}
+                  onChange={(e) => setDebugConfig((prev) => ({
+                    ...prev,
+                    acquiredSkills: { ...prev.acquiredSkills, [skill.id]: Number(e.target.value) },
+                  }))}
+                  style={statFieldStyle}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="mt-6 flex gap-3">
           <button
             onClick={handleDebugStart}
@@ -1195,6 +1239,12 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   if ((rlStage === "battle" || rlStage === "win" || rlStage === "upgrade") && currentPlayerState && currentEnemyState) {
     const weakMagicTooltip = buildWeakMagicTooltip(acquiredWeakMagicKinds);
+    const skillsTooltip = buildRoguelikeSkillsTooltip(acquiredSkills);
+    const skillsSummary = Object.values(ROGUELIKE_SKILLS)
+      .filter((skill) => !skill.consumable && (acquiredSkills[skill.id] ?? 0) > 0)
+      .map((skill) => `${skill.label}${skill.maxStacks > 1 ? ` ×${acquiredSkills[skill.id]}` : ""}`)
+      .join("、");
+    const skillLogs = turnResult?.logs.filter((log) => log.startsWith("[スキル]")) ?? [];
     const isOverlayVisible = rlStage === "win" || rlStage === "upgrade";
     const init = ROGUELIKE_PLAYER_INITIAL_STATS;
     const statsDisplay: { label: string; value: string }[] = [
@@ -1228,6 +1278,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           suppressFinishOverlay={isOverlayVisible}
           roguelikeWeakMagicTooltipTitle={weakMagicTooltip}
         />
+        {skillLogs.length > 0 && rlStage === "battle" && (
+          <div role="status" className="fixed bottom-2 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded bg-slate-950/90 px-3 py-1 text-xs text-cyan-200 pointer-events-none">
+            {skillLogs.map((log, index) => <div key={index}>{log}</div>)}
+          </div>
+        )}
         {roguelikeBossSpeechBubble && (
           <div
             style={{
@@ -1279,7 +1334,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                 </div>
               </section>
             ) : (
-              <section className="w-full max-w-4xl rounded-lg border border-amber-500/40 bg-slate-900/95 p-6 text-amber-50">
+              <section className="max-h-[calc(100dvh-40px)] w-full max-w-4xl overflow-y-auto rounded-lg border border-amber-500/40 bg-slate-900/95 p-6 text-amber-50">
                 <div className="text-center">
                   <div className="text-sm text-amber-200">第{floor}層クリア！</div>
                   <h2 className="mt-2 text-2xl font-black">強化を選択</h2>
@@ -1291,9 +1346,12 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                     </span>
                   ))}
                 </div>
+                <div title={skillsTooltip} className="mt-3 text-center text-xs text-cyan-200">
+                  スキル: {skillsSummary || "未習得"}
+                </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   {upgradeChoices.map((choice, index) => {
-                    const rarity = choice.kind === "weak-stat" || choice.kind === "weak-magic" ? choice.rarity : null;
+                    const rarity = choice.kind === "weak-stat" || choice.kind === "weak-magic" || choice.kind === "skill" ? choice.rarity : null;
                     const rarityStyle = rarity ? rarityMeta[rarity] : null;
                     return (
                       <button
@@ -1314,12 +1372,12 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                       >
                         <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
                           <span>
-                            {rarity ? "成長スロット" : floor === 17 ? "ボス撃破報酬(17層)" : "ボス撃破報酬"}
+                            {choice.kind === "skill" ? "✨ スキル報酬" : rarity ? "成長スロット" : floor === 17 ? "ボス撃破報酬(17層)" : "ボス撃破報酬"}
                           </span>
                           {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
                         </div>
                         <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                          {choice.kind === "boss" || choice.kind === "boss-multiply" || choice.kind === "full-heal"
+                          {choice.kind === "boss" || choice.kind === "boss-multiply" || choice.kind === "full-heal" || choice.kind === "skill"
                             ? choice.label
                             : choice.kind === "weak-magic"
                             ? `🪄 ${choice.effectName}`
@@ -1328,6 +1386,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                         <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
                           {choice.kind === "full-heal"
                             ? "クリックしてHPとPPを最大値まで回復"
+                            : choice.kind === "skill"
+                            ? choice.description
                             : choice.kind === "boss" || choice.kind === "boss-multiply"
                             ? "クリックして強化を適用"
                             : choice.kind === "weak-magic"
@@ -1376,6 +1436,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
               setUpgradeChoices([]);
               setAcquiredWeakMagicKinds([]);
               acquiredWeakMagicKindsRef.current = [];
+              setAcquiredSkills({});
+              acquiredSkillsRef.current = {};
               setRunResult(null);
               enemyBattleIdRef.current = null;
               recentOwnerIdsRef.current = [];

@@ -1,5 +1,6 @@
 import type { CharacterStats, CharacterType, WeakMagicEffectKind } from "@/types/game";
 import { ROGUELIKE_PLAYER_INITIAL_STATS, ROGUELIKE_TOTAL_FLOORS } from "@/lib/roguelikeEnemyStats";
+import { ROGUELIKE_SKILLS, type AcquiredSkills } from "@/lib/roguelikeSkills";
 
 /** Query parameter that reveals the hidden debug-start entry point. Never shown without it. */
 export const ROGUELIKE_DEBUG_QUERY_PARAM = "rlDebug";
@@ -29,6 +30,7 @@ export interface RoguelikeDebugConfig {
   /** Evasion expressed as a whole-number percent (e.g. 1 for 1%), matching the on-screen input. */
   evasionPercent: number;
   acquiredWeakMagicKinds: WeakMagicEffectKind[];
+  acquiredSkills?: AcquiredSkills;
 }
 
 export const ROGUELIKE_DEBUG_DEFAULT_CONFIG: RoguelikeDebugConfig = {
@@ -40,6 +42,7 @@ export const ROGUELIKE_DEBUG_DEFAULT_CONFIG: RoguelikeDebugConfig = {
   speed: ROGUELIKE_PLAYER_INITIAL_STATS.speed,
   evasionPercent: Math.round(ROGUELIKE_PLAYER_INITIAL_STATS.evasion * 100),
   acquiredWeakMagicKinds: [],
+  acquiredSkills: {},
 };
 
 export function clampRoguelikeDebugFloor(floor: number): number {
@@ -51,6 +54,7 @@ export interface RoguelikeDebugRunInit {
   floor: number;
   playerStats: CharacterStats;
   acquiredWeakMagicKinds: WeakMagicEffectKind[];
+  acquiredSkills: AcquiredSkills;
   playerDrawingDataUrl: string;
   playerCharacterType: CharacterType;
   /** Marks the run as debug-originated so its result is excluded from match records. */
@@ -66,6 +70,13 @@ export function buildRoguelikeDebugRunInit(config: RoguelikeDebugConfig): Roguel
   const defense = Math.max(0, Math.round(config.defense));
   const speed = Math.max(0, Math.round(config.speed));
   const evasion = Math.min(0.95, Math.max(0, config.evasionPercent / 100));
+  const acquiredSkills: AcquiredSkills = {};
+  for (const skill of Object.values(ROGUELIKE_SKILLS)) {
+    const count = config.acquiredSkills?.[skill.id] ?? 0;
+    if (skill.consumable || !Number.isFinite(count)) continue;
+    const stacks = Math.min(skill.maxStacks, Math.max(0, Math.floor(count)));
+    if (stacks > 0) acquiredSkills[skill.id] = stacks;
+  }
 
   const playerStats: CharacterStats = {
     hp,
@@ -82,6 +93,7 @@ export function buildRoguelikeDebugRunInit(config: RoguelikeDebugConfig): Roguel
     floor,
     playerStats,
     acquiredWeakMagicKinds: Array.from(new Set(config.acquiredWeakMagicKinds)),
+    acquiredSkills,
     playerDrawingDataUrl: ROGUELIKE_DEBUG_PLACEHOLDER_DRAWING_DATA_URL,
     playerCharacterType: ROGUELIKE_DEBUG_PLACEHOLDER_CHARACTER_TYPE,
     isDebugRun: true,

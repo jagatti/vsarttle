@@ -12,6 +12,11 @@ import type {
 } from "@/types/game";
 import { checkVoidminationTrigger } from "@/lib/voidmination";
 import {
+  applyRoguelikeAutoRecovery,
+  ROGUELIKE_SKILL_BALANCE,
+  type RoguelikeSkillEffects,
+} from "@/lib/roguelikeSkills";
+import {
   applyBossMagicDamper,
   applyColorDrain,
   getOverchargeChargeRecovery,
@@ -172,6 +177,7 @@ export function resolveTurn(params: {
    * Existing callers that do not pass this argument are unaffected.
    */
   damageCaps?: Record<string, number>;
+  skillEffects?: Partial<Record<string, RoguelikeSkillEffects>>;
   roguelikeBossBattle?: {
     floor: number;
     bossId: string;
@@ -208,6 +214,8 @@ export function resolveTurn(params: {
     : null;
   const bossId = params.roguelikeBossBattle?.bossId;
   const playerId = params.roguelikeBossBattle?.playerId;
+  const effectsFor = (player: PlayerBattleState) => params.skillEffects?.[player.id];
+  const filterActive = (player: PlayerBattleState) => params.turn === 1 && !!effectsFor(player)?.filter;
   let voidminationStatusText: string | null = null;
 
   const bossState = bossId
@@ -295,7 +303,7 @@ export function resolveTurn(params: {
   }
 
   const applyPainShare = (from: PlayerBattleState, to: PlayerBattleState, amount: number) => {
-    const reflected = getPainShareDamage(amount);
+    const reflected = filterActive(to) ? 0 : getPainShareDamage(amount);
     if (reflected <= 0) return 0;
     to.currentHp = clamp(to.currentHp - reflected, 0, to.stats.maxHp);
     damageEvents.push({
@@ -314,9 +322,20 @@ export function resolveTurn(params: {
     to: PlayerBattleState,
     amount: number,
     reason: string,
+    source: "attack" | "magic" | "barrier",
     phaseHint?: "counter",
   ) => {
-    const scaledAmount = Math.max(MIN_DAMAGE, Math.round(amount * damageMultiplier));
+    const resistance = effectsFor(to)?.[`${source}Resistance`] ?? 0;
+    const stacks = Number.isFinite(resistance)
+      ? clamp(Math.floor(resistance), 0, ROGUELIKE_SKILL_BALANCE.maxResistanceStacks)
+      : 0;
+    const tieMultiplier = actionCategory(leftAction) === actionCategory(rightAction) && effectsFor(from)?.tieBoost
+      ? ROGUELIKE_SKILL_BALANCE.tieDamageMultiplier
+      : 1;
+    const resistedAmount = stacks > 0 || tieMultiplier !== 1
+      ? Math.max(MIN_DAMAGE, Math.round(amount * tieMultiplier * (1 - stacks * ROGUELIKE_SKILL_BALANCE.resistancePerStack)))
+      : amount;
+    const scaledAmount = Math.max(MIN_DAMAGE, Math.round(resistedAmount * damageMultiplier));
     const cap = params.damageCaps?.[to.id];
     const cappedAmount = cap !== undefined ? Math.min(scaledAmount, cap) : scaledAmount;
     const magicDamperActive = bossId && voidFloor
@@ -332,6 +351,10 @@ export function resolveTurn(params: {
     const voidActive = shouldSuppressEvasion(voidFloor ?? 0, bossVoidActive());
     const actual = maybeAvoid(finalAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
+      if (filterActive(to)) {
+        damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: false, reason, chargeMultiplier: from.chargeMultiplier, phaseHint });
+        return 0;
+      }
       const bossTakingDamage = !!bossState && to.id === bossState.id && voidFloor;
       const damageResolution = bossTakingDamage
         ? resolveVoidminationDamage({
@@ -372,6 +395,10 @@ export function resolveTurn(params: {
     const effects = getWeakMagicEffects(typeof selection === "function" ? selection(caster) : selection);
     const pick = effects[Math.floor(rng() * effects.length)];
     if (!pick) return;
+    if (effectsFor(affected)?.statusResistance && rng() < ROGUELIKE_SKILL_BALANCE.statusResistanceChance) {
+      logs.push(`[スキル] ${affected.nickname} は特殊効果を防いだ！`);
+      return;
+    }
     if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;
     if (pick.kind === "barrierBan") affected.barrierBanTurns = pick.turns;
     if (pick.kind === "magicBan") affected.magicBanTurns = pick.turns;
@@ -395,6 +422,10 @@ export function resolveTurn(params: {
           ppRecover: Math.ceil(player.stats.maxPp * 0.25),
           ppCeiling: player.stats.maxPp,
         };
+    if (!overchargeActive && leftAction === "charge" && rightAction === "charge" && effectsFor(player)?.tieBoost) {
+      chargeRecover.hpRecover = Math.ceil(player.stats.maxHp * ROGUELIKE_SKILL_BALANCE.tieChargeRecovery);
+      chargeRecover.ppRecover = Math.ceil(player.stats.maxPp * ROGUELIKE_SKILL_BALANCE.tieChargeRecovery);
+    }
     const hpRecover = chargeRecover.hpRecover;
     const ppRecover = chargeRecover.ppRecover;
     player.currentHp = clamp(player.currentHp + hpRecover, 0, player.stats.maxHp);
@@ -414,8 +445,23 @@ export function resolveTurn(params: {
     const maxCurrentPp = bossId && player.id === bossId && voidFloor === 16 && bossVoidActive()
       ? player.stats.maxPp * 2
       : player.stats.maxPp;
+    const before = player.currentPp;
     player.currentPp = clamp(player.currentPp - cost, 0, maxCurrentPp);
+    return Math.min(before, cost);
   };
+
+  const absorbPp = (player: PlayerBattleState, paidPp: number) => {
+    if (!effectsFor(player)?.ppAbsorb) return;
+    const recovered = Math.min(
+      Math.max(0, player.stats.maxPp - player.currentPp),
+      Math.ceil(paidPp * ROGUELIKE_SKILL_BALANCE.ppAbsorbRatio),
+    );
+    if (recovered <= 0) return;
+    player.currentPp += recovered;
+    logs.push(`[スキル] ${player.nickname} はPPを${recovered}吸収した！`);
+  };
+  const weakMagicHit = (dealt: number, affected: PlayerBattleState) =>
+    dealt > 0 || (filterActive(affected) && damageEvents.at(-1)?.avoided === false);
 
   const leftCategory = actionCategory(leftAction);
   const rightCategory = actionCategory(rightAction);
@@ -468,7 +514,7 @@ export function resolveTurn(params: {
   const processStrike = (actor: PlayerBattleState, action: ActionType, target: PlayerBattleState, targetAction?: ActionType) => {
     if (actor.currentHp <= 0) return;
     if (!canHit(action, targetAction)) return;
-    if (action === "attack") applyDamage(actor, target, attackDamage(actor, target), "こうげき");
+    if (action === "attack") applyDamage(actor, target, attackDamage(actor, target), "こうげき", "attack");
     if (action === "magicWeak" || action === "magicStrong") {
       consumePp(actor, action);
       const dealt = applyDamage(
@@ -476,11 +522,12 @@ export function resolveTurn(params: {
         target,
         magicDamage(action, actor, target, getMagicCostOptions(actor, action)),
         action === "magicWeak" ? "弱まほう" : "強まほう",
+        "magic",
       );
-      if (action === "magicWeak" && dealt > 0) applyWeakMagicEffect(actor, target, false);
+      if (action === "magicWeak" && weakMagicHit(dealt, target)) applyWeakMagicEffect(actor, target, false);
     }
     if (action === "barrier" && targetAction === "barrier") {
-      applyDamage(actor, target, barrierCollisionDamage(actor, target), "こうげき");
+      applyDamage(actor, target, barrierCollisionDamage(actor, target), "こうげき", "barrier");
     }
   };
 
@@ -491,33 +538,37 @@ export function resolveTurn(params: {
   } else if (rightActionSuppressed) {
     processStrike(left, leftAction, right, rightAction);
   } else if (leftCategory === "magic" && rightCategory === "barrier") {
-    consumePp(left, leftAction);
+    const paidPp = consumePp(left, leftAction);
     const dealt = applyDamage(
       right,
       left,
       reflectionDamage(leftAction, left, left.stats.defense, getMagicCostOptions(left, leftAction)),
       "バリア反射",
+      "barrier",
     );
+    absorbPp(right, paidPp);
     // The magic caster (left) takes the reflected damage, so a 弱まほう effect
     // applies to themself instead of the barrier user.
-    if (leftAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(left, left, true);
+    if (leftAction === "magicWeak" && weakMagicHit(dealt, left)) applyWeakMagicEffect(left, left, true);
   } else if (rightCategory === "magic" && leftCategory === "barrier") {
-    consumePp(right, rightAction);
+    const paidPp = consumePp(right, rightAction);
     const dealt = applyDamage(
       left,
       right,
       reflectionDamage(rightAction, right, right.stats.defense, getMagicCostOptions(right, rightAction)),
       "バリア反射",
+      "barrier",
     );
-    if (rightAction === "magicWeak" && dealt > 0) applyWeakMagicEffect(right, right, true);
+    absorbPp(left, paidPp);
+    if (rightAction === "magicWeak" && weakMagicHit(dealt, right)) applyWeakMagicEffect(right, right, true);
   } else if (leftCategory === "barrier" && rightCategory === "charge") {
-    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "counter");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "barrier", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "charge") {
-    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "counter");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "barrier", "counter");
   } else if (leftCategory === "barrier" && rightCategory === "paralysis") {
-    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "counter");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "barrier", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "paralysis") {
-    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "counter");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "barrier", "counter");
   } else if (winner === null) {
     processStrike(speedFirst, speedFirst.id === left.id ? leftAction : rightAction, speedSecond, speedSecond.id === left.id ? leftAction : rightAction);
     processStrike(speedSecond, speedSecond.id === left.id ? leftAction : rightAction, speedFirst, speedFirst.id === left.id ? leftAction : rightAction);
@@ -563,6 +614,18 @@ export function resolveTurn(params: {
       voidminationStatusText = `${bossState.nickname} は${label}に変化した！`;
     } else {
       bossState.voidminationFormTurnsRemaining = remaining;
+    }
+  }
+
+  for (const player of [left, right]) {
+    const effects = effectsFor(player);
+    if (!effects) continue;
+    const recovered = applyRoguelikeAutoRecovery(player, effects);
+    const hpRecover = recovered.currentHp - player.currentHp;
+    const ppRecover = recovered.currentPp - player.currentPp;
+    Object.assign(player, recovered);
+    if (hpRecover > 0 || ppRecover > 0) {
+      logs.push(`[スキル] ${player.nickname} はHPを${hpRecover}、PPを${ppRecover}自動回復した！`);
     }
   }
 
