@@ -49,7 +49,7 @@ export const ROGUELIKE_SKILLS: Record<SkillId, RoguelikeSkill> = {
   attackResistance: { id: "attackResistance", label: "こうげき耐性", description: "こうげきの被ダメージを10%軽減する（最大3重）。", rarity: 1, maxStacks: ROGUELIKE_SKILL_BALANCE.maxResistanceStacks, consumable: false },
   magicResistance: { id: "magicResistance", label: "まほう耐性", description: "まほうの被ダメージを10%軽減する（最大3重）。", rarity: 1, maxStacks: ROGUELIKE_SKILL_BALANCE.maxResistanceStacks, consumable: false },
   barrierResistance: { id: "barrierResistance", label: "バリア耐性", description: "バリア同士の衝突・一方的なバリア・反射の被ダメージを10%軽減する（最大3重）。", rarity: 1, maxStacks: ROGUELIKE_SKILL_BALANCE.maxResistanceStacks, consumable: false },
-  tieBoost: { id: "tieBoost", label: "あいこ強化", description: "あいこの与ダメージが10%増加し、チャージ回復量が35%になる。", rarity: 1, maxStacks: 1, consumable: false },
+  tieBoost: { id: "tieBoost", label: "あいこ強化", description: "あいこ時、与ダメージが10%増加する。チャージ同士のときは、回復量が25%→35%になる。", rarity: 1, maxStacks: 1, consumable: false },
   ppRegen: { id: "ppRegen", label: "PP自動回復", description: "毎ターン終了時に最大PPの5%を回復する。", rarity: 2, maxStacks: 1, consumable: false },
   statusResistance: { id: "statusResistance", label: "異常耐性", description: "弱まほうの状態異常を50%の確率で無効化する。", rarity: 2, maxStacks: 1, consumable: false },
   filter: { id: "filter", label: "フィルター", description: "各バトルの1ターン目のすべての被ダメージを0にする（痛み分けを含む。状態異常は防がない）。", rarity: 2, maxStacks: 1, consumable: false },
