@@ -47,6 +47,7 @@ test("registry uses requested labels and precise barrier, filter and PP absorpti
   assert.equal(ROGUELIKE_SKILLS.attackResistance.label, "こうげき耐性");
   assert.equal(ROGUELIKE_SKILLS.magicResistance.label, "まほう耐性");
   assert.equal(ROGUELIKE_SKILLS.statusResistance.label, "異常耐性");
+  assert.equal(ROGUELIKE_SKILLS.tieBoost.description, "あいこ時、与ダメージが10%増加する。チャージ同士のときは、回復量が25%→35%になる。");
   for (const wording of ["衝突", "一方的", "反射"]) {
     assert.ok(ROGUELIKE_SKILLS.barrierResistance.description.includes(wording));
   }
@@ -165,6 +166,7 @@ test("tooltip lists only acquired passives, descriptions and capped resistance s
     assert.ok(tooltip.includes(ROGUELIKE_SKILLS[id].label));
     assert.ok(tooltip.includes(ROGUELIKE_SKILLS[id].description));
   }
+  assert.ok(tooltip.includes("あいこ時、与ダメージが10%増加する。チャージ同士のときは、回復量が25%→35%になる。"));
   assert.ok(tooltip.includes("×3"));
   assert.ok(!tooltip.includes("×99"));
 });
