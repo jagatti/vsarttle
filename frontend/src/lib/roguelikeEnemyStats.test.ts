@@ -8,10 +8,13 @@ import {
   applyUpgrade,
   buildWeakEnemyStats,
   getUpgradeAddAmounts,
+  getEnemyWeakMagicKindsByType,
   isBossFloor,
   isWeakFloor,
   pickRandomUpgradeSlots,
 } from "@/lib/roguelikeEnemyStats";
+import { ALL_WEAK_MAGIC_EFFECTS } from "@/lib/battleLogic";
+import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 
 const baseStats = {
   hp: 100,
@@ -23,6 +26,40 @@ const baseStats = {
   speed: 4,
   evasion: 0.1,
 };
+
+test("enemy weak magic effects follow character type", () => {
+  assert.deepEqual(getEnemyWeakMagicKindsByType("attack"), ["tieBan", "magicBan"]);
+  assert.deepEqual(getEnemyWeakMagicKindsByType("magic"), ["paralysis", "barrierBan", "chargeBan"]);
+  assert.deepEqual(getEnemyWeakMagicKindsByType("defense"), ["attackBan", "chargeBan"]);
+  assert.deepEqual(getEnemyWeakMagicKindsByType("balanced"), ["paralysis", "tieBan", "chargeBan"]);
+  for (const type of ["attack", "magic", "defense", "balanced"]) {
+    assert.ok(getEnemyWeakMagicKindsByType(type).every((kind) => ALL_WEAK_MAGIC_EFFECTS.some((effect) => effect.kind === kind)));
+  }
+});
+
+test("unknown enemy types fall back to the original weak magic pool", () => {
+  for (const type of [undefined, "", "unknown"]) {
+    assert.deepEqual(getEnemyWeakMagicKindsByType(type), ["paralysis", "barrierBan", "chargeBan"]);
+  }
+});
+
+test("boss weak magic uses its current character type, including floor 17 forms", () => {
+  for (const floor of [5, 10, 13, 16, 17, 18, 19, 20]) {
+    const boss = buildRoguelikeBossState(floor);
+    const expected = floor === 5 ? ["tieBan", "magicBan"]
+      : floor === 13 ? ["attackBan", "chargeBan"]
+      : floor === 10 || floor === 16 ? ["paralysis", "barrierBan", "chargeBan"]
+      : ["paralysis", "tieBan", "chargeBan"];
+    assert.deepEqual(getEnemyWeakMagicKindsByType(boss.characterType), expected);
+  }
+  const boss = buildRoguelikeBossState(17);
+  boss.characterType = "attack";
+  assert.deepEqual(getEnemyWeakMagicKindsByType(boss.characterType), ["tieBan", "magicBan"]);
+  boss.characterType = "magic";
+  assert.deepEqual(getEnemyWeakMagicKindsByType(boss.characterType), ["paralysis", "barrierBan", "chargeBan"]);
+  boss.characterType = "defense";
+  assert.deepEqual(getEnemyWeakMagicKindsByType(boss.characterType), ["attackBan", "chargeBan"]);
+});
 
 test("applyTypeCorrection applies attack magic defense balanced corrections", () => {
   assert.deepEqual(applyTypeCorrection({ pp: 30, attack: 65, defense: 65 }, "attack"), { pp: 30, attack: 98, defense: 65 });
@@ -101,10 +138,7 @@ test("applyBossMultiplyUpgrade applies floor 17 single-key multipliers", () => {
   const hp = applyBossMultiplyUpgrade(baseStats, "hp");
   assert.deepEqual({ hp: hp.hp, maxHp: hp.maxHp }, { hp: 200, maxHp: 200 });
   assert.equal(applyBossMultiplyUpgrade(baseStats, "defense").defense, 60);
-  // evasion 0.1 * 2 = 0.2
-  assert.equal(applyBossMultiplyUpgrade(baseStats, "evasion").evasion, 0.2);
-  // evasion capped at 0.95
-  assert.equal(applyBossMultiplyUpgrade({ ...baseStats, evasion: 0.6 }, "evasion").evasion, 0.95);
+  assert.equal(hp.evasion, baseStats.evasion);
 });
 
 test("isWeakFloor and isBossFloor classify floors", () => {

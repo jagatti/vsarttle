@@ -1,5 +1,5 @@
 import { ALL_WEAK_MAGIC_EFFECTS } from "@/lib/battleLogic";
-import { getUpgradeAddAmounts, pickRandomUpgradeSlots, type UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
+import { getUpgradeAddAmounts, pickRandomUpgradeSlots, type BossMultiplyKey, type UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
 import type { WeakMagicEffectKind } from "@/types/game";
 
 export type RoguelikeUpgradeRarity = 1 | 2 | 3;
@@ -19,6 +19,25 @@ export interface RoguelikeWeakMagicUpgradeSlot {
 }
 
 export type RoguelikeWeakFloorUpgradeSlot = RoguelikeStatUpgradeSlot | RoguelikeWeakMagicUpgradeSlot;
+
+export type RoguelikeBossUpgradeChoice =
+  | { kind: "boss"; floor: number; label: string }
+  | { kind: "boss-multiply"; key: BossMultiplyKey; label: string }
+  | { kind: "full-heal"; label: string };
+
+export function getRoguelikeBossUpgradeChoices(floor: number): RoguelikeBossUpgradeChoice[] {
+  const fullHeal: RoguelikeBossUpgradeChoice = { kind: "full-heal", label: "HPとPP全回復" };
+  if (floor === 17) {
+    return [
+      { kind: "boss-multiply", key: "hp", label: "HP ×2" },
+      { kind: "boss-multiply", key: "defense", label: "防御 ×2" },
+      fullHeal,
+    ];
+  }
+  const labels: Record<number, string> = { 5: "攻撃 ×2", 10: "PP ×2", 13: "防御 ×2", 16: "HP ×2" };
+  const label = labels[floor];
+  return label ? [{ kind: "boss", floor, label }, fullHeal] : [];
+}
 
 export const ROGUELIKE_WEAK_MAGIC_EFFECTS = ALL_WEAK_MAGIC_EFFECTS.map((effect) => ({ kind: effect.kind, name: effect.name }));
 

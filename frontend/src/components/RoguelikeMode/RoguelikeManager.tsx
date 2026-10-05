@@ -20,17 +20,19 @@ import {
   applyPerfectVictoryBuff,
   applyUpgrade,
   buildWeakEnemyStats,
+  getEnemyWeakMagicKindsByType,
   isWeakFloor,
-  type BossMultiplyKey,
   type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
-import { healPlayerFully } from "@/lib/roguelikeTransition";
+import { applyPlayerStats, carryOverPlayerState, healPlayerFully } from "@/lib/roguelikeTransition";
 import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   buildWeakMagicTooltip,
+  getRoguelikeBossUpgradeChoices,
   pickRoguelikeWeakFloorUpgradeSlots,
+  type RoguelikeBossUpgradeChoice,
   type RoguelikeUpgradeRarity,
 } from "@/lib/roguelikeUpgrades";
 import {
@@ -61,8 +63,7 @@ type RlStage = "drawing" | "debug-setup" | "vs" | "battle" | "win" | "upgrade" |
 type UpgradeChoice =
   | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
   | { kind: "weak-magic"; rarity: 3; effectKind: WeakMagicEffectKind; effectName: string }
-  | { kind: "boss"; floor: number; label: string }
-  | { kind: "boss-multiply"; key: BossMultiplyKey; label: string };
+  | RoguelikeBossUpgradeChoice;
 
 interface RunResultSummary {
   floorReached: number;
@@ -83,20 +84,6 @@ const UPGRADE_LABELS: Record<UpgradeStatKey, string> = {
   evasion: "回避",
 };
 
-function getBossUpgradeLabel(floor: number): string {
-  if (floor === 5) return "攻撃 ×2";
-  if (floor === 10) return "PP ×2";
-  if (floor === 13) return "防御 ×2";
-  if (floor === 16) return "HP ×2";
-  return "強化";
-}
-
-const BOSS_MULTIPLY_LABELS: Record<BossMultiplyKey, string> = {
-  hp: "HP ×2",
-  defense: "防御 ×2",
-  evasion: "回避 ×2",
-};
-
 function formatUpgradeAmount(key: UpgradeStatKey, amount: number): string {
   if (key === "evasion") return `+${Math.round(amount * 100)}%`;
   return `+${amount}`;
@@ -104,12 +91,7 @@ function formatUpgradeAmount(key: UpgradeStatKey, amount: number): string {
 
 function applyPerfectVictoryToPlayer(player: PlayerBattleState): PlayerBattleState {
   const stats = applyPerfectVictoryBuff(player.stats);
-  return {
-    ...player,
-    stats,
-    currentHp: Math.min(stats.maxHp, Math.ceil(player.currentHp * 1.1)),
-    currentPp: Math.min(stats.maxPp, Math.ceil(player.currentPp * 1.1)),
-  };
+  return applyPlayerStats(player, stats);
 }
 
 function PerfectVictoryNotice(props: { floor: number; onDismiss: () => void }) {
@@ -300,7 +282,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     return body.ghost;
   }
 
-  async function prepareFloor(targetFloor: number, nextPlayerStats: CharacterStats) {
+  async function prepareFloor(targetFloor: number, nextPlayerStats: CharacterStats, previousPlayer?: PlayerBattleState) {
     const drawing = playerDrawingRef.current;
     const characterType = playerCharacterTypeRef.current;
     if (!drawing || !characterType) return;
@@ -309,11 +291,11 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     setPreparingFloor(true);
     setLoadError(null);
     retryActionRef.current = () => {
-      void prepareFloor(targetFloor, nextPlayerStats);
+      void prepareFloor(targetFloor, nextPlayerStats, previousPlayer);
     };
 
     try {
-      const playerState: PlayerBattleState = {
+      const playerState: PlayerBattleState = previousPlayer ? carryOverPlayerState(previousPlayer, nextPlayerStats) : {
         id: PLAYER_BATTLE_ID,
         nickname: props.playerProfile.nickname,
         imageDataUrl: drawing,
@@ -423,7 +405,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       },
       weakMagicSelections: {
         [playerId]: { kinds: weakMagicPool },
-        [enemyId]: { kinds: ["paralysis", "barrierBan", "chargeBan"] },
+        [enemyId]: { kinds: getEnemyWeakMagicKindsByType(enemy.characterType) },
       },
       disableVoidmination: true,
       ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
@@ -516,24 +498,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           return;
         }
 
-        if (floorRef.current === 17) {
-          const choices: UpgradeChoice[] = (["hp", "defense", "evasion"] as BossMultiplyKey[]).map((key) => ({
-            kind: "boss-multiply" as const,
-            key,
-            label: BOSS_MULTIPLY_LABELS[key],
-          }));
-          setUpgradeChoices(choices);
+        const bossChoices = getRoguelikeBossUpgradeChoices(floorRef.current);
+        if (bossChoices.length > 0) {
+          setUpgradeChoices(bossChoices);
           setRlStage("win");
           return;
         }
 
-        if ([5, 10, 13, 16].includes(floorRef.current)) {
-          setUpgradeChoices([{ kind: "boss", floor: floorRef.current, label: getBossUpgradeLabel(floorRef.current) }]);
-          setRlStage("win");
-          return;
-        }
-
-        void prepareFloor(floorRef.current + 1, playerStatsRef.current);
+        void prepareFloor(floorRef.current + 1, playerStatsRef.current, clearedPlayer);
         return;
       }
 
@@ -578,13 +550,13 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     floorDamageTakenRef.current = 0;
 
     if (nextFloor === 19) {
-      // 18→19: show 変身 overlay, then heal player and start floor 19
+      // 18→19: show 変身 overlay, then carry over player and start floor 19
       setRoguelikeBossTransforming(true);
       transitionTimerRef.current = window.setTimeout(() => {
         setRoguelikeBossTransforming(false);
-        const healedPlayer = healPlayerFully(currentPlayer);
+        const carriedPlayer = carryOverPlayerState(currentPlayer);
         const nextEnemy = buildRoguelikeBossState(19);
-        const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [nextEnemy.id]: nextEnemy };
+        const nextBattle = { [PLAYER_BATTLE_ID]: carriedPlayer, [nextEnemy.id]: nextEnemy };
         enemyBattleIdRef.current = nextEnemy.id;
         battleStateRef.current = nextBattle;
         setBattleState(nextBattle);
@@ -622,8 +594,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       transitionTimerRef.current = window.setTimeout(() => {
         setRoguelikeLimitBreaking(false);
         // Set up the battle state so BattlePanel renders behind the speech bubble.
-        const healedPlayer = healPlayerFully(currentPlayer);
-        const nextBattle = { [PLAYER_BATTLE_ID]: healedPlayer, [boss20.id]: boss20 };
+        const carriedPlayer = carryOverPlayerState(currentPlayer);
+        const nextBattle = { [PLAYER_BATTLE_ID]: carriedPlayer, [boss20.id]: boss20 };
         enemyBattleIdRef.current = boss20.id;
         battleStateRef.current = nextBattle;
         setBattleState(nextBattle);
@@ -648,18 +620,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
     // Generic seamless transition (currently unused, kept as fallback)
     const nextEnemy = buildRoguelikeBossState(nextFloor);
-    const cleanedPlayer: PlayerBattleState = {
-      ...currentPlayer,
-      chargeMultiplier: 1,
-      lastActionCategory: null,
-      chargedPreviousTurn: false,
-      paralyzedNextTurn: false,
-      tieBanActive: false,
-      attackBanTurns: 0,
-      barrierBanTurns: 0,
-      chargeBanTurns: 0,
-      magicBanTurns: 0,
-    };
+    const cleanedPlayer = carryOverPlayerState(currentPlayer);
     const nextBattle = { [PLAYER_BATTLE_ID]: cleanedPlayer, [nextEnemy.id]: nextEnemy };
     enemyBattleIdRef.current = nextEnemy.id;
     battleStateRef.current = nextBattle;
@@ -733,6 +694,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   }
 
   function handleUpgradeSelect(choice: UpgradeChoice) {
+    const currentPlayer = battleStateRef.current[PLAYER_BATTLE_ID];
+    if (!currentPlayer) return;
     soundManager.playSe("/sounds/se/button.mp3");
     let nextStats = playerStatsRef.current;
     if (choice.kind === "weak-stat") {
@@ -746,13 +709,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       });
     } else if (choice.kind === "boss-multiply") {
       nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key);
-    } else {
+    } else if (choice.kind === "boss") {
       nextStats = applyBossUpgrade(playerStatsRef.current, choice.floor);
     }
     setPlayerStats(nextStats);
     playerStatsRef.current = nextStats;
     setUpgradeChoices([]);
-    void prepareFloor(floorRef.current + 1, nextStats);
+    const nextPlayer = choice.kind === "full-heal" ? healPlayerFully(currentPlayer) : currentPlayer;
+    void prepareFloor(floorRef.current + 1, nextStats, nextPlayer);
   }
 
   useEffect(() => {
@@ -1350,21 +1314,21 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                       >
                         <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
                           <span>
-                            {choice.kind === "boss" ? "ボス撃破報酬" : choice.kind === "boss-multiply" ? "ボス撃破報酬(17層)" : "成長スロット"}
+                            {rarity ? "成長スロット" : floor === 17 ? "ボス撃破報酬(17層)" : "ボス撃破報酬"}
                           </span>
                           {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
                         </div>
                         <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                          {choice.kind === "boss"
-                            ? choice.label
-                            : choice.kind === "boss-multiply"
+                          {choice.kind === "boss" || choice.kind === "boss-multiply" || choice.kind === "full-heal"
                             ? choice.label
                             : choice.kind === "weak-magic"
                             ? `🪄 ${choice.effectName}`
                             : UPGRADE_LABELS[choice.key]}
                         </div>
                         <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
-                          {choice.kind === "boss" || choice.kind === "boss-multiply"
+                          {choice.kind === "full-heal"
+                            ? "クリックしてHPとPPを最大値まで回復"
+                            : choice.kind === "boss" || choice.kind === "boss-multiply"
                             ? "クリックして強化を適用"
                             : choice.kind === "weak-magic"
                             ? `${rarityStyle?.label} 弱まほう効果を習得`
