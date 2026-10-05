@@ -91,7 +91,9 @@ test("charge ties recover 35 percent only for the tie boost owner, with normal c
 
 test("filter blocks first-turn hits and reflected damage, expires, and does not block statuses", () => {
   const skills = { b: { filter: true } };
-  assert.equal(battle({ a: "attack", b: "paralysis" }, skills, { turn: 1 }).nextStates.b.currentHp, 1000);
+  const blocked = battle({ a: "attack", b: "paralysis" }, skills, { turn: 1 });
+  assert.equal(blocked.nextStates.b.currentHp, 1000);
+  assert.deepEqual(blocked.logs, ["[スキル] b のフィルターがダメージを防いだ！"]);
   assert.equal(battle({ a: "attack", b: "paralysis" }, skills, { turn: 2 }).nextStates.b.currentHp, 925);
   const hit = battle({ a: "magicWeak", b: "attack" }, skills, {
     turn: 1, weakMagicSelections: { a: { kinds: ["paralysis"] } },
@@ -188,10 +190,30 @@ test("pain share is not reduced by normal resistances or boosted by tie boost; f
   const filtered = battle({ a: "attack", b: "paralysis" }, { a: { filter: true } }, { ...extra, turn: 1 });
   assert.equal(filtered.nextStates.a.currentHp, 1000);
   assert.equal(filtered.nextStates.b.currentHp, 925);
+  assert.deepEqual(filtered.logs, ["[スキル] a のフィルターがダメージを防いだ！"]);
+  const multipleBlocks = battle({ a: "attack", b: "attack" }, { a: { filter: true } }, { ...extra, turn: 1 });
+  assert.deepEqual(multipleBlocks.logs, ["[スキル] a のフィルターがダメージを防いだ！"]);
   const tied = battle({ a: "attack", b: "attack" }, { a: { tieBoost: true, barrierResistance: 3 } }, extra);
   assert.equal(tied.damageEvents[0].amount, 83);
   assert.equal(tied.damageEvents[1].reason, "ペインシェア");
   assert.equal(tied.damageEvents[1].amount, 16);
+});
+
+test("filter does not log without a landed positive hit or positive pain-share damage", () => {
+  const a = player("a");
+  const b = player("b");
+  b.stats.evasion = 1;
+  const avoided = battle({ a: "attack", b: "paralysis" }, { b: { filter: true } }, { turn: 1, players: { a, b } });
+  assert.deepEqual(avoided.logs, []);
+  assert.deepEqual(battle({ a: "paralysis", b: "paralysis" }, { a: { filter: true } }, { turn: 1 }).logs, []);
+  a.stats.attack = 1;
+  b.stats.evasion = 0;
+  b.voidminationActive = true;
+  b.voidminationUsed = true;
+  const zeroPainShare = battle({ a: "attack", b: "paralysis" }, { a: { filter: true } }, {
+    turn: 1, players: { a, b }, roguelikeBossBattle: { floor: 10, bossId: "b", playerId: "a" },
+  });
+  assert.deepEqual(zeroPainShare.logs, []);
 });
 
 test("auto HP and PP recovery runs after combat, reports actual gains, and caps resources", () => {

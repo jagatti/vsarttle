@@ -216,6 +216,12 @@ export function resolveTurn(params: {
   const playerId = params.roguelikeBossBattle?.playerId;
   const effectsFor = (player: PlayerBattleState) => params.skillEffects?.[player.id];
   const filterActive = (player: PlayerBattleState) => params.turn === 1 && !!effectsFor(player)?.filter;
+  const filterLoggedIds = new Set<string>();
+  const logFilterBlock = (player: PlayerBattleState) => {
+    if (filterLoggedIds.has(player.id)) return;
+    filterLoggedIds.add(player.id);
+    logs.push(`[スキル] ${player.nickname} のフィルターがダメージを防いだ！`);
+  };
   let voidminationStatusText: string | null = null;
 
   const bossState = bossId
@@ -303,8 +309,12 @@ export function resolveTurn(params: {
   }
 
   const applyPainShare = (from: PlayerBattleState, to: PlayerBattleState, amount: number) => {
-    const reflected = filterActive(to) ? 0 : getPainShareDamage(amount);
+    const reflected = getPainShareDamage(amount);
     if (reflected <= 0) return 0;
+    if (filterActive(to)) {
+      logFilterBlock(to);
+      return 0;
+    }
     to.currentHp = clamp(to.currentHp - reflected, 0, to.stats.maxHp);
     damageEvents.push({
       from: from.id,
@@ -352,6 +362,7 @@ export function resolveTurn(params: {
     const actual = maybeAvoid(finalAmount, to.stats.evasion, rng, voidActive);
     if (actual > 0) {
       if (filterActive(to)) {
+        logFilterBlock(to);
         damageEvents.push({ from: from.id, to: to.id, amount: 0, avoided: false, reason, chargeMultiplier: from.chargeMultiplier, phaseHint });
         return 0;
       }
