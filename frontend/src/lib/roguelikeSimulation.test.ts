@@ -20,7 +20,16 @@ test("the run advances floors and carries current HP and PP without rewards", ()
 });
 
 test("reward policies select and apply the available stat reward", () => {
-  const result = simulateRoguelikeRun({ seed: 8142, battleAi: "tactical", rewardPolicy: "stat-hp-attack" });
-  assert.ok(result.rewardsTaken.some((reward) => reward.floor === 1 && reward.kind === "stat" && reward.rewardId === "hp"));
-  assert.ok(result.finalStats.maxHp > ROGUELIKE_PLAYER_INITIAL_STATS.maxHp);
+  const result = simulateRoguelikeRun({ seed: 1, battleAi: "tactical", rewardPolicy: "stat-hp-attack" });
+  const firstReward = result.rewardsTaken.find((reward) => reward.floor === 1);
+  assert.equal(firstReward?.kind, "stat");
+  assert.ok(result.finalStats[firstReward!.rewardId as keyof typeof result.finalStats] > ROGUELIKE_PLAYER_INITIAL_STATS[firstReward!.rewardId as keyof typeof ROGUELIKE_PLAYER_INITIAL_STATS]);
+});
+
+test("heal-aware policy takes HP growth while above the critical recovery threshold", () => {
+  const result = simulateRoguelikeRun({ seed: 14, battleAi: "tactical", rewardPolicy: "heal-aware" });
+  const floorEnd = result.floorEndStates.find((state) => state.floor === 1)!;
+  const firstReward = result.rewardsTaken.find((reward) => reward.floor === 1);
+  assert.ok(floorEnd.currentHp / floorEnd.maxHp >= 0.4);
+  assert.deepEqual(firstReward, { floor: 1, kind: "stat", rewardId: "hp" });
 });

@@ -109,7 +109,7 @@ function detailedMetrics(summaries: Summary[]): string {
     const bossPasses = BOSS_FLOORS.map((floor) => {
       const reached = runs.filter((run) => run.bossFloorsReached.includes(floor)).length;
       const passed = runs.filter((run) => run.bossFloorsCleared.includes(floor)).length;
-      return `${floor}層 ${percent(reached ? passed / reached : 0)}`;
+      return `${floor}層 ${percent(reached ? passed / reached : 0)} (${passed}/${reached})`;
     }).join("、");
     const stats = (key: "maxHp" | "attack" | "defense" | "speed") => mean(clears.map((run) => run.finalStats[key])).toFixed(0);
     lines.push(`| ${summary.policy} | ${summary.ai} | ${mean(runs.map((run) => run.floorReached)).toFixed(2)} | ${percent(mean(clears.map((run) => run.finalHpRatio)))} / ${percent(mean(clears.map((run) => run.finalPpRatio)))} | ${stats("maxHp")} / ${mean(clears.map((run) => run.finalStats.maxPp)).toFixed(0)} / ${stats("attack")} / ${stats("defense")} / ${stats("speed")} | ${bossPasses} | ${mean(runs.map((run) => run.fullHealUses)).toFixed(2)} | ${mean(runs.map((run) => run.consumableHealUses)).toFixed(2)} | ${mean(runs.map((run) => run.perfectVictories)).toFixed(2)} |`);
@@ -166,13 +166,14 @@ function weakMagicAnalysis(summaries: Summary[]): string {
 
 function experimentTable(base: Summary[], experiments: Summary[]): string {
   const lines = ["| 優先度 | シミュレーション上の変更 | 報酬方針 | 戦術AIクリア率 (95% CI) | 現行との差 |", "|---:|---|---|---:|---:|"];
-  for (const entry of experiments) {
+  const priority = (entry: Summary) => entry.variant.includes("敵攻撃") ? 1
+    : entry.variant.includes("ボス全回復") ? 2
+    : entry.variant.includes("HP自動回復") ? 3
+    : entry.variant.includes("回復保証") ? 4
+    : 5;
+  for (const entry of [...experiments].sort((left, right) => priority(left) - priority(right))) {
     const current = base.find((summary) => summary.policy === entry.policy && summary.ai === "tactical")!;
-    const priority = entry.variant.includes("敵攻撃") ? 1
-      : entry.variant.includes("ボス全回復") ? 2
-      : entry.variant.includes("HP自動回復") ? 3
-      : 4;
-    lines.push(`| ${priority} | ${entry.variant} | ${entry.policy} | ${percent(entry.clearRate)} (${percent(entry.ci[0])}–${percent(entry.ci[1])}) | ${(100 * (entry.clearRate - current.clearRate)).toFixed(1)}pt |`);
+    lines.push(`| ${priority(entry)} | ${entry.variant} | ${entry.policy} | ${percent(entry.clearRate)} (${percent(entry.ci[0])}–${percent(entry.ci[1])}) | ${(100 * (entry.clearRate - current.clearRate)).toFixed(1)}pt |`);
   }
   return lines.join("\n");
 }
@@ -207,6 +208,7 @@ async function main() {
     { name: "敵攻撃力 +15%", enemyAttackMultiplier: 1.15 },
     { name: "HP自動回復 5%→3%", hpRegenRatio: 0.03 },
     { name: "ボス全回復 HP60% + PP全回復", bossHealRatio: 0.6 },
+    { name: "HP70%未満なら通常報酬2枠目に回復保証", lowHpRewardHealThreshold: 0.7 },
     { name: "ステータス強化量 +25%", statUpgradeMultiplier: 1.25 },
   ];
   const experiments: Summary[] = [];
@@ -228,18 +230,22 @@ async function main() {
   const noStatCurrent = currentRuns("no-stat");
   const skillFirstCurrent = currentRuns("skill-first");
   const healAwareCurrent = currentRuns("heal-aware");
+  const statOnlyCurrent = currentRuns("stat-only");
+  const earlyNoStatFailures = noStatCurrent.runs.filter((run) => !run.cleared && run.floorReached <= 2).length / runs;
   const targetMessage = target
     ? `候補セット「${target.variant}」は heal-aware ${percent(target.clearRate)}、no-stat ${percent(experiments.find((entry) => entry.variant === target.variant && entry.policy === "no-stat")!.clearRate)}、skill-first ${percent(experiments.find((entry) => entry.variant === target.variant && entry.policy === "skill-first")!.clearRate)}。指定目安を同時に満たすため、調整候補として推奨する（本体適用前にプレイテスト）。`
-    : "4候補のいずれも heal-aware 3〜5割、no-stat/skill-first 各1.5割以下を同時に満たさなかった。現時点で目標セットを断定せず、表の差と信頼区間を見て追加の組み合わせ試験を行う。";
+    : "試した候補のいずれも heal-aware 3〜5割、no-stat/skill-first 各1.5割以下を同時に満たさなかった。現時点で目標セットを断定せず、表の差と信頼区間を見て追加の組み合わせ試験を行う。";
   const analysis = [
     "## 数値から見た分析と調整案",
     "",
     `- 現行条件の戦術AIでは ${topObservedSkill(baseline)}`,
     `- ボス全回復の平均選択数は heal-aware 戦術AIで ${mean(baseline.find((entry) => entry.policy === "heal-aware" && entry.ai === "tactical")!.runs.map((run) => run.fullHealUses)).toFixed(2)} 回/ラン。スキル消費回復は ${mean(baseline.find((entry) => entry.policy === "heal-aware" && entry.ai === "tactical")!.runs.map((run) => run.consumableHealUses)).toFixed(2)} 回/ラン。最大HP増加による回復と完全勝利時の最大値回復も存在するため、HP引継ぎだけでは消耗が十分な制約にならない可能性を検証対象とする。`,
     "- 「どの要因が原因か」は単独要因を無作為化していない比較から断定しない。スキル別クリア率差は方針・生存者バイアスを含む参考関連として掲載。",
-    `- 戦術AIの現行結果は heal-aware ${percent(healAwareCurrent.clearRate)}、no-stat ${percent(noStatCurrent.clearRate)}、skill-first ${percent(skillFirstCurrent.clearRate)}、報酬なし ${percent(currentRuns("baseline").clearRate)}。no-stat クリア時の平均最大HP ${mean(noStatCurrent.clears.map((run) => run.finalStats.maxHp)).toFixed(0)}、完全勝利 ${mean(noStatCurrent.runs.map((run) => run.perfectVictories)).toFixed(2)}回/ラン、ボス全回復 ${mean(noStatCurrent.runs.map((run) => run.fullHealUses)).toFixed(2)}回/ランを、HP増加・完全勝利・固定回復の寄与を読む手掛かりとして示す。`,
+    `- 戦術AIの現行結果は heal-aware ${percent(healAwareCurrent.clearRate)}、no-stat ${percent(noStatCurrent.clearRate)}、skill-first ${percent(skillFirstCurrent.clearRate)}、報酬なし ${percent(currentRuns("baseline").clearRate)}。stat-only は ${percent(statOnlyCurrent.clearRate)}。no-stat は ${percent(earlyNoStatFailures)} が2層までに脱落し、全回復を平均 ${mean(noStatCurrent.runs.map((run) => run.fullHealUses)).toFixed(2)} 回/ランしか選べなかったため、このAI/方針条件ではボス報酬の全回復に到達する前の序盤消耗が主なボトルネック。これはプレイヤー操作の再現ではなく、敵火力や回復量が過剰/不足と断定する根拠ではない。`,
     "",
     "### 調整候補を同じシミュレータで再試行（戦術AI）",
+    "",
+    "優先度は原因に近い順の検証順。ベース方針のクリア率が0%の条件では差が出ず、変更効果を判定できない。",
     "",
     experimentTable(baseline, experiments),
     "",
@@ -295,7 +301,7 @@ async function main() {
     "- 通常敵は指定どおりゴーストを使わず、`buildWeakEnemyStats` の攻撃/魔法/防御/バランス型から等確率で合成。プレイヤーもゲーム仕様どおりbalanced。",
     "- プレイヤーAIはランダム、直前の敵行動を使う堅実型、より積極的にカウンターする戦術型。人間の操作・敵のゴースト個性・通信/演出待ちを再現しない。",
     "- 1戦80ターンで安全打ち切り。仮に到達した場合はその層の敗北として計上。ボス固有処理は `resolveTurn` の現在の実装に依存。",
-    "- 実験条件はシミュレーション引数での上書きだけ。HP自動回復3%は通常の5%回復をシミュレーション側で置き換え、ボス全回復60%はHPのみ60%・PP全回復、敵攻撃+15%とステータス強化+25%は生成/報酬の値だけに適用。",
+    "- 実験条件はシミュレーション引数での上書きだけ。HP自動回復3%は通常の5%回復をシミュレーション側で置き換え、ボス全回復60%はHPのみ60%・PP全回復、敵攻撃+15%とステータス強化+25%は生成/報酬の値だけ、HP70%未満での回復保証は通常報酬第2枠の抽選条件だけに適用。",
     "",
   ].join("\n");
   await mkdir(dirname(outputPath), { recursive: true });

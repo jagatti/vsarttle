@@ -36,6 +36,7 @@ export interface RoguelikeSimulationVariant {
   bossHealRatio?: number;
   hpRegenRatio?: number;
   statUpgradeMultiplier?: number;
+  lowHpRewardHealThreshold?: number;
 }
 
 export interface RoguelikeSimulationOptions {
@@ -107,24 +108,28 @@ function choosePlayerAction(
     barrier: "attack",
   };
   const preferredCategory = enemyCategory ? counter[enemyCategory] : undefined;
-  const preferredAction = actions.find((action) => actionCategory(action) === preferredCategory);
+  const preferredActions = actions.filter((action) => actionCategory(action) === preferredCategory);
   const hpRatio = player.currentHp / Math.max(1, player.stats.maxHp);
   const ppRatio = player.currentPp / Math.max(1, player.stats.maxPp);
   const charge = actions.includes("charge");
 
   if (ai === "steady") {
-    if (hpRatio < 0.35 && charge && enemyCategory !== "barrier") return "charge";
-    if (ppRatio < 0.25 && actions.includes("attack")) return "attack";
-    if (preferredAction && (ppRatio > 0.2 || actionCategory(preferredAction) !== "magic")) return preferredAction;
-    if (actions.includes("magicWeak") && ppRatio > 0.4) return "magicWeak";
-    return randomItem(actions, rng);
+    if (hpRatio < 0.65 && charge && enemyCategory !== "barrier") return "charge";
+    if (preferredActions.length) return preferredActions[0]!;
+    if (ppRatio < 0.5 && charge && enemyCategory !== "barrier") return "charge";
+    return actions.includes("attack") ? "attack" : randomItem(actions, rng);
   }
 
-  if (hpRatio < 0.25 && charge && enemyCategory !== "barrier") return "charge";
-  if (preferredAction && (actionCategory(preferredAction) !== "magic" || ppRatio > 0.15)) return preferredAction;
-  if (ppRatio < 0.2 && actions.includes("attack")) return "attack";
-  if (actions.includes("magicWeak") && ppRatio > 0.25) return "magicWeak";
-  if (charge && hpRatio < 0.5 && ppRatio < 0.5 && enemyCategory !== "barrier") return "charge";
+  if ((hpRatio < 0.7 || ppRatio < 0.5) && charge && enemyCategory !== "barrier") return "charge";
+  if (preferredActions.includes("magicStrong")) {
+    const damageMultiplier = turn > 20 ? 3 : turn > 15 ? 2 : 1;
+    const rawDamage = Math.ceil(player.stats.maxPp * 0.4) * 5 * player.chargeMultiplier;
+    const expectedDamage = Math.max(1, Math.round(rawDamage * 300 / (300 + Math.max(0, enemy.stats.defense)))) * damageMultiplier;
+    if (enemy.currentHp <= expectedDamage) return "magicStrong";
+  }
+  if (preferredActions.includes("magicWeak") && ppRatio > 0.55) return "magicWeak";
+  if (preferredActions.length) return preferredActions[0]!;
+  if (actions.includes("attack")) return "attack";
   return randomItem(actions, rng);
 }
 
@@ -161,7 +166,7 @@ function chooseWeakFloorReward(
 
   const hpRatio = player.currentHp / Math.max(1, player.stats.maxHp);
   const ppRatio = player.currentPp / Math.max(1, player.stats.maxPp);
-  if (hpRatio < 0.55) {
+  if (hpRatio < 0.4) {
     const heals = slots.filter((slot) => slot.kind === "skill" && ROGUELIKE_SKILLS[slot.skillId].consumable);
     if (heals.length) return heals.sort((a, b) => (b.kind === "skill" ? ROGUELIKE_SKILLS[b.skillId].rarity : 0) - (a.kind === "skill" ? ROGUELIKE_SKILLS[a.skillId].rarity : 0))[0]!;
   }
@@ -169,10 +174,11 @@ function chooseWeakFloorReward(
     const ppHeal = slots.find((slot) => slot.kind === "skill" && ROGUELIKE_SKILLS[slot.skillId].consumable);
     if (ppHeal) return ppHeal;
   }
+  const hpUpgrade = stats.find((slot) => slot.kind === "stat" && slot.key === "hp");
+  if (hpUpgrade) return hpUpgrade;
   const usefulSkill = slots.find((slot) => slot.kind === "skill" && ["hpRegen", "ppRegen", "attackResistance", "magicResistance", "barrierResistance", "filter", "statusResistance"].includes(slot.skillId));
   if (usefulSkill) return usefulSkill;
-  return stats.find((slot) => slot.kind === "stat" && slot.key === "hp")
-    ?? nonStats[0]
+  return nonStats[0]
     ?? stats[0]
     ?? null;
 }
@@ -187,7 +193,7 @@ function chooseBossReward(
   if (policy === "baseline" || choices.length === 0) return null;
   const heal = choices.find((choice) => choice.kind === "full-heal");
   if (policy === "random") return randomItem(choices, rng);
-  if (policy === "heal-aware" && heal && player.currentHp / player.stats.maxHp < 0.7) return heal;
+  if (policy === "heal-aware" && heal && player.currentHp / player.stats.maxHp < 0.4) return heal;
   if (policy === "stat-only") return choices.find((choice) => choice.kind !== "full-heal") ?? null;
   if (policy === "no-stat" && heal && player.currentHp / player.stats.maxHp < 0.4) return heal;
   if ((policy === "skill-first" || policy === "no-stat") && heal) return null;
@@ -291,6 +297,7 @@ export function simulateRoguelikeRun(options: RoguelikeSimulationOptions): Rogue
   const rewardsTaken: RoguelikeRunResult["rewardsTaken"] = [];
   let previousBoss: PlayerBattleState | undefined;
 
+  // Mirrors RoguelikeManager.prepareFloor and its seamless 18→19→20 transitions.
   for (let floor = 1; floor <= 20; floor += 1) {
     if (floor > 1) player = carryOverPlayerState(player, stats);
     floorReached = floor;
@@ -304,6 +311,7 @@ export function simulateRoguelikeRun(options: RoguelikeSimulationOptions): Rogue
     if (BOSS_FLOORS.includes(floor)) bossFloorsReached.push(floor);
     const enemy = makeEnemy(floor, rng, variant?.enemyAttackMultiplier);
     if (floor === 20 && previousBoss) {
+      // RoguelikeManager.startSeamlessNextBoss carries the floor 19 aura/form into floor 20.
       enemy.voidminationActive = previousBoss.voidminationActive;
       enemy.voidminationUsed = previousBoss.voidminationUsed;
       enemy.voidminationSourceFloor = previousBoss.voidminationSourceFloor;
@@ -358,6 +366,7 @@ export function simulateRoguelikeRun(options: RoguelikeSimulationOptions): Rogue
         floorsCleared += 1;
         if (BOSS_FLOORS.includes(floor)) bossFloorsCleared.push(floor);
         if (floorDamageTaken === 0) {
+          // Mirrors RoguelikeManager.finalizeTurn: perfect victories apply the buff and recover added max HP/PP.
           player = applyPlayerStats(player, applyPerfectVictoryBuff(player.stats));
           stats = player.stats;
           perfectVictories += 1;
@@ -401,9 +410,13 @@ export function simulateRoguelikeRun(options: RoguelikeSimulationOptions): Rogue
     const rewardPlayer = player;
     let choice: RoguelikeWeakFloorUpgradeSlot | RoguelikeBossUpgradeChoice | null = null;
     if (isWeakFloor(floor)) {
+      const rewardHp = variant?.lowHpRewardHealThreshold !== undefined
+        && player.currentHp / Math.max(1, player.stats.maxHp) < variant.lowHpRewardHealThreshold
+        ? Math.min(player.currentHp, Math.floor(player.stats.maxHp * 0.39))
+        : player.currentHp;
       const slots = pickRoguelikeWeakFloorUpgradeSlots(floor, acquiredWeakMagicKinds, 3, rng, {
         acquiredSkills,
-        currentHp: player.currentHp,
+        currentHp: rewardHp,
         maxHp: player.stats.maxHp,
       });
       choice = chooseWeakFloorReward(slots, options.rewardPolicy, player, rng);
