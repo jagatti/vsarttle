@@ -1585,29 +1585,133 @@ main.title-bgm-active .app-panel .text-gray-500 {
   line-height: 1;
 }
 
-.title-saved-doodle {
+.title-screen-with-doodles {
+  --doodle-size: min(128px, 16dvh, 22vw);
+  padding-bottom: calc(var(--doodle-size) + 18px);
+}
+
+.title-doodle-stage {
   position: absolute;
   z-index: 0;
-  bottom: 5%;
-  width: clamp(72px, 12vw, 132px);
-  aspect-ratio: 1;
-  border: 2px dashed rgba(103, 79, 44, 0.55);
-  border-radius: 45% 55% 48% 52% / 55% 45% 55% 45%;
-  background: rgba(255, 250, 235, 0.62);
-  object-fit: contain;
-  opacity: 0.82;
-  filter: sepia(0.12) drop-shadow(0 4px 4px rgba(67, 52, 31, 0.2));
+  inset: auto 0 0;
+  height: calc(var(--doodle-size, 0px) + 18px);
   pointer-events: none;
-  animation: titleSavedDoodleBreathe 5s ease-in-out infinite;
 }
 
-.title-saved-doodle-1 {
-  left: 2%;
+.title-doodle-lane {
+  position: absolute;
+  bottom: 8px;
+  display: flex;
+  width: 30%;
+  height: calc(var(--doodle-size) + 10px);
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.title-saved-doodle-2 {
-  right: 2%;
-  animation-delay: -2.5s;
+.title-doodle-lane-1 { left: 0; }
+.title-doodle-lane-2 { right: 0; }
+
+.title-doodle-actor {
+  --doodle-facing: 1;
+  --doodle-offset: 0%;
+  position: relative;
+  width: var(--doodle-size);
+  max-width: 80%;
+  transform: translateX(var(--doodle-offset));
+  transition: transform var(--doodle-duration, 1600ms) ease-in-out;
+}
+
+.title-doodle-actor[hidden] { display: none; }
+.title-doodle-lane-2 .title-doodle-actor { --doodle-facing: -1; }
+
+.title-doodle-motion,
+.title-doodle-facing {
+  transform-origin: center bottom;
+}
+
+.title-doodle-facing { transform: scaleX(var(--doodle-facing)); }
+
+.title-doodle-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--doodle-size);
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.title-doodle-shadow {
+  position: absolute;
+  bottom: -2px;
+  left: 18%;
+  width: 64%;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(65, 48, 26, 0.16), transparent 72%);
+  transform-origin: center;
+}
+
+.title-doodle-actor[data-action="sway"] .title-doodle-motion { animation-name: titleDoodleSway; }
+.title-doodle-actor[data-action="look"] .title-doodle-motion { animation-name: titleDoodleLook; }
+.title-doodle-actor[data-action="walk"] .title-doodle-motion { animation-name: titleDoodleWalk; }
+.title-doodle-actor[data-action="hop"] .title-doodle-motion { animation-name: titleDoodleHop; }
+.title-doodle-actor[data-action="retreat"] .title-doodle-motion { animation-name: titleDoodleRetreat; }
+.title-doodle-actor[data-action="tilt"] .title-doodle-motion { animation-name: titleDoodleTilt; }
+.title-doodle-actor[data-action="attack"] .title-doodle-motion { animation-name: titleDoodleAttack; }
+.title-doodle-actor[data-action="magic"] .title-doodle-motion { animation-name: titleDoodleMagic; }
+
+.title-doodle-actor:not([data-action="rest"]) .title-doodle-motion,
+.title-doodle-actor:not([data-action="rest"]) .title-doodle-shadow {
+  animation-duration: var(--doodle-duration);
+  animation-timing-function: cubic-bezier(0.35, 0, 0.25, 1);
+  animation-iteration-count: 1;
+}
+
+.title-doodle-actor:not([data-action="rest"]) .title-doodle-shadow {
+  animation-name: titleDoodleShadow;
+}
+
+@keyframes titleDoodleSway {
+  0%, 100% { transform: none; }
+  50% { transform: translate(1px, -2px) rotate(1deg) scale(1.015, 0.99); }
+}
+@keyframes titleDoodleLook {
+  0%, 100% { transform: none; }
+  35% { transform: rotate(-3deg) scaleX(0.98); }
+  70% { transform: rotate(3deg); }
+}
+@keyframes titleDoodleWalk {
+  0%, 100% { transform: none; }
+  25% { transform: translate(3%, -2px) rotate(-2deg); }
+  50% { transform: translate(6%, 0) rotate(2deg); }
+  75% { transform: translate(3%, -2px) rotate(-1deg); }
+}
+@keyframes titleDoodleHop {
+  0%, 100% { transform: none; }
+  20%, 75% { transform: scale(1.035, 0.96); }
+  45% { transform: translateY(-7px) scale(0.98, 1.025); }
+}
+@keyframes titleDoodleRetreat {
+  0%, 100% { transform: none; }
+  45% { transform: translateX(-6%) rotate(-3deg) scale(0.98, 1.02); }
+}
+@keyframes titleDoodleTilt {
+  0%, 100% { transform: none; }
+  50% { transform: rotate(-5deg) translateY(-1px); }
+}
+@keyframes titleDoodleAttack {
+  0%, 100% { transform: none; }
+  35% { transform: rotate(-4deg) scale(1.025, 0.975); }
+  55% { transform: translateX(4%) rotate(4deg); }
+}
+@keyframes titleDoodleMagic {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(-3px) rotate(3deg) scale(1.025); }
+}
+@keyframes titleDoodleShadow {
+  0%, 100% { opacity: 1; transform: none; }
+  50% { opacity: 0.75; transform: scale(0.93); }
 }
 
 @keyframes titleLogoArrive {
@@ -1627,17 +1731,6 @@ main.title-bgm-active .app-panel .text-gray-500 {
   }
   50% {
     transform: translateY(-1px);
-  }
-}
-
-@keyframes titleSavedDoodleBreathe {
-  0%, 100% {
-    opacity: 0.74;
-    transform: translateY(0) rotate(-2deg) scale(0.98);
-  }
-  50% {
-    opacity: 0.9;
-    transform: translateY(-5px) rotate(2deg) scale(1.02);
   }
 }
 
@@ -1665,11 +1758,13 @@ main.title-bgm-active .app-panel .text-gray-500 {
     font-size: 10px;
   }
 
-  .title-saved-doodle {
-    bottom: 2%;
-    width: 68px;
-    opacity: 0.68;
-  }
+}
+
+@media (orientation: portrait) and (max-height: 650px) {
+  .title-screen-with-doodles { gap: 6px; }
+  .title-screen-with-doodles .title-logo { font-size: 58px; }
+  .title-screen-with-doodles .title-menu { gap: 6px; }
+  .title-screen-with-doodles .title-menu-button { min-height: 44px; padding-block: 4px; }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
@@ -1702,6 +1797,10 @@ main.title-bgm-active .app-panel .text-gray-500 {
   .title-screen {
     gap: 4px;
     padding-block: 2px;
+  }
+
+  .title-screen-with-doodles {
+    padding-bottom: calc(var(--doodle-size) + 18px);
   }
 
   .title-logo {
@@ -1745,10 +1844,6 @@ main.title-bgm-active .app-panel .text-gray-500 {
     display: none;
   }
 
-  .title-saved-doodle {
-    bottom: 3%;
-    width: 58px;
-  }
 }
 
 @media (orientation: landscape) and (max-height: 500px) and (max-width: 600px) {
@@ -1761,7 +1856,9 @@ main.title-bgm-active .app-panel .text-gray-500 {
 @media (prefers-reduced-motion: reduce) {
   .title-heading,
   .title-menu-button,
-  .title-saved-doodle {
+  .title-doodle-actor,
+  .title-doodle-motion,
+  .title-doodle-shadow {
     animation: none !important;
     transition: none !important;
   }

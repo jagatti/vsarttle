@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { OptionsPanel } from "@/components/Options/OptionsPanel";
-import { FALLBACK_CHARACTER_IMAGE_URL, resolveCharacterImageUrl } from "@/lib/imageUrl";
 import { loadSlots } from "@/lib/drawingSlots";
 import { soundManager } from "@/lib/soundManager";
+import { TitleDoodleStage } from "./TitleDoodleStage";
+import { selectTitleDoodles, type DoodleReaction } from "./doodleBehavior";
 
 interface TitleMenuItem {
   key: string;
@@ -24,13 +24,11 @@ export function TitleScreen(props: {
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [savedDoodles, setSavedDoodles] = useState<string[]>([]);
+  const [hoveredMenu, setHoveredMenu] = useState<DoodleReaction>(null);
+  const [focusedMenu, setFocusedMenu] = useState<DoodleReaction>(null);
 
   useEffect(() => {
-    const thumbnails = loadSlots()
-      .flatMap((slot) => (slot?.thumbnail ? [resolveCharacterImageUrl(slot.thumbnail)] : []))
-      .filter((thumbnail) => thumbnail !== FALLBACK_CHARACTER_IMAGE_URL)
-      .slice(0, 2);
-    setSavedDoodles(thumbnails);
+    setSavedDoodles(selectTitleDoodles(loadSlots()));
   }, []);
 
   const withClickSe = (handler: () => void) => () => {
@@ -83,23 +81,8 @@ export function TitleScreen(props: {
 
   return (
     <>
-      <section className="title-screen" aria-label="arttle タイトル">
-        {savedDoodles.map((thumbnail, index) => (
-          <Image
-            key={`${index}-${thumbnail.slice(0, 32)}`}
-            className={`title-saved-doodle title-saved-doodle-${index + 1}`}
-            src={thumbnail}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            width={120}
-            height={120}
-            unoptimized
-            onError={(event) => {
-              event.currentTarget.hidden = true;
-            }}
-          />
-        ))}
+      <section className={`title-screen${savedDoodles.length ? " title-screen-with-doodles" : ""}`} aria-label="arttle タイトル">
+        <TitleDoodleStage images={savedDoodles} reaction={hoveredMenu ?? focusedMenu} paused={optionsOpen} />
 
         <header className="title-heading">
           <h1 className="title-logo">arttle</h1>
@@ -112,6 +95,14 @@ export function TitleScreen(props: {
               key={item.key}
               className="title-menu-button"
               onClick={item.onClick}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== "touch") {
+                  setHoveredMenu(item.key === "single" || item.key === "multi" || item.key === "profile" ? item.key : null);
+                }
+              }}
+              onPointerLeave={() => setHoveredMenu(null)}
+              onFocus={() => setFocusedMenu(item.key === "single" || item.key === "multi" || item.key === "profile" ? item.key : null)}
+              onBlur={() => setFocusedMenu(null)}
               style={{
                 ["--menu-accent" as string]: item.color,
                 ["--menu-delay" as string]: `${index * 90}ms`,
