@@ -114,6 +114,7 @@ test("stage stays decorative, frameless and separated from the menu with bounded
   assert.match(css, /\.title-screen-with-doodles \{[^}]*padding-bottom: calc\(var\(--doodle-size\) \+ 18px\)/);
   assert.match(css, /\.title-doodle-stage \{[^}]*z-index: 0;[^}]*pointer-events: none;/);
   assert.match(css, /\.title-doodle-lane \{[^}]*width: 30%;[^}]*overflow: hidden;/);
+  assert.match(css, /@media \(orientation: landscape\) and \(max-height: 500px\) \{[\s\S]*?\.title-screen-with-doodles \{[^}]*padding-bottom: calc\(var\(--doodle-size\) \+ 18px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.title-doodle-motion,[^}]*animation: none !important;/);
   assert.doesNotMatch(css, /title-saved-doodle|titleSavedDoodleBreathe/);
 });

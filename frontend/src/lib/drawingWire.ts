@@ -58,11 +58,22 @@ export function prepareDrawingForWire(drawing: DrawingData): WireDrawingData {
 }
 
 export function drawingToDataUrl(drawing: WireDrawingData): string {
+  const w = drawing.canvas.width;
+  const h = drawing.canvas.height;
   const drawStrokes: string[] = [];
   const eraserStrokes: string[] = [];
+  const masks: string[] = [];
+  const applyErasers = () => {
+    if (eraserStrokes.length === 0) return;
+    const maskId = `eraser-mask-${masks.length}`;
+    masks.push(`<mask id="${maskId}" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#ffffff" />${eraserStrokes.join("")}</mask>`);
+    drawStrokes.splice(0, drawStrokes.length, `<g mask="url(#${maskId})">${drawStrokes.join("")}</g>`);
+    eraserStrokes.length = 0;
+  };
 
   for (const layer of drawing.layers) {
     for (const stroke of layer.strokes) {
+      if (stroke.tool !== "eraser") applyErasers();
       if (stroke.tool === "fill" && stroke.fillSpans && stroke.fillSpans.length > 0) {
         const rects = stroke.fillSpans
           .map((span) => `<rect x="${span.x1}" y="${span.y}" width="${span.x2 - span.x1 + 1}" height="1" fill="${escapeXml(stroke.color)}" />`)
@@ -80,17 +91,8 @@ export function drawingToDataUrl(drawing: WireDrawingData): string {
     }
   }
 
-  const w = drawing.canvas.width;
-  const h = drawing.canvas.height;
-
-  let inner: string;
-  if (eraserStrokes.length > 0) {
-    const maskId = "eraser-mask";
-    const mask = `<mask id="${maskId}"><rect width="100%" height="100%" fill="#ffffff" />${eraserStrokes.join("")}</mask>`;
-    inner = `${mask}<g mask="url(#${maskId})">${drawStrokes.join("")}</g>`;
-  } else {
-    inner = drawStrokes.join("");
-  }
+  applyErasers();
+  const inner = `${masks.join("")}${drawStrokes.join("")}`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;

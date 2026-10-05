@@ -1799,6 +1799,10 @@ main.title-bgm-active .app-panel .text-gray-500 {
     padding-block: 2px;
   }
 
+  .title-screen-with-doodles {
+    padding-bottom: calc(var(--doodle-size) + 18px);
+  }
+
   .title-logo {
     font-size: clamp(44px, 13dvh, 58px);
   }

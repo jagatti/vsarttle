@@ -125,9 +125,41 @@ test("drawingToDataUrl has no white background rect and eraser uses svg mask", (
   assert.doesNotMatch(decoded, /fill="#ffffff"\/><polyline/);
   // Eraser rendered as mask with black stroke
   assert.match(decoded, /<mask/);
+  assert.match(decoded, /maskUnits="userSpaceOnUse" x="0" y="0" width="8" height="8"/);
   assert.match(decoded, /stroke="#000000"/);
   // Normal stroke still present
   assert.match(decoded, /stroke="#ff0000"/);
+});
+
+test("drawingToDataUrl preserves repainting after erasing, including fills", () => {
+  const original = drawing.layers[0].strokes[0];
+  const repainted: DrawingData = {
+    ...drawing,
+    layers: [{
+      id: "base", name: "base",
+      strokes: [
+        original,
+        { ...original, id: "erase-1", tool: "eraser" },
+        { ...original, id: "erase-2", tool: "eraser" },
+        { ...original, id: "repaint", color: "#ff0000" },
+        { ...original, id: "erase-3", tool: "eraser" },
+        { ...original, id: "fill", tool: "fill", color: "#00ff00", fillSpans: [{ y: 2, x1: 0, x2: 4 }] },
+      ],
+    }],
+  };
+  const decoded = decodeURIComponent(drawingToDataUrl(repainted).split(",")[1]);
+  assert.equal((decoded.match(/<mask /g) ?? []).length, 2, "consecutive erasers share a mask");
+  assert.match(decoded, /<g mask="url\(#eraser-mask-1\)"><g mask="url\(#eraser-mask-0\)">.*stroke="#123456".*<\/g><polyline[^>]*stroke="#ff0000"[^>]*\/><\/g><rect[^>]*fill="#00ff00"/);
+});
+
+test("drawingToDataUrl does not erase ink painted after an initial eraser", () => {
+  const original = drawing.layers[0].strokes[0];
+  const erasedFirst: DrawingData = {
+    ...drawing,
+    layers: [{ id: "base", name: "base", strokes: [{ ...original, tool: "eraser" }, original] }],
+  };
+  const decoded = decodeURIComponent(drawingToDataUrl(erasedFirst).split(",")[1]);
+  assert.match(decoded, /<g mask="url\(#eraser-mask-0\)"><\/g><polyline[^>]*stroke="#123456"/);
 });
 
 test("wireDrawingToStrokes reconstructs editable strokes with placeholder timestamps", () => {
