@@ -56,7 +56,7 @@ export function reactionStep(count: number, reaction: DoodleReaction): DoodleSte
   return {
     poses: restingPoses(count).map((pose) => ({
       ...pose,
-      action: reaction === "single" ? "attack" : reaction === "profile" ? "look" : "rest",
+      action: reaction === "single" ? "attack" : reaction ? "look" : "rest",
       facing: reaction === "profile" ? 1 : pose.facing,
     })),
     duration: 1600,

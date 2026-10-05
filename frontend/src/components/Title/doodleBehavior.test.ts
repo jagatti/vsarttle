@@ -95,7 +95,7 @@ test("encounters look in turn, approach gently, react, pause and return without 
 test("menu reactions work with one or two doodles and do not replace their images", () => {
   for (const count of [1, 2]) {
     assert.ok(reactionStep(count, "single").poses.every((pose) => pose.action === "attack"));
-    assert.deepEqual(reactionStep(count, "multi").poses, restingPoses(count));
+    assert.deepEqual(reactionStep(count, "multi").poses, restingPoses(count).map((pose) => ({ ...pose, action: "look" })));
     assert.ok(reactionStep(count, "profile").poses.every((pose) => pose.action === "look" && pose.facing === 1));
   }
 });
