@@ -160,7 +160,7 @@ export function resolveTurn(params: {
   turn: number;
   players: Record<string, PlayerBattleState>;
   actions: Record<string, ActionType>;
-  weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection>>;
+  weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection | ((caster: PlayerBattleState) => WeakMagicEffectSelection)>>;
   rng?: () => number;
   /** Use the late-battle 3× multiplier independently of the elapsed turn. */
   forceTripleDamage?: boolean;
@@ -368,7 +368,8 @@ export function resolveTurn(params: {
 
   // Applies a random 弱まほう special effect to `affected`, caused by `caster`'s weak magic hit.
   const applyWeakMagicEffect = (caster: PlayerBattleState, affected: PlayerBattleState, reflected: boolean) => {
-    const effects = getWeakMagicEffects(params.weakMagicSelections?.[caster.id]);
+    const selection = params.weakMagicSelections?.[caster.id];
+    const effects = getWeakMagicEffects(typeof selection === "function" ? selection(caster) : selection);
     const pick = effects[Math.floor(rng() * effects.length)];
     if (!pick) return;
     if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;

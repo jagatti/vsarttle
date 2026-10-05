@@ -405,7 +405,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       },
       weakMagicSelections: {
         [playerId]: { kinds: weakMagicPool },
-        [enemyId]: { kinds: getEnemyWeakMagicKindsByType(enemy.characterType) },
+        [enemyId]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
       disableVoidmination: true,
       ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
