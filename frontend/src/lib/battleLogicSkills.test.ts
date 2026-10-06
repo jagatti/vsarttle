@@ -153,45 +153,91 @@ test("fight spirit raises damage by 20% without lowering the opponent's defense"
   }).damageEvents[0].amount, 75);
 });
 
-test("fight spirit lowers only the owner's defense against balanced attackers for every damage source", () => {
+test("fight spirit increases incoming damage by 20% against balanced attackers for every damage source", () => {
   for (const actions of [
     { a: "paralysis", b: "attack" },
+    { a: "charge", b: "attack" },
+    { a: "attack", b: "magicWeak" },
     { a: "attack", b: "magicStrong" },
+    { a: "barrier", b: "barrier" },
     { a: "charge", b: "barrier" },
+    { a: "paralysis", b: "barrier" },
+    { a: "magicWeak", b: "barrier" },
     { a: "magicStrong", b: "barrier" },
   ] satisfies Record<string, ActionType>[]) {
-    const a = player("a");
-    const b = player("b");
-    const expectedA = player("a");
-    expectedA.stats.defense = 80;
-    const expected = battle(actions, undefined, { players: { a: expectedA, b } });
-    const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b } });
-    assert.deepEqual(result.damageEvents, expected.damageEvents);
-    assert.equal(result.nextStates.a.stats.defense, 100);
-    assert.equal(result.nextStates.b.stats.defense, 100);
-    assert.equal(a.stats.defense, 100);
+    for (const ownerId of ["a", "b"] as const) {
+      const opponentId = ownerId === "a" ? "b" : "a";
+      const swappedActions = ownerId === "a" ? actions : { a: actions.b, b: actions.a };
+      const a = player("a");
+      const b = player("b");
+      const extra = { players: { a, b } };
+      const baseline = battle(swappedActions, undefined, extra);
+      const result = battle(swappedActions, { [ownerId]: { fightSpirit: true } }, extra);
+      const baseDamage = baseline.damageEvents.find((event) => event.to === ownerId)!.amount;
+      const damage = baseDamage + Math.ceil(baseDamage / 5);
+      assert.equal(result.damageEvents.find((event) => event.to === ownerId)!.amount, damage);
+      assert.equal(result.nextStates[ownerId].currentHp,
+        baseline.nextStates[ownerId].currentHp - (damage - baseDamage));
+      assert.ok(result.logs.includes(`[スキル] ${ownerId} の闘争心で受けるダメージが増えた！`));
+      assert.deepEqual(result.nextStates.a.stats, a.stats);
+      assert.deepEqual(result.nextStates.b.stats, b.stats);
 
-    b.characterType = "attack";
-    assert.deepEqual(
-      battle(actions, { a: { fightSpirit: true } }, { players: { a, b } }),
-      battle(actions, undefined, { players: { a, b } }),
-    );
+      for (const type of ["attack", "defense", "magic"] as const) {
+        extra.players[opponentId].characterType = type;
+        assert.deepEqual(
+          battle(swappedActions, { [ownerId]: { fightSpirit: true } }, extra),
+          battle(swappedActions, undefined, extra),
+        );
+      }
+    }
   }
 });
 
-test("fight spirit rounds defense and bonus damage upward", () => {
+test("fight spirit rounds outgoing and incoming bonus damage upward without modifying defense", () => {
   const a = player("a");
   a.stats.defense = 103;
   a.stats.attack = 101;
-  const expectedA = player("a");
-  expectedA.stats.defense = 83;
-  expectedA.stats.attack = 101;
   const actions = { a: "attack", b: "attack" } satisfies Record<string, ActionType>;
-  const baseline = battle(actions, undefined, { players: { a: expectedA, b: player("b") } });
   const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b: player("b") } });
   assert.equal(result.damageEvents.find((event) => event.from === "a")?.amount, 92);
-  assert.equal(result.damageEvents.find((event) => event.from === "b")?.amount,
-    baseline.damageEvents.find((event) => event.from === "b")?.amount);
+  assert.equal(result.damageEvents.find((event) => event.from === "b")?.amount, 89);
+  assert.equal(result.nextStates.a.stats.defense, 103);
+});
+
+test("incoming fight spirit scales pursuit damage while outgoing fight spirit keeps pursuit at 50", () => {
+  const a = player("a");
+  a.paralyzedNextTurn = true;
+  const result = battle({ a: "paralysis", b: "attack" }, {
+    a: { fightSpirit: true }, b: { pursuit: true, fightSpirit: true },
+  }, { players: { a, b: player("b") } });
+  assert.equal(result.damageEvents[0].amount, 168);
+  assert.equal(result.damageEvents[0].pursuitDamage, 60);
+  assert.equal(result.nextStates.a.currentHp, 832);
+  assert.ok(result.logs.includes("[スキル] b の追撃！60ダメージ！"));
+  assert.ok(result.logs.includes("[スキル] a の闘争心で受けるダメージが増えた！"));
+});
+
+test("incoming fight spirit respects resistance and late-turn scaling", () => {
+  const result = battle({ a: "paralysis", b: "attack" }, {
+    a: { fightSpirit: true, attackResistance: 3 },
+  }, { turn: 21 });
+  assert.equal(result.damageEvents[0].amount, 191);
+  assert.equal(result.nextStates.a.currentHp, 809);
+});
+
+test("incoming fight spirit does not log increased damage for avoided, filtered or capped hits", () => {
+  const actions = { a: "paralysis", b: "attack" } satisfies Record<string, ActionType>;
+  const a = player("a");
+  a.stats.evasion = 1;
+  const avoided = battle(actions, { a: { fightSpirit: true } }, { players: { a, b: player("b") } });
+  const filtered = battle(actions, { a: { fightSpirit: true, filter: true } }, { turn: 1 });
+  const capped = battle(actions, { a: { fightSpirit: true } }, { damageCaps: { a: 75 } });
+  assert.equal(avoided.damageEvents[0].amount, 0);
+  assert.equal(filtered.damageEvents[0].amount, 0);
+  assert.equal(capped.damageEvents[0].amount, 75);
+  for (const result of [avoided, filtered, capped]) {
+    assert.ok(!result.logs.some((log) => log.includes("受けるダメージが増えた")));
+  }
 });
 
 test("Guts saves a player from lethal damage only once and records the use across battles", () => {
