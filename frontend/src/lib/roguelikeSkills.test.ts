@@ -58,7 +58,7 @@ test("registry uses requested labels and precise barrier, filter and PP absorpti
   assert.match(ROGUELIKE_SKILLS.ppAbsorb.description, /バリア.*反射.*実際に消費.*20%/);
   assert.match(ROGUELIKE_SKILLS.ppAbsorb.description, /ときだけ.*端数切り上げ/);
   assert.match(ROGUELIKE_SKILLS.pursuit.description, /まひ.*チャージ.*50ダメージ/);
-  assert.equal(ROGUELIKE_SKILLS.fightSpirit.description, "バランス型が相手の時、自分の防御が20%ダウンするが、与えるダメージが20%アップする。");
+  assert.equal(ROGUELIKE_SKILLS.fightSpirit.description, "バランス型が相手の時、与えるダメージと受けるダメージが20%アップする。");
   assert.equal(buildRoguelikeSkillsTooltip({ fightSpirit: 1 }), `闘争心: ${ROGUELIKE_SKILLS.fightSpirit.description}`);
   assert.match(ROGUELIKE_SKILLS.guts.description, /一度だけ.*HP1.*1ラン/);
 });

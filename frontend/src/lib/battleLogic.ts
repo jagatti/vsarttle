@@ -127,20 +127,19 @@ const matchupWinner = (left: ActionCategory, right: ActionCategory): ActionCateg
   return null;
 };
 
-const attackDamage = (attacker: PlayerBattleState, target: PlayerBattleState, defense = target.stats.defense) =>
-  applyDefense(attacker.stats.attack * attacker.chargeMultiplier, defense);
+const attackDamage = (attacker: PlayerBattleState, target: PlayerBattleState) =>
+  applyDefense(attacker.stats.attack * attacker.chargeMultiplier, target.stats.defense);
 
 const magicDamage = (
   action: ActionType,
   attacker: PlayerBattleState,
   target: PlayerBattleState,
   options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
-  defense = target.stats.defense,
 ) =>
-  applyDefense(magicCost(action, attacker.stats, options) * 5 * attacker.chargeMultiplier, defense);
+  applyDefense(magicCost(action, attacker.stats, options) * 5 * attacker.chargeMultiplier, target.stats.defense);
 
-const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattleState, defense = target.stats.defense) =>
-  applyDefense(attacker.stats.defense * attacker.chargeMultiplier, defense);
+const barrierCollisionDamage = (attacker: PlayerBattleState, target: PlayerBattleState) =>
+  applyDefense(attacker.stats.defense * attacker.chargeMultiplier, target.stats.defense);
 
 const reflectionDamage = (
   magicAction: ActionType,
@@ -244,10 +243,6 @@ export function resolveTurn(params: {
 
   const bossVoidActive = () => !!bossState?.voidminationActive;
   const wasParalyzed = (player: PlayerBattleState) => player.id === left.id ? leftWasParalyzed : rightWasParalyzed;
-  const targetDefense = (attacker: PlayerBattleState, target: PlayerBattleState) =>
-    effectsFor(target)?.fightSpirit && attacker.characterType === "balanced"
-      ? Math.ceil(target.stats.defense * 4 / 5)
-      : target.stats.defense;
   const getMagicCostOptions = (actor: PlayerBattleState, action: ActionType) => {
     const overchargeRatio = bossId && voidFloor
       ? getOverchargeMagicCostRatio(voidFloor, bossVoidActive(), actor.id, bossId, action)
@@ -366,7 +361,11 @@ export function resolveTurn(params: {
       ? Math.ceil(scaledAmount / 5)
       : 0;
     const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || to.chargeMultiplier > 1) ? 50 : 0;
-    const modifiedAmount = scaledAmount + fightSpiritBonus + pursuitBonus;
+    const normalAmount = scaledAmount + fightSpiritBonus;
+    const outgoingAmount = normalAmount + pursuitBonus;
+    const incomingFightSpirit = effectsFor(to)?.fightSpirit && from.characterType === "balanced";
+    const incomingBonus = incomingFightSpirit ? Math.ceil(outgoingAmount / 5) : 0;
+    const modifiedAmount = outgoingAmount + incomingBonus;
     const cappedAmount = cap !== undefined ? Math.min(modifiedAmount, cap) : modifiedAmount;
     const magicDamperActive = bossId && voidFloor
       ? shouldApplyBossMagicDamper({
@@ -401,8 +400,8 @@ export function resolveTurn(params: {
         && !to.roguelikeGutsUsed;
       const nextHp = usedGuts ? 1 : damageResolution.nextHp;
       const damageTaken = usedGuts ? Math.max(0, to.currentHp - 1) : damageResolution.damageTaken;
-      const normalAmount = scaledAmount + fightSpiritBonus;
-      const cappedNormalAmount = cap !== undefined ? Math.min(normalAmount, cap) : normalAmount;
+      const incomingNormalAmount = normalAmount + (incomingFightSpirit ? Math.ceil(normalAmount / 5) : 0);
+      const cappedNormalAmount = cap !== undefined ? Math.min(incomingNormalAmount, cap) : incomingNormalAmount;
       const finalNormalAmount = magicDamperActive ? applyBossMagicDamper(cappedNormalAmount) : cappedNormalAmount;
       const pursuitDamage = pursuitBonus > 0 ? Math.max(0, damageTaken - finalNormalAmount) : 0;
       to.currentHp = nextHp;
@@ -411,6 +410,11 @@ export function resolveTurn(params: {
         logs.push(`[スキル] ${to.nickname} は根性でHP1で耐えた！`);
       }
       if (fightSpiritBonus > 0) logs.push(`[スキル] ${from.nickname} の闘争心がダメージを増やした！`);
+      const cappedOutgoingAmount = cap !== undefined ? Math.min(outgoingAmount, cap) : outgoingAmount;
+      const finalOutgoingAmount = magicDamperActive ? applyBossMagicDamper(cappedOutgoingAmount) : cappedOutgoingAmount;
+      if (incomingBonus > 0 && damageTaken > finalOutgoingAmount) {
+        logs.push(`[スキル] ${to.nickname} の闘争心で受けるダメージが増えた！`);
+      }
       if (pursuitDamage > 0) logs.push(`[スキル] ${from.nickname} の追撃！${pursuitDamage}ダメージ！`);
       damageEvents.push({
         from: from.id,
@@ -562,20 +566,20 @@ export function resolveTurn(params: {
   const processStrike = (actor: PlayerBattleState, action: ActionType, target: PlayerBattleState, targetAction?: ActionType) => {
     if (actor.currentHp <= 0) return;
     if (!canHit(action, targetAction)) return;
-    if (action === "attack") applyDamage(actor, target, attackDamage(actor, target, targetDefense(actor, target)), "こうげき", "attack");
+    if (action === "attack") applyDamage(actor, target, attackDamage(actor, target), "こうげき", "attack");
     if (action === "magicWeak" || action === "magicStrong") {
       consumePp(actor, action);
       const dealt = applyDamage(
         actor,
         target,
-        magicDamage(action, actor, target, getMagicCostOptions(actor, action), targetDefense(actor, target)),
+        magicDamage(action, actor, target, getMagicCostOptions(actor, action)),
         action === "magicWeak" ? "弱まほう" : "強まほう",
         "magic",
       );
       if (action === "magicWeak" && weakMagicHit(dealt, target)) applyWeakMagicEffect(actor, target, false);
     }
     if (action === "barrier" && targetAction === "barrier") {
-      applyDamage(actor, target, barrierCollisionDamage(actor, target, targetDefense(actor, target)), "こうげき", "barrier");
+      applyDamage(actor, target, barrierCollisionDamage(actor, target), "こうげき", "barrier");
     }
   };
 
@@ -590,7 +594,7 @@ export function resolveTurn(params: {
     const dealt = applyDamage(
       right,
       left,
-      reflectionDamage(leftAction, left, targetDefense(right, left), getMagicCostOptions(left, leftAction)),
+      reflectionDamage(leftAction, left, left.stats.defense, getMagicCostOptions(left, leftAction)),
       "バリア反射",
       "barrier",
     );
@@ -603,20 +607,20 @@ export function resolveTurn(params: {
     const dealt = applyDamage(
       left,
       right,
-      reflectionDamage(rightAction, right, targetDefense(left, right), getMagicCostOptions(right, rightAction)),
+      reflectionDamage(rightAction, right, right.stats.defense, getMagicCostOptions(right, rightAction)),
       "バリア反射",
       "barrier",
     );
     absorbPp(left, paidPp);
     if (rightAction === "magicWeak" && weakMagicHit(dealt, right)) applyWeakMagicEffect(right, right, true);
   } else if (leftCategory === "barrier" && rightCategory === "charge") {
-    applyDamage(left, right, barrierCollisionDamage(left, right, targetDefense(left, right)), "こうげき", "barrier", "counter");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "barrier", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "charge") {
-    applyDamage(right, left, barrierCollisionDamage(right, left, targetDefense(right, left)), "こうげき", "barrier", "counter");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "barrier", "counter");
   } else if (leftCategory === "barrier" && rightCategory === "paralysis") {
-    applyDamage(left, right, barrierCollisionDamage(left, right, targetDefense(left, right)), "こうげき", "barrier", "counter");
+    applyDamage(left, right, barrierCollisionDamage(left, right), "こうげき", "barrier", "counter");
   } else if (rightCategory === "barrier" && leftCategory === "paralysis") {
-    applyDamage(right, left, barrierCollisionDamage(right, left, targetDefense(right, left)), "こうげき", "barrier", "counter");
+    applyDamage(right, left, barrierCollisionDamage(right, left), "こうげき", "barrier", "counter");
   } else if (winner === null) {
     processStrike(speedFirst, speedFirst.id === left.id ? leftAction : rightAction, speedSecond, speedSecond.id === left.id ? leftAction : rightAction);
     processStrike(speedSecond, speedSecond.id === left.id ? leftAction : rightAction, speedFirst, speedFirst.id === left.id ? leftAction : rightAction);
