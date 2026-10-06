@@ -19,8 +19,12 @@ export function getEnemyWeakMagicKindsByType(characterType?: string): WeakMagicE
   return ["paralysis", "barrierBan", "chargeBan"];
 }
 
+function ceilStat(value: number): number {
+  return Math.ceil(Number(value.toFixed(8)));
+}
+
 export function applyPerfectVictoryBuff(stats: CharacterStats): CharacterStats {
-  const increase = (value: number) => Math.max(1, Math.ceil(Number((value * 1.1).toFixed(8))));
+  const increase = (value: number) => Math.max(1, ceilStat(value * 1.1));
   return {
     hp: increase(stats.hp),
     maxHp: increase(stats.maxHp),
@@ -54,7 +58,7 @@ export function applyTypeCorrection(
   base: { pp: number; attack: number; defense: number },
   characterType: CharacterType,
 ): { pp: number; attack: number; defense: number } {
-  const ceil = Math.ceil;
+  const ceil = ceilStat;
   if (characterType === "attack") return { ...base, attack: ceil(base.attack * 1.5) };
   if (characterType === "magic") return { ...base, pp: ceil(base.pp * 1.5) };
   if (characterType === "defense") return { ...base, defense: ceil(base.defense * 1.5) };
@@ -138,10 +142,11 @@ export function applyBossUpgrade(stats: CharacterStats, floor: number): Characte
 export type BossMultiplyKey = "hp" | "pp" | "attack" | "defense";
 
 export function applyBossMultiplyUpgrade(stats: CharacterStats, key: BossMultiplyKey, multiplier = 2): CharacterStats {
-  if (key === "hp") return { ...stats, hp: stats.hp * multiplier, maxHp: stats.maxHp * multiplier };
-  if (key === "pp") return { ...stats, pp: stats.pp * multiplier, maxPp: stats.maxPp * multiplier };
-  if (key === "attack") return { ...stats, attack: stats.attack * multiplier };
-  if (key === "defense") return { ...stats, defense: stats.defense * multiplier };
+  const increase = (value: number) => ceilStat(value * multiplier);
+  if (key === "hp") return { ...stats, hp: increase(stats.hp), maxHp: increase(stats.maxHp) };
+  if (key === "pp") return { ...stats, pp: increase(stats.pp), maxPp: increase(stats.maxPp) };
+  if (key === "attack") return { ...stats, attack: increase(stats.attack) };
+  if (key === "defense") return { ...stats, defense: increase(stats.defense) };
   return stats;
 }
 

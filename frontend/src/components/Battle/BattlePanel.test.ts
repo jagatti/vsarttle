@@ -30,7 +30,7 @@ const player: PlayerBattleState = {
   lastActionCategory: null,
 };
 
-function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false) {
+function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false, skillLabels?: string[]) {
   return renderToStaticMarkup(createElement(BattlePanel, {
     me: player,
     enemy: {
@@ -49,8 +49,22 @@ function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1,
     onRematchSame: () => {},
     onRematchRedraw: () => {},
     isResolvingTurn,
+    roguelikeSkillLabels: skillLabels,
   }));
 }
+
+test("roguelike skills appear only below the player's name and above HP with wrapping", () => {
+  const markup = renderBattle(false, false, 1, false, ["こうげき耐性 x2", "追撃", "根性x0"]);
+  assert.equal((markup.match(/aria-label="獲得スキル"/g) ?? []).length, 1);
+  const start = markup.indexOf('aria-label="獲得スキル"');
+  assert.ok(start > markup.indexOf("ジャガっち"));
+  assert.ok(start < markup.indexOf("HP 100%"));
+  assert.ok(markup.includes("flex-wrap:wrap"));
+  assert.ok(markup.includes("overflow-wrap:anywhere"));
+  for (const label of ["こうげき耐性 x2", "追撃", "根性x0"]) assert.ok(markup.includes(label));
+  assert.ok(!renderBattle().includes('aria-label="獲得スキル"'));
+  assert.ok(!renderBattle(false, false, 1, false, []).includes('aria-label="獲得スキル"'));
+});
 
 test("limit-break header hides the turn count and announces triple damage", () => {
   const markup = renderBattle(false, true);
