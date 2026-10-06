@@ -30,7 +30,7 @@ const player: PlayerBattleState = {
   lastActionCategory: null,
 };
 
-function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false, skillLabels?: string[]) {
+function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false, skillLabels?: string[], turnResult: TurnResult | null = null) {
   return renderToStaticMarkup(createElement(BattlePanel, {
     me: player,
     enemy: {
@@ -42,7 +42,7 @@ function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1,
     },
     role: "host",
     turn,
-    turnResult: null,
+    turnResult,
     limitBreakMode,
     countdown: 30,
     onActionSelect: () => {},
@@ -52,6 +52,26 @@ function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1,
     roguelikeSkillLabels: skillLabels,
   }));
 }
+
+test("damage log separates pursuit damage and omits pursuit for inactive or blocked hits", () => {
+  const result: TurnResult = {
+    turn: 2, actions: { me: "attack", enemy: "paralysis" },
+    damageEvents: [{ from: "me", to: "enemy", amount: 125, pursuitDamage: 50, avoided: false, reason: "こうげき", chargeMultiplier: 1 }],
+    chargeEvents: [], magicEffectEvents: [], suppressedByTieBanIds: [], logs: [],
+    nextStates: {}, winnerId: null,
+  };
+  const markup = renderBattle(false, false, 2, false, undefined, result);
+  assert.ok(markup.includes("スティックマン に 75 ダメージ（こうげき）"));
+  assert.ok(markup.includes("追撃！50ダメージ！"));
+  assert.ok(!markup.includes("125 ダメージ"));
+  for (const event of [
+    { ...result.damageEvents[0], amount: 75, pursuitDamage: undefined },
+    { ...result.damageEvents[0], amount: 0, pursuitDamage: undefined },
+    { ...result.damageEvents[0], amount: 0, pursuitDamage: undefined, avoided: true },
+  ]) {
+    assert.ok(!renderBattle(false, false, 2, false, undefined, { ...result, damageEvents: [event] }).includes("追撃"));
+  }
+});
 
 test("roguelike skills appear only below the player's name and above HP with wrapping", () => {
   const markup = renderBattle(false, false, 1, false, ["こうげき耐性 x2", "追撃", "根性x0"]);

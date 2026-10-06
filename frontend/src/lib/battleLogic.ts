@@ -245,8 +245,8 @@ export function resolveTurn(params: {
   const bossVoidActive = () => !!bossState?.voidminationActive;
   const wasParalyzed = (player: PlayerBattleState) => player.id === left.id ? leftWasParalyzed : rightWasParalyzed;
   const targetDefense = (attacker: PlayerBattleState, target: PlayerBattleState) =>
-    effectsFor(attacker)?.fightSpirit && target.characterType === "balanced"
-      ? target.stats.defense * 0.8
+    effectsFor(target)?.fightSpirit && attacker.characterType === "balanced"
+      ? Math.ceil(target.stats.defense * 4 / 5)
       : target.stats.defense;
   const getMagicCostOptions = (actor: PlayerBattleState, action: ActionType) => {
     const overchargeRatio = bossId && voidFloor
@@ -363,7 +363,7 @@ export function resolveTurn(params: {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(resistedAmount * damageMultiplier));
     const cap = params.damageCaps?.[to.id];
     const fightSpiritBonus = effectsFor(from)?.fightSpirit && to.characterType === "balanced"
-      ? Math.round(scaledAmount * 0.2)
+      ? Math.ceil(scaledAmount / 5)
       : 0;
     const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || to.chargeMultiplier > 1) ? 50 : 0;
     const modifiedAmount = scaledAmount + fightSpiritBonus + pursuitBonus;
@@ -401,17 +401,22 @@ export function resolveTurn(params: {
         && !to.roguelikeGutsUsed;
       const nextHp = usedGuts ? 1 : damageResolution.nextHp;
       const damageTaken = usedGuts ? Math.max(0, to.currentHp - 1) : damageResolution.damageTaken;
+      const normalAmount = scaledAmount + fightSpiritBonus;
+      const cappedNormalAmount = cap !== undefined ? Math.min(normalAmount, cap) : normalAmount;
+      const finalNormalAmount = magicDamperActive ? applyBossMagicDamper(cappedNormalAmount) : cappedNormalAmount;
+      const pursuitDamage = pursuitBonus > 0 ? Math.max(0, damageTaken - finalNormalAmount) : 0;
       to.currentHp = nextHp;
       if (usedGuts) {
         to.roguelikeGutsUsed = true;
         logs.push(`[スキル] ${to.nickname} は根性でHP1で耐えた！`);
       }
       if (fightSpiritBonus > 0) logs.push(`[スキル] ${from.nickname} の闘争心がダメージを増やした！`);
-      if (pursuitBonus > 0) logs.push(`[スキル] ${from.nickname} の追撃！`);
+      if (pursuitDamage > 0) logs.push(`[スキル] ${from.nickname} の追撃！${pursuitDamage}ダメージ！`);
       damageEvents.push({
         from: from.id,
         to: to.id,
         amount: damageTaken,
+        ...(pursuitDamage > 0 ? { pursuitDamage } : {}),
         avoided: false,
         reason,
         chargeMultiplier: from.chargeMultiplier,

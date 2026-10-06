@@ -55,7 +55,9 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
     { players: { a: player("a"), b: paralyzed } },
   );
   assert.equal(pursuitHit.damageEvents[0].amount, 125);
-  assert.ok(pursuitHit.logs.includes("[スキル] a の追撃！"));
+  assert.equal(pursuitHit.damageEvents[0].pursuitDamage, 50);
+  assert.equal(pursuitHit.nextStates.b.currentHp, 875);
+  assert.ok(pursuitHit.logs.includes("[スキル] a の追撃！50ダメージ！"));
 
   const charging = player("b");
   charging.characterType = "attack";
@@ -63,18 +65,133 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
     players: { a: player("a"), b: charging },
   });
   assert.equal(chargingHit.damageEvents.find((event) => event.to === "b")?.amount, 125);
-  assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } }).damageEvents[0].amount, 75);
+  assert.equal(chargingHit.damageEvents.find((event) => event.to === "b")?.pursuitDamage, 50);
+  const inactive = battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } });
+  assert.equal(inactive.damageEvents[0].amount, 75);
+  assert.equal(inactive.damageEvents[0].pursuitDamage, undefined);
+  assert.ok(!inactive.logs.some((log) => log.includes("追撃")));
 });
 
-test("fight spirit lowers balanced opponents' defense and raises damage by 20%", () => {
+test("pursuit preserves barrier hits and does not display on avoided, filtered or absent hits", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const actions = { a: "attack", b: "barrier" } satisfies Record<string, ActionType>;
+  const extra = { players: { a: player("a"), b } };
+  const hit = battle(actions, { a: { pursuit: true } }, extra);
+  assert.equal(hit.damageEvents[0].amount, 125);
+  assert.equal(hit.damageEvents[0].pursuitDamage, 50);
+  assert.equal(hit.nextStates.b.currentHp, 875);
+
+  const filtered = battle(actions, { a: { pursuit: true }, b: { filter: true } }, { ...extra, turn: 1 });
+  assert.equal(filtered.damageEvents[0].amount, 0);
+  assert.equal(filtered.nextStates.b.currentHp, 1000);
+  b.stats.evasion = 1;
+  const avoided = battle(actions, { a: { pursuit: true } }, extra);
+  assert.equal(avoided.damageEvents[0].avoided, true);
+  assert.equal(avoided.nextStates.b.currentHp, 1000);
+  const absent = battle({ a: "attack", b: "magicStrong" }, { a: { pursuit: true } }, extra);
+  for (const result of [filtered, avoided, absent]) {
+    assert.ok(result.damageEvents.every((event) => event.pursuitDamage === undefined));
+    assert.ok(!result.logs.some((log) => log.includes("追撃")));
+  }
+});
+
+test("pursuit display respects caps, Guts, boss thresholds and magic damping without changing total damage", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const actions = { a: "attack", b: "paralysis" } satisfies Record<string, ActionType>;
+  for (const [cap, pursuitDamage] of [[100, 25], [50, undefined]] as const) {
+    const result = battle(actions, { a: { pursuit: true } }, { players: { a: player("a"), b }, damageCaps: { b: cap } });
+    assert.equal(result.damageEvents[0].amount, cap);
+    assert.equal(result.damageEvents[0].pursuitDamage, pursuitDamage);
+    assert.equal(result.nextStates.b.currentHp, 1000 - cap);
+  }
+  b.currentHp = 90;
+  const guts = battle(actions, { a: { pursuit: true }, b: { guts: true } }, { players: { a: player("a"), b } });
+  assert.equal(guts.nextStates.b.currentHp, 1);
+  assert.equal(guts.damageEvents[0].amount, 89);
+  assert.equal(guts.damageEvents[0].pursuitDamage, 14);
+
+  b.currentHp = 710;
+  const threshold = battle(actions, { a: { pursuit: true } }, {
+    players: { a: player("a"), b }, roguelikeBossBattle: { floor: 5, bossId: "b", playerId: "a" },
+  });
+  assert.equal(threshold.damageEvents[0].amount, 50);
+  assert.equal(threshold.damageEvents[0].pursuitDamage, undefined);
+  assert.ok(!threshold.logs.some((log) => log.includes("追撃")));
+
+  b.currentHp = 1000;
+  b.voidminationActive = true;
+  b.voidminationUsed = true;
+  const damped = battle({ a: "magicStrong", b: "paralysis" }, { a: { pursuit: true } }, {
+    players: { a: player("a"), b }, roguelikeBossBattle: { floor: 5, bossId: "b", playerId: "a" },
+  });
+  assert.equal(damped.damageEvents[0].amount, 150);
+  assert.equal(damped.damageEvents[0].pursuitDamage, 38);
+  assert.equal(damped.nextStates.b.currentHp, 850);
+});
+
+test("pursuit stays at 50 with fight spirit and late-turn damage multipliers", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const result = battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true, fightSpirit: true } }, {
+    turn: 21, players: { a: player("a"), b },
+  });
+  assert.equal(result.damageEvents[0].amount, 320);
+  assert.equal(result.damageEvents[0].pursuitDamage, 50);
+  assert.equal(result.nextStates.b.currentHp, 680);
+});
+
+test("fight spirit raises damage by 20% without lowering the opponent's defense", () => {
   const result = battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } });
-  assert.equal(result.damageEvents[0].amount, 95);
+  assert.equal(result.damageEvents[0].amount, 90);
   assert.ok(result.logs.includes("[スキル] a の闘争心がダメージを増やした！"));
   const unaffected = player("b");
   unaffected.characterType = "attack";
   assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } }, {
     players: { a: player("a"), b: unaffected },
   }).damageEvents[0].amount, 75);
+});
+
+test("fight spirit lowers only the owner's defense against balanced attackers for every damage source", () => {
+  for (const actions of [
+    { a: "paralysis", b: "attack" },
+    { a: "attack", b: "magicStrong" },
+    { a: "charge", b: "barrier" },
+    { a: "magicStrong", b: "barrier" },
+  ] satisfies Record<string, ActionType>[]) {
+    const a = player("a");
+    const b = player("b");
+    const expectedA = player("a");
+    expectedA.stats.defense = 80;
+    const expected = battle(actions, undefined, { players: { a: expectedA, b } });
+    const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b } });
+    assert.deepEqual(result.damageEvents, expected.damageEvents);
+    assert.equal(result.nextStates.a.stats.defense, 100);
+    assert.equal(result.nextStates.b.stats.defense, 100);
+    assert.equal(a.stats.defense, 100);
+
+    b.characterType = "attack";
+    assert.deepEqual(
+      battle(actions, { a: { fightSpirit: true } }, { players: { a, b } }),
+      battle(actions, undefined, { players: { a, b } }),
+    );
+  }
+});
+
+test("fight spirit rounds defense and bonus damage upward", () => {
+  const a = player("a");
+  a.stats.defense = 103;
+  a.stats.attack = 101;
+  const expectedA = player("a");
+  expectedA.stats.defense = 83;
+  expectedA.stats.attack = 101;
+  const actions = { a: "attack", b: "attack" } satisfies Record<string, ActionType>;
+  const baseline = battle(actions, undefined, { players: { a: expectedA, b: player("b") } });
+  const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b: player("b") } });
+  assert.equal(result.damageEvents.find((event) => event.from === "a")?.amount, 92);
+  assert.equal(result.damageEvents.find((event) => event.from === "b")?.amount,
+    baseline.damageEvents.find((event) => event.from === "b")?.amount);
 });
 
 test("Guts saves a player from lethal damage only once and records the use across battles", () => {

@@ -60,7 +60,7 @@ export const ROGUELIKE_SKILLS: Record<SkillId, RoguelikeSkill> = {
   ppAbsorb: { id: "ppAbsorb", label: "PP吸収", description: "バリアでまほうを反射したときだけ、相手が実際に消費したPPの20%を回復する（端数切り上げ）。", rarity: 2, maxStacks: 1, consumable: false },
   hpRegen: { id: "hpRegen", label: "HP自動回復", description: "毎ターン終了時に最大HPの5%を回復する。", rarity: 3, maxStacks: 1, consumable: false },
   pursuit: { id: "pursuit", label: "追撃", description: "相手がまひ、またはチャージ状態のとき、追加で50ダメージを与える。", rarity: 1, maxStacks: 1, consumable: false },
-  fightSpirit: { id: "fightSpirit", label: "闘争心", description: "バランス型の相手の防御を20%下げ、与えるダメージを20%上げる。", rarity: 2, maxStacks: 1, consumable: false },
+  fightSpirit: { id: "fightSpirit", label: "闘争心", description: "バランス型が相手の時、自分の防御が20%ダウンするが、与えるダメージが20%アップする。", rarity: 2, maxStacks: 1, consumable: false },
   guts: { id: "guts", label: "根性", description: "HPが0になるダメージを受けたとき、一度だけHP1で耐える（1ランにつき1回）。", rarity: 3, maxStacks: 1, consumable: false },
 };
 
