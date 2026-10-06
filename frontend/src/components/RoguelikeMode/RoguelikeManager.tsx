@@ -16,7 +16,6 @@ import {
   ROGUELIKE_PLAYER_INITIAL_STATS,
   ROGUELIKE_TOTAL_FLOORS,
   applyBossMultiplyUpgrade,
-  applyBossUpgrade,
   applyPerfectVictoryBuff,
   applyUpgrade,
   buildWeakEnemyStats,
@@ -25,7 +24,7 @@ import {
   type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
-import { applyPlayerStats, carryOverPlayerState, healPlayerFully } from "@/lib/roguelikeTransition";
+import { applyPlayerStats, carryOverPlayerState, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
 import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
@@ -731,9 +730,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       setAcquiredSkills(reward.acquiredSkills);
       acquiredSkillsRef.current = reward.acquiredSkills;
     } else if (choice.kind === "boss-multiply") {
-      nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key);
-    } else if (choice.kind === "boss") {
-      nextStats = applyBossUpgrade(playerStatsRef.current, choice.floor);
+      nextStats = applyBossMultiplyUpgrade(playerStatsRef.current, choice.key, choice.multiplier);
+      if (choice.healRatio) {
+        nextPlayer = healPlayerByRatio(applyPlayerStats(currentPlayer, nextStats), choice.healRatio);
+      }
     }
     setPlayerStats(nextStats);
     playerStatsRef.current = nextStats;
@@ -1377,7 +1377,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                           {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
                         </div>
                         <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                          {choice.kind === "boss" || choice.kind === "boss-multiply" || choice.kind === "full-heal" || choice.kind === "skill"
+                          {choice.kind === "boss-multiply" || choice.kind === "full-heal" || choice.kind === "skill"
                             ? choice.label
                             : choice.kind === "weak-magic"
                             ? `🪄 ${choice.effectName}`
@@ -1388,8 +1388,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                             ? "クリックしてHPとPPを最大値まで回復"
                             : choice.kind === "skill"
                             ? choice.description
-                            : choice.kind === "boss" || choice.kind === "boss-multiply"
-                            ? "クリックして強化を適用"
+                            : choice.kind === "boss-multiply"
+                            ? choice.healRatio
+                              ? "強化を適用し、HPとPPを最大値の50%回復"
+                              : "クリックして強化を適用"
                             : choice.kind === "weak-magic"
                             ? `${rarityStyle?.label} 弱まほう効果を習得`
                             : `${rarityStyle?.label} ${formatUpgradeAmount(choice.key, choice.amount)}`}

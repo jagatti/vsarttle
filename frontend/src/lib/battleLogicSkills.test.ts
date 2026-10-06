@@ -45,6 +45,54 @@ test("attack resistance applies after defense, caps at three stacks, and never r
   assert.equal(battle(actions, { b: { attackResistance: 3 } }, { turn: 21 }).damageEvents[0].amount, 159);
 });
 
+test("pursuit adds 50 damage against a paralyzed or charging target only", () => {
+  const paralyzed = player("b");
+  paralyzed.paralyzedNextTurn = true;
+  paralyzed.characterType = "attack";
+  const pursuitHit = battle(
+    { a: "attack", b: "paralysis" },
+    { a: { pursuit: true } },
+    { players: { a: player("a"), b: paralyzed } },
+  );
+  assert.equal(pursuitHit.damageEvents[0].amount, 125);
+  assert.ok(pursuitHit.logs.includes("[スキル] a の追撃！"));
+
+  const charging = player("b");
+  charging.characterType = "attack";
+  const chargingHit = battle({ a: "attack", b: "charge" }, { a: { pursuit: true } }, {
+    players: { a: player("a"), b: charging },
+  });
+  assert.equal(chargingHit.damageEvents.find((event) => event.to === "b")?.amount, 125);
+  assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } }).damageEvents[0].amount, 75);
+});
+
+test("fight spirit lowers balanced opponents' defense and raises damage by 20%", () => {
+  const result = battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } });
+  assert.equal(result.damageEvents[0].amount, 95);
+  assert.ok(result.logs.includes("[スキル] a の闘争心がダメージを増やした！"));
+  const unaffected = player("b");
+  unaffected.characterType = "attack";
+  assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } }, {
+    players: { a: player("a"), b: unaffected },
+  }).damageEvents[0].amount, 75);
+});
+
+test("Guts saves a player from lethal damage only once and records the use across battles", () => {
+  const b = player("b");
+  b.currentHp = 75;
+  const first = battle({ a: "attack", b: "paralysis" }, { b: { guts: true } }, {
+    players: { a: player("a"), b },
+  });
+  assert.equal(first.nextStates.b.currentHp, 1);
+  assert.equal(first.nextStates.b.roguelikeGutsUsed, true);
+  assert.ok(first.logs.includes("[スキル] b は根性でHP1で耐えた！"));
+
+  const second = battle({ a: "attack", b: "paralysis" }, { b: { guts: true } }, {
+    players: { a: player("a"), b: first.nextStates.b },
+  });
+  assert.equal(second.nextStates.b.currentHp, 0);
+});
+
 test("direct magic uses only magic resistance", () => {
   const actions = { a: "magicStrong", b: "attack" } satisfies Record<string, ActionType>;
   assert.equal(battle(actions, { b: { magicResistance: 2, barrierResistance: 3, attackResistance: 3 } }).damageEvents[0].amount, 120);
@@ -136,9 +184,9 @@ test("PP absorb uses actual paid PP, caps recovery, and requires a real barrier 
   b.currentPp = 0;
   const result = battle({ a: "magicStrong", b: "barrier" }, { b: { ppAbsorb: true } }, { players: { a, b } });
   assert.equal(result.nextStates.a.currentPp, 60);
-  assert.equal(result.nextStates.b.currentPp, 6);
+  assert.equal(result.nextStates.b.currentPp, 8);
   assert.deepEqual(result.chargeEvents, []);
-  assert.ok(result.logs.includes("[スキル] b はPPを6吸収した！"));
+  assert.ok(result.logs.includes("[スキル] b はPPを8吸収した！"));
   a.currentPp = 5;
   b.currentPp = 99;
   const limited = battle({ a: "magicStrong", b: "barrier" }, { b: { ppAbsorb: true } }, { players: { a, b } });
@@ -155,12 +203,12 @@ test("PP absorb uses actual paid PP, caps recovery, and requires a real barrier 
   b.tieBanActive = false;
   const avoided = battle({ a: "magicStrong", b: "barrier" }, { b: { ppAbsorb: true } }, { players: { a, b } });
   assert.equal(avoided.damageEvents[0].avoided, true);
-  assert.equal(avoided.nextStates.b.currentPp, 6);
+  assert.equal(avoided.nextStates.b.currentPp, 8);
   const filtered = battle({ a: "magicStrong", b: "barrier" }, { a: { filter: true }, b: { ppAbsorb: true } }, {
     turn: 1, players: { a: { ...a, stats: { ...a.stats, evasion: 0 } }, b },
   });
   assert.equal(filtered.damageEvents[0].amount, 0);
-  assert.equal(filtered.nextStates.b.currentPp, 6);
+  assert.equal(filtered.nextStates.b.currentPp, 8);
   assert.deepEqual(battle({ a: "magicStrong", b: "attack" }, { b: { ppAbsorb: true } }), battle({ a: "magicStrong", b: "attack" }));
 });
 
@@ -174,7 +222,7 @@ test("PP absorb respects boss overcharge costs and PP availability", () => {
   const extra = { players: { a: boss, b: defender }, roguelikeBossBattle: { floor: 16, bossId: "a", playerId: "b" } };
   const result = battle({ a: "magicStrong", b: "barrier" }, { b: { ppAbsorb: true } }, extra);
   assert.equal(result.nextStates.a.currentPp, 150);
-  assert.equal(result.nextStates.b.currentPp, 8);
+  assert.equal(result.nextStates.b.currentPp, 10);
   boss.currentPp = 10;
   const limited = battle({ a: "magicStrong", b: "barrier" }, { b: { ppAbsorb: true } }, extra);
   assert.equal(limited.nextStates.b.currentPp, 2);

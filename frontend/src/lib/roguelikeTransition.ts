@@ -38,6 +38,15 @@ export function healPlayerFully(player: PlayerBattleState): PlayerBattleState {
   };
 }
 
+export function healPlayerByRatio(player: PlayerBattleState, ratio: number): PlayerBattleState {
+  const carried = carryOverPlayerState(player);
+  return {
+    ...carried,
+    currentHp: Math.min(player.stats.maxHp, carried.currentHp + Math.ceil(player.stats.maxHp * ratio)),
+    currentPp: Math.min(player.stats.maxPp, carried.currentPp + Math.ceil(player.stats.maxPp * ratio)),
+  };
+}
+
 /**
  * Return player stats with HP and PP maxHp/maxPp fully restored to their maximum values.
  * (For updating the characters array in multi-character mode.)

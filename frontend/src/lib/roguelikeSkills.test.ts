@@ -22,15 +22,16 @@ function makePlayer(overrides: Partial<PlayerBattleState> = {}): PlayerBattleSta
   };
 }
 
-test("registry contains exactly twelve stable IDs with complete metadata and rarity pools", () => {
+test("registry contains stable IDs with complete metadata and rarity pools", () => {
   assert.deepEqual(Object.keys(ROGUELIKE_SKILLS), [
     "smallHeal", "mediumHeal", "largeHeal", "attackResistance", "magicResistance",
     "barrierResistance", "tieBoost", "ppRegen", "statusResistance", "filter", "ppAbsorb", "hpRegen",
+    "pursuit", "fightSpirit", "guts",
   ]);
   const expectedPools = {
-    1: ["smallHeal", "attackResistance", "magicResistance", "barrierResistance", "tieBoost"],
-    2: ["mediumHeal", "ppRegen", "statusResistance", "filter", "ppAbsorb"],
-    3: ["largeHeal", "hpRegen"],
+    1: ["smallHeal", "attackResistance", "magicResistance", "barrierResistance", "tieBoost", "pursuit"],
+    2: ["mediumHeal", "ppRegen", "statusResistance", "filter", "ppAbsorb", "fightSpirit"],
+    3: ["largeHeal", "hpRegen", "guts"],
   };
   for (const rarity of [1, 2, 3] as const) {
     assert.deepEqual(Object.values(ROGUELIKE_SKILLS).filter((skill) => skill.rarity === rarity).map((skill) => skill.id), expectedPools[rarity]);
@@ -53,16 +54,19 @@ test("registry uses requested labels and precise barrier, filter and PP absorpti
   }
   assert.match(ROGUELIKE_SKILLS.filter.description, /1ターン目.*すべて.*0/);
   assert.match(ROGUELIKE_SKILLS.filter.description, /痛み分け.*状態異常は防がない/);
-  assert.match(ROGUELIKE_SKILLS.ppAbsorb.description, /バリア.*反射.*実際に消費.*15%/);
+  assert.match(ROGUELIKE_SKILLS.ppAbsorb.description, /バリア.*反射.*実際に消費.*20%/);
   assert.match(ROGUELIKE_SKILLS.ppAbsorb.description, /ときだけ.*端数切り上げ/);
+  assert.match(ROGUELIKE_SKILLS.pursuit.description, /まひ.*チャージ.*50ダメージ/);
+  assert.match(ROGUELIKE_SKILLS.fightSpirit.description, /バランス型.*防御.*20%.*ダメージ.*20%/);
+  assert.match(ROGUELIKE_SKILLS.guts.description, /一度だけ.*HP1.*1ラン/);
 });
 
 test("central balance constants match the skill and offer contracts", () => {
   assert.deepEqual(ROGUELIKE_SKILL_BALANCE, {
-    healRatios: { smallHeal: 0.25, mediumHeal: 0.5, largeHeal: 0.8 },
+    healRatios: { smallHeal: 0.3, mediumHeal: 0.55, largeHeal: 0.85 },
     resistancePerStack: 0.1, maxResistanceStacks: 3, tieDamageMultiplier: 1.1,
     tieChargeRecovery: 0.35, autoRecoveryRatio: 0.05, statusResistanceChance: 0.5,
-    ppAbsorbRatio: 0.15, healthyRecoveryWeight: 0.3, healthyHpRatio: 0.9, lowHpRatio: 0.4,
+    ppAbsorbRatio: 0.2, healthyRecoveryWeight: 0.3, healthyHpRatio: 0.9, lowHpRatio: 0.4,
   });
 });
 
@@ -75,9 +79,11 @@ test("effects use resistance stack counts and flags for every other passive", ()
   assert.deepEqual(buildRoguelikeSkillEffects({
     attackResistance: 1, magicResistance: 2, barrierResistance: 3,
     tieBoost: 1, ppRegen: 1, statusResistance: 1, filter: 1, ppAbsorb: 1, hpRegen: 1,
+    pursuit: 1, fightSpirit: 1, guts: 1,
   }), {
     attackResistance: 1, magicResistance: 2, barrierResistance: 3,
     tieBoost: true, ppRegen: true, statusResistance: true, filter: true, ppAbsorb: true, hpRegen: true,
+    pursuit: true, fightSpirit: true, guts: true,
   });
 });
 
@@ -126,6 +132,14 @@ test("passive rewards stack up to registry caps without changing the player or i
     }
   }
   assert.equal(applyRoguelikeSkillReward(makePlayer(), "attackResistance", { attackResistance: 100 }).acquiredSkills.attackResistance, 3);
+});
+
+test("new passive skills are single-acquisition skills", () => {
+  for (const skillId of ["pursuit", "fightSpirit", "guts"] as const) {
+    assert.equal(ROGUELIKE_SKILLS[skillId].maxStacks, 1);
+    assert.equal(ROGUELIKE_SKILLS[skillId].consumable, false);
+    assert.equal(applyRoguelikeSkillReward(makePlayer(), skillId, {}).acquiredSkills[skillId], 1);
+  }
 });
 
 test("auto recovery supports each flag independently and rounds up from maxima", () => {

@@ -138,6 +138,11 @@ test("applyBossMultiplyUpgrade applies floor 17 single-key multipliers", () => {
   const hp = applyBossMultiplyUpgrade(baseStats, "hp");
   assert.deepEqual({ hp: hp.hp, maxHp: hp.maxHp }, { hp: 200, maxHp: 200 });
   assert.equal(applyBossMultiplyUpgrade(baseStats, "defense").defense, 60);
+  assert.equal(applyBossMultiplyUpgrade(baseStats, "attack", 1.5).attack, 30);
+  assert.deepEqual(
+    { pp: applyBossMultiplyUpgrade(baseStats, "pp", 1.2).pp, maxPp: applyBossMultiplyUpgrade(baseStats, "pp", 1.2).maxPp },
+    { pp: 48, maxPp: 48 },
+  );
   assert.equal(hp.evasion, baseStats.evasion);
 });
 

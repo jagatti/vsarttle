@@ -11,19 +11,25 @@ import {
 import { ROGUELIKE_SKILLS, type AcquiredSkills, type SkillId } from "@/lib/roguelikeSkills";
 import type { WeakMagicEffectKind } from "@/types/game";
 
-test("boss floors offer their original upgrade and full HP/PP recovery", () => {
-  for (const [floor, label] of [[5, "攻撃 ×2"], [10, "PP ×2"], [13, "防御 ×2"], [16, "HP ×2"]] as const) {
+test("boss floors offer 1.5x, 1.2x with half recovery, and full recovery", () => {
+  for (const [floor, key, stat] of [
+    [5, "attack", "攻撃"],
+    [10, "pp", "PP"],
+    [13, "defense", "防御"],
+    [16, "hp", "HP"],
+  ] as const) {
     assert.deepEqual(getRoguelikeBossUpgradeChoices(floor), [
-      { kind: "boss", floor, label },
+      { kind: "boss-multiply", key, multiplier: 1.5, label: `${stat} ×1.5` },
+      { kind: "boss-multiply", key, multiplier: 1.2, healRatio: 0.5, label: `${stat} ×1.2＋HP/PP 50%回復` },
       { kind: "full-heal", label: "HPとPP全回復" },
     ]);
   }
 });
 
-test("floor 17 offers HP, defense, and full recovery instead of evasion", () => {
+test("floor 17 offers HP x2, defense x1.5 with half recovery, and full recovery", () => {
   assert.deepEqual(getRoguelikeBossUpgradeChoices(17), [
-    { kind: "boss-multiply", key: "hp", label: "HP ×2" },
-    { kind: "boss-multiply", key: "defense", label: "防御 ×2" },
+    { kind: "boss-multiply", key: "hp", multiplier: 2, label: "HP ×2" },
+    { kind: "boss-multiply", key: "defense", multiplier: 1.5, healRatio: 0.5, label: "防御 ×1.5＋HP/PP 50%回復" },
     { kind: "full-heal", label: "HPとPP全回復" },
   ]);
 });
@@ -198,7 +204,7 @@ test("below 40% HP slot two guarantees a heal of any rarity and 40% does not", (
   }
   const slot = pickRoguelikeWeakFloorUpgradeSlots(1, [], 2, sequence(0, 0, 0, 0.99), { currentHp: 40, maxHp: 100 })[1];
   assert.equal(slot.kind, "skill");
-  if (slot.kind === "skill") assert.equal(slot.skillId, "tieBoost");
+  if (slot.kind === "skill") assert.equal(ROGUELIKE_SKILLS[slot.skillId].consumable, false);
 });
 
 test("at 90% HP consumable candidate weights fall to 0.3, but below 90% they are unchanged", () => {
@@ -207,7 +213,7 @@ test("at 90% HP consumable candidate weights fall to 0.3, but below 90% they are
     assert.equal(slot.kind, "skill");
     if (slot.kind === "skill") assert.equal(slot.skillId, expected);
   }
-  const reducedBoundary = 0.3 / 4.3;
+  const reducedBoundary = 0.3 / 5.3;
   const slot = pickRoguelikeWeakFloorUpgradeSlots(1, [], 2, sequence(0, 0, 0, reducedBoundary - 0.00001), { currentHp: 90, maxHp: 100 })[1];
   if (slot.kind !== "skill") throw new Error("expected skill");
   assert.equal(slot.skillId, "smallHeal");
@@ -241,9 +247,21 @@ test("skills at stack caps are excluded but repeatable consumables and below-cap
   assert.deepEqual(acquiredSkills, before);
 });
 
+test("acquired unique skills cannot be offered again", () => {
+  const acquiredSkills = { ...cappedSkills(), pursuit: 1, fightSpirit: 1, guts: 1 };
+  const slots = pickRoguelikeWeakFloorUpgradeSlots(
+    1,
+    ROGUELIKE_WEAK_MAGIC_EFFECTS.map((effect) => effect.kind),
+    30,
+    () => 0.99,
+    { acquiredSkills },
+  );
+  assert.ok(slots.every((slot) => slot.kind !== "skill" || !["pursuit", "fightSpirit", "guts"].includes(slot.skillId)));
+});
+
 test("large screens exhaust the pools without duplicate stat keys, skill IDs or weak effects", () => {
   const slots = pickRoguelikeWeakFloorUpgradeSlots(1, [], 100, () => 0.99);
-  assert.equal(slots.length, 24);
+  assert.equal(slots.length, 27);
   const ids = slots.map((slot) => slot.kind === "stat" ? `stat:${slot.key}` : slot.kind === "skill" ? `skill:${slot.skillId}` : `weak:${slot.effectKind}`);
   assert.equal(new Set(ids).size, slots.length);
   assert.ok(slots.every((slot) => slot.kind === "stat" ? [1, 2].includes(slot.rarity) : slot.kind === "weak-magic" ? slot.rarity === 3 : slot.rarity === ROGUELIKE_SKILLS[slot.skillId].rarity));
