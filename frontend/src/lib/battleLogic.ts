@@ -245,8 +245,8 @@ export function resolveTurn(params: {
   const bossVoidActive = () => !!bossState?.voidminationActive;
   const wasParalyzed = (player: PlayerBattleState) => player.id === left.id ? leftWasParalyzed : rightWasParalyzed;
   const targetDefense = (attacker: PlayerBattleState, target: PlayerBattleState) =>
-    effectsFor(attacker)?.fightSpirit && target.characterType === "balanced"
-      ? target.stats.defense * 0.8
+    effectsFor(target)?.fightSpirit && attacker.characterType === "balanced"
+      ? Math.ceil(target.stats.defense * 4 / 5)
       : target.stats.defense;
   const getMagicCostOptions = (actor: PlayerBattleState, action: ActionType) => {
     const overchargeRatio = bossId && voidFloor
@@ -363,7 +363,7 @@ export function resolveTurn(params: {
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(resistedAmount * damageMultiplier));
     const cap = params.damageCaps?.[to.id];
     const fightSpiritBonus = effectsFor(from)?.fightSpirit && to.characterType === "balanced"
-      ? Math.round(scaledAmount * 0.2)
+      ? Math.ceil(scaledAmount / 5)
       : 0;
     const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || to.chargeMultiplier > 1) ? 50 : 0;
     const modifiedAmount = scaledAmount + fightSpiritBonus + pursuitBonus;

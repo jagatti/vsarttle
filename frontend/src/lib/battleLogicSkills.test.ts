@@ -66,15 +66,56 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
   assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } }).damageEvents[0].amount, 75);
 });
 
-test("fight spirit lowers balanced opponents' defense and raises damage by 20%", () => {
+test("fight spirit raises damage by 20% without lowering the opponent's defense", () => {
   const result = battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } });
-  assert.equal(result.damageEvents[0].amount, 95);
+  assert.equal(result.damageEvents[0].amount, 90);
   assert.ok(result.logs.includes("[スキル] a の闘争心がダメージを増やした！"));
   const unaffected = player("b");
   unaffected.characterType = "attack";
   assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { fightSpirit: true } }, {
     players: { a: player("a"), b: unaffected },
   }).damageEvents[0].amount, 75);
+});
+
+test("fight spirit lowers only the owner's defense against balanced attackers for every damage source", () => {
+  for (const actions of [
+    { a: "paralysis", b: "attack" },
+    { a: "attack", b: "magicStrong" },
+    { a: "charge", b: "barrier" },
+    { a: "magicStrong", b: "barrier" },
+  ] satisfies Record<string, ActionType>[]) {
+    const a = player("a");
+    const b = player("b");
+    const expectedA = player("a");
+    expectedA.stats.defense = 80;
+    const expected = battle(actions, undefined, { players: { a: expectedA, b } });
+    const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b } });
+    assert.deepEqual(result.damageEvents, expected.damageEvents);
+    assert.equal(result.nextStates.a.stats.defense, 100);
+    assert.equal(result.nextStates.b.stats.defense, 100);
+    assert.equal(a.stats.defense, 100);
+
+    b.characterType = "attack";
+    assert.deepEqual(
+      battle(actions, { a: { fightSpirit: true } }, { players: { a, b } }),
+      battle(actions, undefined, { players: { a, b } }),
+    );
+  }
+});
+
+test("fight spirit rounds defense and bonus damage upward", () => {
+  const a = player("a");
+  a.stats.defense = 103;
+  a.stats.attack = 101;
+  const expectedA = player("a");
+  expectedA.stats.defense = 83;
+  expectedA.stats.attack = 101;
+  const actions = { a: "attack", b: "attack" } satisfies Record<string, ActionType>;
+  const baseline = battle(actions, undefined, { players: { a: expectedA, b: player("b") } });
+  const result = battle(actions, { a: { fightSpirit: true } }, { players: { a, b: player("b") } });
+  assert.equal(result.damageEvents.find((event) => event.from === "a")?.amount, 92);
+  assert.equal(result.damageEvents.find((event) => event.from === "b")?.amount,
+    baseline.damageEvents.find((event) => event.from === "b")?.amount);
 });
 
 test("Guts saves a player from lethal damage only once and records the use across battles", () => {
