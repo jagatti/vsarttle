@@ -4,6 +4,7 @@ import {
   applyRoguelikeAutoRecovery,
   applyRoguelikeSkillReward,
   buildRoguelikeSkillEffects,
+  buildRoguelikeSkillLabels,
   buildRoguelikeSkillsTooltip,
   ROGUELIKE_SKILLS,
   ROGUELIKE_SKILL_BALANCE,
@@ -73,6 +74,20 @@ test("central balance constants match the skill and offer contracts", () => {
 test("empty acquired skills and consumables yield no battle effects", () => {
   assert.deepEqual(buildRoguelikeSkillEffects({}), {});
   assert.deepEqual(buildRoguelikeSkillEffects({ smallHeal: 1, mediumHeal: 1, largeHeal: 1 }), {});
+});
+
+test("skill labels show stacks, unique names, healing acquisition counts and remaining guts", () => {
+  const acquired = { attackResistance: 2, pursuit: 1, fightSpirit: 1, guts: 1 };
+  const healing = { smallHeal: 2, mediumHeal: 1 };
+  assert.deepEqual(buildRoguelikeSkillLabels(acquired, false, healing),
+    ["小回復 x2", "中回復 x1", "こうげき耐性 x2", "追撃", "闘争心", "根性x1"]);
+  assert.deepEqual(buildRoguelikeSkillLabels(acquired, true, healing),
+    ["小回復 x2", "中回復 x1", "こうげき耐性 x2", "追撃", "闘争心", "根性x0"]);
+  assert.deepEqual(buildRoguelikeSkillLabels({}, true), []);
+  assert.deepEqual(buildRoguelikeSkillLabels({ attackResistance: 99, pursuit: 0, guts: 0 }, true,
+    { smallHeal: NaN, mediumHeal: -1 }), ["こうげき耐性 x3"]);
+  assert.deepEqual(acquired, { attackResistance: 2, pursuit: 1, fightSpirit: 1, guts: 1 });
+  assert.deepEqual(buildRoguelikeSkillEffects(healing), {});
 });
 
 test("effects use resistance stack counts and flags for every other passive", () => {

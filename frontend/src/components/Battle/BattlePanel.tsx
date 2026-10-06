@@ -211,8 +211,8 @@ interface ImpactEffect {
   charged: boolean;
 }
 
-function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; title?: string; typeLabelOverride?: string }) {
-  const { player, align, title, typeLabelOverride } = props;
+function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; title?: string; typeLabelOverride?: string; skillLabels?: string[] }) {
+  const { player, align, title, typeLabelOverride, skillLabels } = props;
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   const hpPct = Math.max(0, Math.round((player.currentHp / player.stats.maxHp) * 100));
   const ppCeiling = player.voidminationSourceFloor === 16 && player.voidminationActive
@@ -289,6 +289,11 @@ function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; 
           </span>
         ) : null}
       </div>
+      {skillLabels && skillLabels.length > 0 && (
+        <div aria-label="獲得スキル" style={{ display: "flex", flexWrap: "wrap", gap: "2px 6px", marginTop: 4, color: "#a5f3fc", fontSize: "clamp(9px, 0.7vw, 11px)", overflowWrap: "anywhere" }}>
+          {skillLabels.map((label) => <span key={label} style={{ maxWidth: "100%" }}>{label}</span>)}
+        </div>
+      )}
       <div
         style={{
           display: "flex",
@@ -914,6 +919,7 @@ export function BattlePanel(props: {
   backgroundImageUrl?: string;
   /** Optional tooltip shown for roguelike weak-magic pool info. */
   roguelikeWeakMagicTooltipTitle?: string;
+  roguelikeSkillLabels?: string[];
   /** When true, keep battle-finished state but hide the built-in finish overlay. */
   suppressFinishOverlay?: boolean;
 }) {
@@ -1918,7 +1924,7 @@ export function BattlePanel(props: {
 
         {/* Name / HP / PP boxes, colored by character type */}
         <div className="battle-status-row" style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
-          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} />
+          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} skillLabels={props.roguelikeSkillLabels} />
           <NameHpBox
             player={{ ...props.enemy, ...displayEnemy }}
             align="right"

@@ -154,3 +154,33 @@ test("isWeakFloor and isBossFloor classify floors", () => {
   assert.equal(isBossFloor(20), true);
   assert.equal(isBossFloor(6), false);
 });
+
+test("boss multipliers round every affected stat upward without changing other stats", () => {
+  const stats = { ...baseStats, hp: 101, maxHp: 101, pp: 51, maxPp: 51, attack: 21, defense: 31 };
+  for (const multiplier of [1.2, 1.5, 2]) {
+    for (const key of ["hp", "pp", "attack", "defense"] as const) {
+      const result = applyBossMultiplyUpgrade(stats, key, multiplier);
+      const expected = { ...stats, [key]: Math.ceil(stats[key] * multiplier) };
+      if (key === "hp") expected.maxHp = Math.ceil(stats.maxHp * multiplier);
+      if (key === "pp") expected.maxPp = Math.ceil(stats.maxPp * multiplier);
+      assert.deepEqual(result, expected);
+    }
+  }
+  assert.equal(stats.hp, 101);
+});
+
+test("multipliers remove floating point noise before ceiling and remain integer over repeated upgrades", () => {
+  const noisy = 100.00000000000001;
+  const stats = { ...baseStats, hp: noisy, maxHp: noisy, pp: noisy, maxPp: noisy, attack: noisy, defense: noisy };
+  for (const key of ["hp", "pp", "attack", "defense"] as const) {
+    assert.equal(applyBossMultiplyUpgrade(stats, key, 1.2)[key], 120);
+  }
+  assert.deepEqual(applyTypeCorrection({ pp: noisy, attack: noisy, defense: noisy }, "balanced"),
+    { pp: 120, attack: 120, defense: 120 });
+  let result = { ...baseStats, attack: 101 };
+  for (const multiplier of [1.2, 1.5, 1.2]) {
+    result = applyBossMultiplyUpgrade(result, "attack", multiplier);
+    result = applyPerfectVictoryBuff(result);
+    assert.ok(Number.isInteger(result.attack));
+  }
+});

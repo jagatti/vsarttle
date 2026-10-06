@@ -143,3 +143,16 @@ export function buildRoguelikeSkillsTooltip(acquired: AcquiredSkills): string {
   });
   return entries.length ? entries.join("\n") : "まだスキルを習得していません";
 }
+
+export function buildRoguelikeSkillLabels(
+  acquired: AcquiredSkills,
+  gutsUsed = false,
+  acquiredHealingSkills: AcquiredSkills = {},
+): string[] {
+  return Object.values(ROGUELIKE_SKILLS).flatMap((skill) => {
+    const count = skill.consumable ? acquiredHealingSkills[skill.id] ?? 0 : skillStacks(acquired, skill);
+    if (!Number.isFinite(count) || count < 1) return [];
+    if (skill.id === "guts") return [`${skill.label}x${gutsUsed ? 0 : 1}`];
+    return [`${skill.label}${skill.consumable || skill.maxStacks > 1 ? ` x${Math.floor(count)}` : ""}`];
+  });
+}
