@@ -135,12 +135,13 @@ export function applyBossUpgrade(stats: CharacterStats, floor: number): Characte
   return stats;
 }
 
-export type BossMultiplyKey = "hp" | "defense";
+export type BossMultiplyKey = "hp" | "pp" | "attack" | "defense";
 
-/** For floor 17's 3-choice upgrade: multiply a single chosen stat by 2. */
-export function applyBossMultiplyUpgrade(stats: CharacterStats, key: BossMultiplyKey): CharacterStats {
-  if (key === "hp") return { ...stats, hp: stats.hp * 2, maxHp: stats.maxHp * 2 };
-  if (key === "defense") return { ...stats, defense: stats.defense * 2 };
+export function applyBossMultiplyUpgrade(stats: CharacterStats, key: BossMultiplyKey, multiplier = 2): CharacterStats {
+  if (key === "hp") return { ...stats, hp: stats.hp * multiplier, maxHp: stats.maxHp * multiplier };
+  if (key === "pp") return { ...stats, pp: stats.pp * multiplier, maxPp: stats.maxPp * multiplier };
+  if (key === "attack") return { ...stats, attack: stats.attack * multiplier };
+  if (key === "defense") return { ...stats, defense: stats.defense * multiplier };
   return stats;
 }
 

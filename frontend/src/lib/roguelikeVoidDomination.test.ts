@@ -79,12 +79,12 @@ test("reverse velocity makes the slower unit act first", () => {
   assert.equal(second.id, "fast");
 });
 
-test("overcharge charge recovery heals 5% HP and full max PP up to double", () => {
+test("overcharge charge recovery heals 10% HP and full max PP up to double", () => {
   const boss = makePlayer("boss");
   boss.stats.maxHp = 666;
   boss.stats.maxPp = 99;
   assert.deepEqual(getOverchargeChargeRecovery(boss), {
-    hpRecover: 34,
+    hpRecover: 67,
     ppRecover: 99,
     ppCeiling: 198,
   });

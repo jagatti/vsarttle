@@ -51,7 +51,7 @@ const VOID_DOMINATION_SPECS: Record<number, RoguelikeVoidDominationSpec> = {
     kind: "overcharge",
     name: "ヴォイドミネーション",
     badgeText: "オーバーチャージ",
-    description: "ボスのチャージHP回復が5%になり、PPは最大PPぶん回復して2倍まで蓄積。まほうPP消費は25%/50%になる。",
+    description: "ボスのチャージHP回復が10%になり、PPは最大PPぶん回復して2倍まで蓄積。まほうPP消費は25%/50%になる。",
   },
   17: {
     floor: 17,
@@ -171,7 +171,7 @@ export function getOverchargeChargeRecovery(player: PlayerBattleState): {
   ppCeiling: number;
 } {
   return {
-    hpRecover: Math.ceil(player.stats.maxHp * 0.05),
+    hpRecover: Math.ceil(player.stats.maxHp * 0.1),
     ppRecover: player.stats.maxPp,
     ppCeiling: player.stats.maxPp * 2,
   };

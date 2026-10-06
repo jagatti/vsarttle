@@ -36,22 +36,44 @@ export interface RoguelikeUpgradeOptions {
 }
 
 export type RoguelikeBossUpgradeChoice =
-  | { kind: "boss"; floor: number; label: string }
-  | { kind: "boss-multiply"; key: BossMultiplyKey; label: string }
+  | { kind: "boss-multiply"; key: BossMultiplyKey; multiplier: number; healRatio?: number; label: string }
   | { kind: "full-heal"; label: string };
 
 export function getRoguelikeBossUpgradeChoices(floor: number): RoguelikeBossUpgradeChoice[] {
   const fullHeal: RoguelikeBossUpgradeChoice = { kind: "full-heal", label: "HPとPP全回復" };
+  const multiply = (
+    key: BossMultiplyKey,
+    multiplier: number,
+    label: string,
+    healRatio?: number,
+  ): RoguelikeBossUpgradeChoice => ({
+    kind: "boss-multiply",
+    key,
+    multiplier,
+    ...(healRatio === undefined ? {} : { healRatio }),
+    label,
+  });
   if (floor === 17) {
     return [
-      { kind: "boss-multiply", key: "hp", label: "HP ×2" },
-      { kind: "boss-multiply", key: "defense", label: "防御 ×2" },
+      multiply("hp", 2, "HP ×2"),
+      multiply("defense", 1.5, "防御 ×1.5＋HP/PP 50%回復", 0.5),
       fullHeal,
     ];
   }
-  const labels: Record<number, string> = { 5: "攻撃 ×2", 10: "PP ×2", 13: "防御 ×2", 16: "HP ×2" };
-  const label = labels[floor];
-  return label ? [{ kind: "boss", floor, label }, fullHeal] : [];
+  const rewards: Record<number, [BossMultiplyKey, string]> = {
+    5: ["attack", "攻撃"],
+    10: ["pp", "PP"],
+    13: ["defense", "防御"],
+    16: ["hp", "HP"],
+  };
+  const reward = rewards[floor];
+  return reward
+    ? [
+        multiply(reward[0], 1.5, `${reward[1]} ×1.5`),
+        multiply(reward[0], 1.2, `${reward[1]} ×1.2＋HP/PP 50%回復`, 0.5),
+        fullHeal,
+      ]
+    : [];
 }
 
 export const ROGUELIKE_WEAK_MAGIC_EFFECTS = ALL_WEAK_MAGIC_EFFECTS.map((effect) => ({ kind: effect.kind, name: effect.name }));

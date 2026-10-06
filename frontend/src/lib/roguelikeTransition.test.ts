@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPlayerStats, carryOverPlayerState, healPlayerFully } from "@/lib/roguelikeTransition";
+import { applyPlayerStats, carryOverPlayerState, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
 import { applyBossMultiplyUpgrade, applyBossUpgrade, applyPerfectVictoryBuff, applyUpgrade } from "@/lib/roguelikeEnemyStats";
 import { applyColorDrain } from "@/lib/roguelikeVoidDomination";
 import { calculateFinalHpRatio } from "@/lib/matchBuilders";
@@ -68,6 +68,16 @@ test("healPlayerFully with already-full HP still returns max", () => {
   assert.equal(healed.currentPp, 50);
 });
 
+test("healPlayerByRatio restores half of max HP and PP without exceeding their maxima", () => {
+  const player = makePlayer({ currentHp: 30, currentPp: 10 });
+  const healed = healPlayerByRatio(player, 0.5);
+  assert.equal(healed.currentHp, 80);
+  assert.equal(healed.currentPp, 35);
+  const full = healPlayerByRatio(makePlayer({ currentHp: 95, currentPp: 45 }), 0.5);
+  assert.equal(full.currentHp, 100);
+  assert.equal(full.currentPp, 50);
+});
+
 test("carryOverPlayerState 18→19 transition preserves HP/PP", () => {
   // Simulate 18→19 transition: player took damage during floor 18 battle
   const player = makePlayer({ currentHp: 12, currentPp: 3 });
@@ -96,6 +106,11 @@ test("carryOverPlayerState resets battle effects without changing stats or resou
   assert.deepEqual(player, snapshot);
   assert.equal(calculateFinalHpRatio(player.id, { [player.id]: carried }), 0.3);
   assert.equal(carryOverPlayerState(makePlayer({ currentHp: 0 })).currentHp, 0);
+});
+
+test("carryOverPlayerState preserves the once-per-run Guts usage flag", () => {
+  const carried = carryOverPlayerState(makePlayer({ roguelikeGutsUsed: true }));
+  assert.equal(carried.roguelikeGutsUsed, true);
 });
 
 test("perfect victory restores only the increase in maximum HP/PP", () => {

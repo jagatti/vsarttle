@@ -768,7 +768,7 @@ test("roguelike void-domination floor 16 overcharge lets the boss store PP above
     rng: () => 0.99,
     roguelikeBossBattle: { floor: 16, bossId: "boss", playerId: "player" },
   });
-  assert.equal(charged.nextStates.boss.currentHp, 473);
+  assert.equal(charged.nextStates.boss.currentHp, 506);
   assert.equal(charged.nextStates.boss.currentPp, 179);
 
   const cast = resolveTurn({
