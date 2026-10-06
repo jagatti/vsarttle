@@ -401,17 +401,22 @@ export function resolveTurn(params: {
         && !to.roguelikeGutsUsed;
       const nextHp = usedGuts ? 1 : damageResolution.nextHp;
       const damageTaken = usedGuts ? Math.max(0, to.currentHp - 1) : damageResolution.damageTaken;
+      const normalAmount = scaledAmount + fightSpiritBonus;
+      const cappedNormalAmount = cap !== undefined ? Math.min(normalAmount, cap) : normalAmount;
+      const finalNormalAmount = magicDamperActive ? applyBossMagicDamper(cappedNormalAmount) : cappedNormalAmount;
+      const pursuitDamage = pursuitBonus > 0 ? Math.max(0, damageTaken - finalNormalAmount) : 0;
       to.currentHp = nextHp;
       if (usedGuts) {
         to.roguelikeGutsUsed = true;
         logs.push(`[スキル] ${to.nickname} は根性でHP1で耐えた！`);
       }
       if (fightSpiritBonus > 0) logs.push(`[スキル] ${from.nickname} の闘争心がダメージを増やした！`);
-      if (pursuitBonus > 0) logs.push(`[スキル] ${from.nickname} の追撃！`);
+      if (pursuitDamage > 0) logs.push(`[スキル] ${from.nickname} の追撃！${pursuitDamage}ダメージ！`);
       damageEvents.push({
         from: from.id,
         to: to.id,
         amount: damageTaken,
+        ...(pursuitDamage > 0 ? { pursuitDamage } : {}),
         avoided: false,
         reason,
         chargeMultiplier: from.chargeMultiplier,

@@ -200,6 +200,7 @@ function PpBar({ current, max, ceiling }: { current: number; max: number; ceilin
 interface DamageFloater {
   id: number;
   amount: number;
+  pursuitDamage?: number;
   avoided: boolean;
   toMe: boolean;
   type: "damage" | "hpRecover" | "ppRecover";
@@ -458,7 +459,10 @@ function PortraitBlock({
                 whiteSpace: "nowrap",
               }}
             >
-              {f.type === "hpRecover" ? `+${f.amount}` : f.type === "ppRecover" ? `+${f.amount}` : f.avoided ? "MISS!" : `${f.amount}`}
+              {f.type === "hpRecover" ? `+${f.amount}` : f.type === "ppRecover" ? `+${f.amount}` : f.avoided ? "MISS!" : `${f.amount - (f.pursuitDamage ?? 0)}`}
+              {!f.avoided && (f.pursuitDamage ?? 0) > 0 && (
+                <div style={{ fontSize: "0.4em" }}>追撃！{f.pursuitDamage}ダメージ！</div>
+              )}
             </div>
           );
         })}
@@ -1146,6 +1150,7 @@ export function BattlePanel(props: {
         const phaseFloaters: DamageFloater[] = phase.damageEvents.map((event) => ({
           id: floaterIdRef.current++,
           amount: event.amount,
+          pursuitDamage: event.pursuitDamage,
           avoided: event.avoided,
           toMe: event.to === props.me.id,
           type: "damage" as const,
@@ -2092,7 +2097,10 @@ export function BattlePanel(props: {
                 >
                   {event.avoided
                     ? `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} が回避！`
-                    : `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} に ${event.amount} ダメージ（${event.reason}）`}
+                    : `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} に ${event.amount - (event.pursuitDamage ?? 0)} ダメージ（${event.reason}）`}
+                  {!event.avoided && (event.pursuitDamage ?? 0) > 0 && (
+                    <div>追撃！{event.pursuitDamage}ダメージ！</div>
+                  )}
                 </li>
               ))}
             </ul>

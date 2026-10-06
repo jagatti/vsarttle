@@ -55,7 +55,9 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
     { players: { a: player("a"), b: paralyzed } },
   );
   assert.equal(pursuitHit.damageEvents[0].amount, 125);
-  assert.ok(pursuitHit.logs.includes("[スキル] a の追撃！"));
+  assert.equal(pursuitHit.damageEvents[0].pursuitDamage, 50);
+  assert.equal(pursuitHit.nextStates.b.currentHp, 875);
+  assert.ok(pursuitHit.logs.includes("[スキル] a の追撃！50ダメージ！"));
 
   const charging = player("b");
   charging.characterType = "attack";
@@ -63,7 +65,81 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
     players: { a: player("a"), b: charging },
   });
   assert.equal(chargingHit.damageEvents.find((event) => event.to === "b")?.amount, 125);
-  assert.equal(battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } }).damageEvents[0].amount, 75);
+  assert.equal(chargingHit.damageEvents.find((event) => event.to === "b")?.pursuitDamage, 50);
+  const inactive = battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true } });
+  assert.equal(inactive.damageEvents[0].amount, 75);
+  assert.equal(inactive.damageEvents[0].pursuitDamage, undefined);
+  assert.ok(!inactive.logs.some((log) => log.includes("追撃")));
+});
+
+test("pursuit preserves barrier hits and does not display on avoided, filtered or absent hits", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const actions = { a: "attack", b: "barrier" } satisfies Record<string, ActionType>;
+  const extra = { players: { a: player("a"), b } };
+  const hit = battle(actions, { a: { pursuit: true } }, extra);
+  assert.equal(hit.damageEvents[0].amount, 125);
+  assert.equal(hit.damageEvents[0].pursuitDamage, 50);
+  assert.equal(hit.nextStates.b.currentHp, 875);
+
+  const filtered = battle(actions, { a: { pursuit: true }, b: { filter: true } }, { ...extra, turn: 1 });
+  assert.equal(filtered.damageEvents[0].amount, 0);
+  assert.equal(filtered.nextStates.b.currentHp, 1000);
+  b.stats.evasion = 1;
+  const avoided = battle(actions, { a: { pursuit: true } }, extra);
+  assert.equal(avoided.damageEvents[0].avoided, true);
+  assert.equal(avoided.nextStates.b.currentHp, 1000);
+  const absent = battle({ a: "attack", b: "magicStrong" }, { a: { pursuit: true } }, extra);
+  for (const result of [filtered, avoided, absent]) {
+    assert.ok(result.damageEvents.every((event) => event.pursuitDamage === undefined));
+    assert.ok(!result.logs.some((log) => log.includes("追撃")));
+  }
+});
+
+test("pursuit display respects caps, Guts, boss thresholds and magic damping without changing total damage", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const actions = { a: "attack", b: "paralysis" } satisfies Record<string, ActionType>;
+  for (const [cap, pursuitDamage] of [[100, 25], [50, undefined]] as const) {
+    const result = battle(actions, { a: { pursuit: true } }, { players: { a: player("a"), b }, damageCaps: { b: cap } });
+    assert.equal(result.damageEvents[0].amount, cap);
+    assert.equal(result.damageEvents[0].pursuitDamage, pursuitDamage);
+    assert.equal(result.nextStates.b.currentHp, 1000 - cap);
+  }
+  b.currentHp = 90;
+  const guts = battle(actions, { a: { pursuit: true }, b: { guts: true } }, { players: { a: player("a"), b } });
+  assert.equal(guts.nextStates.b.currentHp, 1);
+  assert.equal(guts.damageEvents[0].amount, 89);
+  assert.equal(guts.damageEvents[0].pursuitDamage, 14);
+
+  b.currentHp = 710;
+  const threshold = battle(actions, { a: { pursuit: true } }, {
+    players: { a: player("a"), b }, roguelikeBossBattle: { floor: 5, bossId: "b", playerId: "a" },
+  });
+  assert.equal(threshold.damageEvents[0].amount, 50);
+  assert.equal(threshold.damageEvents[0].pursuitDamage, undefined);
+  assert.ok(!threshold.logs.some((log) => log.includes("追撃")));
+
+  b.currentHp = 1000;
+  b.voidminationActive = true;
+  b.voidminationUsed = true;
+  const damped = battle({ a: "magicStrong", b: "paralysis" }, { a: { pursuit: true } }, {
+    players: { a: player("a"), b }, roguelikeBossBattle: { floor: 5, bossId: "b", playerId: "a" },
+  });
+  assert.equal(damped.damageEvents[0].amount, 150);
+  assert.equal(damped.damageEvents[0].pursuitDamage, 38);
+  assert.equal(damped.nextStates.b.currentHp, 850);
+});
+
+test("pursuit stays at 50 with fight spirit and late-turn damage multipliers", () => {
+  const b = player("b");
+  b.paralyzedNextTurn = true;
+  const result = battle({ a: "attack", b: "paralysis" }, { a: { pursuit: true, fightSpirit: true } }, {
+    turn: 21, players: { a: player("a"), b },
+  });
+  assert.equal(result.damageEvents[0].amount, 320);
+  assert.equal(result.damageEvents[0].pursuitDamage, 50);
+  assert.equal(result.nextStates.b.currentHp, 680);
 });
 
 test("fight spirit raises damage by 20% without lowering the opponent's defense", () => {

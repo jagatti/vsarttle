@@ -145,6 +145,8 @@ export interface TurnDamageEvent {
   from: string;
   to: string;
   amount: number;
+  /** Portion of amount dealt by pursuit after damage limits and mitigation. */
+  pursuitDamage?: number;
   avoided: boolean;
   reason: string;
   /** The attacker's charge multiplier when this damage was dealt. */
