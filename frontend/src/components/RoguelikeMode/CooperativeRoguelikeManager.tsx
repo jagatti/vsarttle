@@ -35,6 +35,7 @@ import {
   reviveCoopPlayer,
   startCoopBattle,
   isCoopPresentationComplete,
+  getCoopSkillTurn,
   type CoopSnapshot,
   type CoopWireMessage,
 } from "@/lib/coopRoguelike";
@@ -132,7 +133,7 @@ export function CooperativeRoguelikeManager(props: {
       ...current,
       floor,
       turn: nextTurn,
-      floorTurn: 1,
+      actedPlayerIds: [],
       activePlayerId: starter,
       players,
       enemy: null,
@@ -244,7 +245,7 @@ export function CooperativeRoguelikeManager(props: {
       runId,
       floor: 1,
       turn: 1,
-      floorTurn: 1,
+      actedPlayerIds: [],
       playerIds,
       activePlayerId: playerIds[0],
       players: Object.fromEntries(playerIds.map((id, index) => [id, initialPlayersRef.current[index]!])) as Record<string, PlayerBattleState>,
@@ -363,7 +364,6 @@ export function CooperativeRoguelikeManager(props: {
       activePlayerId: nextPlayerId,
       stage: nextPlayerId !== actingPlayerId && getCoopAlivePlayerIds(players, previous.excludedPlayerIds).length === 2 ? "switching" : "battle",
       turn: previous.turn + 1,
-      floorTurn: previous.floorTurn + 1,
       deadline: 0,
       status: `第${previous.floor}層`,
     };
@@ -496,7 +496,7 @@ export function CooperativeRoguelikeManager(props: {
         [current.enemy.id]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
       skillEffects: { [activeId]: buildRoguelikeSkillEffects(current.acquiredSkills[activeId] ?? {}) },
-      skillTurn: current.floorTurn,
+      skillTurn: getCoopSkillTurn(current, activeId),
       disableVoidmination: true,
       ...(isWeakFloor(current.floor) ? {} : {
         roguelikeBossBattle: { floor: current.floor, bossId: current.enemy.id, playerId: activeId },
@@ -510,6 +510,7 @@ export function CooperativeRoguelikeManager(props: {
       turnResult: result.turnResult,
       chargeMultiplier: result.chargeMultiplier,
       lastAttackerId: activeId,
+      actedPlayerIds: [...new Set([...current.actedPlayerIds, activeId])],
       stage: "resolving",
       deadline: 0,
       floorDamageTaken: current.floorDamageTaken + result.turnResult.damageEvents.reduce(

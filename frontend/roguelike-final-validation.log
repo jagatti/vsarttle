@@ -1,0 +1,2675 @@
+
+> frontend@0.1.0 test
+> node --test --import tsx "src/**/*.test.ts"
+
+TAP version 13
+# Subtest: selectable actions follow the two-column battle grid order
+ok 1 - selectable actions follow the two-column battle grid order
+  ---
+  duration_ms: 2.062552
+  type: 'test'
+  ...
+# Subtest: damage log separates pursuit damage and omits pursuit for inactive or blocked hits
+ok 2 - damage log separates pursuit damage and omits pursuit for inactive or blocked hits
+  ---
+  duration_ms: 32.962546
+  type: 'test'
+  ...
+# Subtest: roguelike skills appear only below the player's name and above HP with wrapping
+ok 3 - roguelike skills appear only below the player's name and above HP with wrapping
+  ---
+  duration_ms: 12.373422
+  type: 'test'
+  ...
+# Subtest: limit-break header hides the turn count and announces triple damage
+ok 4 - limit-break header hides the turn count and announces triple damage
+  ---
+  duration_ms: 4.648664
+  type: 'test'
+  ...
+# Subtest: damage announcements always occupy the same dedicated header region
+ok 5 - damage announcements always occupy the same dedicated header region
+  ---
+  duration_ms: 56.371041
+  type: 'test'
+  ...
+# Subtest: header reserves fixed rows and constrains long battle text
+ok 6 - header reserves fixed rows and constrains long battle text
+  ---
+  duration_ms: 1.203005
+  type: 'test'
+  ...
+# Subtest: long names and status banners retain their full text when visually truncated
+ok 7 - long names and status banners retain their full text when visually truncated
+  ---
+  duration_ms: 15.918757
+  type: 'test'
+  ...
+# Subtest: only the enemy action grid is mirrored, with all five choices retained
+ok 8 - only the enemy action grid is mirrored, with all five choices retained
+  ---
+  duration_ms: 6.400309
+  type: 'test'
+  ...
+# Subtest: resolving replaces player buttons without removing the fixed layout regions
+ok 9 - resolving replaces player buttons without removing the fixed layout regions
+  ---
+  duration_ms: 13.819195
+  type: 'test'
+  ...
+# Subtest: enemy CSS mirrors both columns and puts charge below barrier
+ok 10 - enemy CSS mirrors both columns and puts charge below barrier
+  ---
+  duration_ms: 1.256202
+  type: 'test'
+  ...
+# Subtest: voidmination cut-in duration is 3900ms
+ok 11 - voidmination cut-in duration is 3900ms
+  ---
+  duration_ms: 0.236459
+  type: 'test'
+  ...
+# Subtest: voidmination cut-in overlay is constrained to the battle panel
+ok 12 - voidmination cut-in overlay is constrained to the battle panel
+  ---
+  duration_ms: 0.260754
+  type: 'test'
+  ...
+# Subtest: voidmination tooltip evade display is forced to red 0%
+ok 13 - voidmination tooltip evade display is forced to red 0%
+  ---
+  duration_ms: 0.151801
+  type: 'test'
+  ...
+# Subtest: normal tooltip evade display keeps the real rate and existing color
+ok 14 - normal tooltip evade display keeps the real rate and existing color
+  ---
+  duration_ms: 0.096081
+  type: 'test'
+  ...
+# Subtest: battle panel transient state resets for a fresh rematch battle
+ok 15 - battle panel transient state resets for a fresh rematch battle
+  ---
+  duration_ms: 0.087363
+  type: 'test'
+  ...
+# Subtest: battle panel transient state does not reset during an active voidmination battle
+ok 16 - battle panel transient state does not reset during an active voidmination battle
+  ---
+  duration_ms: 0.073624
+  type: 'test'
+  ...
+# Subtest: battle panel transient state does not reset while turn animation result is present
+ok 17 - battle panel transient state does not reset while turn animation result is present
+  ---
+  duration_ms: 0.068767
+  type: 'test'
+  ...
+# Subtest: enemy with a blank/missing image still renders a visible fallback character
+ok 18 - enemy with a blank/missing image still renders a visible fallback character
+  ---
+  duration_ms: 10.836235
+  type: 'test'
+  ...
+# Subtest: cooperative stage retains both allies' name, HP and PP frames
+ok 19 - cooperative stage retains both allies' name, HP and PP frames
+  ---
+  duration_ms: 6.5129
+  type: 'test'
+  ...
+# Subtest: cooperative switching changes roles without changing player-keyed sprite order
+ok 20 - cooperative switching changes roles without changing player-keyed sprite order
+  ---
+  duration_ms: 21.026767
+  type: 'test'
+  ...
+# Subtest: cooperative status cards interpolate between equal persistent rows instead of changing order
+ok 21 - cooperative status cards interpolate between equal persistent rows instead of changing order
+  ---
+  duration_ms: 5.959039
+  type: 'test'
+  ...
+# Subtest: cooperative active card retains personal skill labels and weak-magic tooltip
+ok 22 - cooperative active card retains personal skill labels and weak-magic tooltip
+  ---
+  duration_ms: 19.808081
+  type: 'test'
+  ...
+# Subtest: cooperative status HUD shares the safe header middle with the boss badge
+ok 23 - cooperative status HUD shares the safe header middle with the boss badge
+  ---
+  duration_ms: 21.479372
+  type: 'test'
+  ...
+# Subtest: cooperative switching suppresses action input independently of resolving
+ok 24 - cooperative switching suppresses action input independently of resolving
+  ---
+  duration_ms: 16.647374
+  type: 'test'
+  ...
+# Subtest: cooperative damage log keeps the original target name after the active ally switches
+ok 25 - cooperative damage log keeps the original target name after the active ally switches
+  ---
+  duration_ms: 5.986682
+  type: 'test'
+  ...
+# Subtest: fallen ally is marked grey/fixed left while mobile hides standby sprites
+ok 26 - fallen ally is marked grey/fixed left while mobile hides standby sprites
+  ---
+  duration_ms: 8.908387
+  type: 'test'
+  ...
+# Subtest: lethal result does not pin the active ally left before its animation completes
+ok 27 - lethal result does not pin the active ally left before its animation completes
+  ---
+  duration_ms: 16.92638
+  type: 'test'
+  ...
+# Subtest: turn completion budgets cover every phase and final gauge/effect tails, even with zero phases
+ok 28 - turn completion budgets cover every phase and final gauge/effect tails, even with zero phases
+  ---
+  duration_ms: 0.200963
+  type: 'test'
+  ...
+# Subtest: portrait motions ease between poses for both battle sides
+ok 29 - portrait motions ease between poses for both battle sides
+  ---
+  duration_ms: 1.395227
+  type: 'test'
+  ...
+# Subtest: portrait motion direction is expressed by a shared animation's direction variable
+ok 30 - portrait motion direction is expressed by a shared animation's direction variable
+  ---
+  duration_ms: 0.311024
+  type: 'test'
+  ...
+# Subtest: hit recoil points away from the opponent and scales up for heavy hits
+ok 31 - hit recoil points away from the opponent and scales up for heavy hits
+  ---
+  duration_ms: 0.367102
+  type: 'test'
+  ...
+# Subtest: inactive portrait motion does not return an animation
+ok 32 - inactive portrait motion does not return an animation
+  ---
+  duration_ms: 0.245442
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases keeps reflected damage on the magic caster's phase
+ok 33 - getTurnAnimationPhases keeps reflected damage on the magic caster's phase
+  ---
+  duration_ms: 2.717525
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases keeps barrier counter damage on the charging player's phase
+ok 34 - getTurnAnimationPhases keeps barrier counter damage on the charging player's phase
+  ---
+  duration_ms: 0.396691
+  type: 'test'
+  ...
+# Subtest: applyAnimationPhaseToDisplayResources updates only the active phase and preserves clamping
+ok 35 - applyAnimationPhaseToDisplayResources updates only the active phase and preserves clamping
+  ---
+  duration_ms: 0.590541
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases always places charge recovery before damage phases
+ok 36 - getTurnAnimationPhases always places charge recovery before damage phases
+  ---
+  duration_ms: 0.284318
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns magicReflect to magic caster when facing barrier
+ok 37 - getTurnAnimationPhases assigns magicReflect to magic caster when facing barrier
+  ---
+  duration_ms: 0.192144
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns attackLunge to attacker and barrierWall+barrierBreak to barrier user
+ok 38 - getTurnAnimationPhases assigns attackLunge to attacker and barrierWall+barrierBreak to barrier user
+  ---
+  duration_ms: 0.191583
+  type: 'test'
+  ...
+# Subtest: attack vs barrier: me barrier faster deploys before the strike and hit
+ok 39 - attack vs barrier: me barrier faster deploys before the strike and hit
+  ---
+  duration_ms: 0.449704
+  type: 'test'
+  ...
+# Subtest: attack vs barrier: me barrier slower deploys before the strike and hit
+ok 40 - attack vs barrier: me barrier slower deploys before the strike and hit
+  ---
+  duration_ms: 0.335048
+  type: 'test'
+  ...
+# Subtest: attack vs barrier: enemy barrier faster deploys before the strike and hit
+ok 41 - attack vs barrier: enemy barrier faster deploys before the strike and hit
+  ---
+  duration_ms: 0.520526
+  type: 'test'
+  ...
+# Subtest: attack vs barrier: enemy barrier slower deploys before the strike and hit
+ok 42 - attack vs barrier: enemy barrier slower deploys before the strike and hit
+  ---
+  duration_ms: 0.503156
+  type: 'test'
+  ...
+# Subtest: magicWeak vs barrier: me barrier faster deploys before the strike and hit
+ok 43 - magicWeak vs barrier: me barrier faster deploys before the strike and hit
+  ---
+  duration_ms: 0.239297
+  type: 'test'
+  ...
+# Subtest: magicWeak vs barrier: me barrier slower deploys before the strike and hit
+ok 44 - magicWeak vs barrier: me barrier slower deploys before the strike and hit
+  ---
+  duration_ms: 0.225786
+  type: 'test'
+  ...
+# Subtest: magicWeak vs barrier: enemy barrier faster deploys before the strike and hit
+ok 45 - magicWeak vs barrier: enemy barrier faster deploys before the strike and hit
+  ---
+  duration_ms: 0.121607
+  type: 'test'
+  ...
+# Subtest: magicWeak vs barrier: enemy barrier slower deploys before the strike and hit
+ok 46 - magicWeak vs barrier: enemy barrier slower deploys before the strike and hit
+  ---
+  duration_ms: 0.130023
+  type: 'test'
+  ...
+# Subtest: reflected damage and pain share follow the barrier, magic and hit phases; misses have no successful hit
+ok 47 - reflected damage and pain share follow the barrier, magic and hit phases; misses have no successful hit
+  ---
+  duration_ms: 0.316603
+  type: 'test'
+  ...
+# Subtest: attack vs barrier delays pain share until after the barrier breaks and takes damage
+ok 48 - attack vs barrier delays pain share until after the barrier breaks and takes damage
+  ---
+  duration_ms: 0.155425
+  type: 'test'
+  ...
+# Subtest: voidmination status changes do not reveal final PP before the cut-in
+ok 49 - voidmination status changes do not reveal final PP before the cut-in
+  ---
+  duration_ms: 0.137397
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns barrierClash to both when barrier vs barrier
+ok 50 - getTurnAnimationPhases assigns barrierClash to both when barrier vs barrier
+  ---
+  duration_ms: 0.128082
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns magicBlast to magic caster vs attack
+ok 51 - getTurnAnimationPhases assigns magicBlast to magic caster vs attack
+  ---
+  duration_ms: 0.165133
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns no dedicated attack motion when attack faces strong magic
+ok 52 - getTurnAnimationPhases assigns no dedicated attack motion when attack faces strong magic
+  ---
+  duration_ms: 0.122014
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases preserves strong magic sourceActionType for reflected magic
+ok 53 - getTurnAnimationPhases preserves strong magic sourceActionType for reflected magic
+  ---
+  duration_ms: 0.111898
+  type: 'test'
+  ...
+# Subtest: getTurnAnimationPhases assigns chargeConcentration for charge action
+ok 54 - getTurnAnimationPhases assigns chargeConcentration for charge action
+  ---
+  duration_ms: 0.102685
+  type: 'test'
+  ...
+# Subtest: all shipped bosses are enlarged, including both final boss floors
+ok 55 - all shipped bosses are enlarged, including both final boss floors
+  ---
+  duration_ms: 1.501206
+  type: 'test'
+  ...
+# Subtest: portrait sizes retain viewport and stage caps, and normal sizing is unchanged
+ok 56 - portrait sizes retain viewport and stage caps, and normal sizing is unchanged
+  ---
+  duration_ms: 0.221289
+  type: 'test'
+  ...
+# Subtest: BattlePanel applies boss sizing without changing normal portraits or fallback images
+ok 57 - BattlePanel applies boss sizing without changing normal portraits or fallback images
+  ---
+  duration_ms: 21.713491
+  type: 'test'
+  ...
+# Subtest: final boss effects follow actual active motion, including reflected strong magic
+ok 58 - final boss effects follow actual active motion, including reflected strong magic
+  ---
+  duration_ms: 0.214401
+  type: 'test'
+  ...
+# Subtest: auras are decorative, bounded in particle count, and persist only while charged
+ok 59 - auras are decorative, bounded in particle count, and persist only while charged
+  ---
+  duration_ms: 2.57917
+  type: 'test'
+  ...
+# Subtest: final boss magic projectiles scale with the portrait and strong magic is larger
+ok 60 - final boss magic projectiles scale with the portrait and strong magic is larger
+  ---
+  duration_ms: 2.404727
+  type: 'test'
+  ...
+# Subtest: reduced motion disables final boss shake, movement, screen wash and particles
+ok 61 - reduced motion disables final boss shake, movement, screen wash and particles
+  ---
+  duration_ms: 0.821654
+  type: 'test'
+  ...
+# Subtest: boss battles reserve label clearance and damage pop stays in that clearance
+ok 62 - boss battles reserve label clearance and damage pop stays in that clearance
+  ---
+  duration_ms: 1.128895
+  type: 'test'
+  ...
+# Subtest: attack beats barrier from the attacker's point of view
+ok 63 - attack beats barrier from the attacker's point of view
+  ---
+  duration_ms: 1.335277
+  type: 'test'
+  ...
+# Subtest: barrier reflects magic
+ok 64 - barrier reflects magic
+  ---
+  duration_ms: 0.201134
+  type: 'test'
+  ...
+# Subtest: magic beats attack
+ok 65 - magic beats attack
+  ---
+  duration_ms: 0.233181
+  type: 'test'
+  ...
+# Subtest: same category is a clash decided by speed
+ok 66 - same category is a clash decided by speed
+  ---
+  duration_ms: 0.200095
+  type: 'test'
+  ...
+# Subtest: weak and strong magic are the same category
+ok 67 - weak and strong magic are the same category
+  ---
+  duration_ms: 0.242725
+  type: 'test'
+  ...
+# Subtest: barrier counters a charging opponent
+ok 68 - barrier counters a charging opponent
+  ---
+  duration_ms: 0.138822
+  type: 'test'
+  ...
+# Subtest: charging against an attack leaves the charger exposed
+ok 69 - charging against an attack leaves the charger exposed
+  ---
+  duration_ms: 0.219865
+  type: 'test'
+  ...
+# Subtest: paralysis is called out for whoever is paralyzed
+ok 70 - paralysis is called out for whoever is paralyzed
+  ---
+  duration_ms: 0.1631
+  type: 'test'
+  ...
+# Subtest: floor 1-4 returns boss{floor}.png
+ok 71 - floor 1-4 returns boss{floor}.png
+  ---
+  duration_ms: 0.765483
+  type: 'test'
+  ...
+# Subtest: floor 5 phase 1 without limitBreak returns boss5-1.png
+ok 72 - floor 5 phase 1 without limitBreak returns boss5-1.png
+  ---
+  duration_ms: 0.119364
+  type: 'test'
+  ...
+# Subtest: floor 5 phase 2 returns boss5-2.png
+ok 73 - floor 5 phase 2 returns boss5-2.png
+  ---
+  duration_ms: 0.088898
+  type: 'test'
+  ...
+# Subtest: floor 5 phase 1 with limitBreak returns boss5-2.png
+ok 74 - floor 5 phase 1 with limitBreak returns boss5-2.png
+  ---
+  duration_ms: 0.087996
+  type: 'test'
+  ...
+# Subtest: floor 5 phase 2 with limitBreak returns boss5-2.png
+ok 75 - floor 5 phase 2 with limitBreak returns boss5-2.png
+  ---
+  duration_ms: 0.166985
+  type: 'test'
+  ...
+# Subtest: title selects zero, one or two saved transparent images without changing the drawing
+ok 76 - title selects zero, one or two saved transparent images without changing the drawing
+  ---
+  duration_ms: 3.265545
+  type: 'test'
+  ...
+# Subtest: random selection can include every slot and does not duplicate a slot
+ok 77 - random selection can include every slot and does not duplicate a slot
+  ---
+  duration_ms: 0.946236
+  type: 'test'
+  ...
+# Subtest: blank and malformed saved data are skipped instead of adding a fixed character
+ok 78 - blank and malformed saved data are skipped instead of adding a fixed character
+  ---
+  duration_ms: 0.704181
+  type: 'test'
+  ...
+# Subtest: weighted scenarios favor interaction, with a short randomized still interval
+ok 79 - weighted scenarios favor interaction, with a short randomized still interval
+  ---
+  duration_ms: 0.615435
+  type: 'test'
+  ...
+# Subtest: encounters meet, pause, play attack/magic and react before separating
+ok 80 - encounters meet, pause, play attack/magic and react before separating
+  ---
+  duration_ms: 1.999259
+  type: 'test'
+  ...
+# Subtest: all scenarios stay on the ground, move slowly and preserve their ending positions
+ok 81 - all scenarios stay on the ground, move slowly and preserve their ending positions
+  ---
+  duration_ms: 10.391314
+  type: 'test'
+  ...
+# Subtest: visitors fully leave with their shadows, wait briefly and return from either edge
+ok 82 - visitors fully leave with their shadows, wait briefly and return from either edge
+  ---
+  duration_ms: 1.014468
+  type: 'test'
+  ...
+# Subtest: solo scenarios include walks, attacks and magic without needing a partner
+ok 83 - solo scenarios include walks, attacks and magic without needing a partner
+  ---
+  duration_ms: 0.291299
+  type: 'test'
+  ...
+# Subtest: menu reactions work with one or two doodles and do not replace their images
+ok 84 - menu reactions work with one or two doodles and do not replace their images
+  ---
+  duration_ms: 0.730542
+  type: 'test'
+  ...
+# Subtest: stage stays decorative and frameless in a clipped ground strip below the menu
+ok 85 - stage stays decorative and frameless in a clipped ground strip below the menu
+  ---
+  duration_ms: 14.39227
+  type: 'test'
+  ...
+# Subtest: title keeps its original tagline without the additional kicker
+ok 86 - title keeps its original tagline without the additional kicker
+  ---
+  duration_ms: 9.521166
+  type: 'test'
+  ...
+# Subtest: difficulty renders one heading, shared buttons, a readable lock status and a back action
+ok 87 - difficulty renders one heading, shared buttons, a readable lock status and a back action
+  ---
+  duration_ms: 0.893008
+  type: 'test'
+  ...
+# Subtest: shared menu surfaces remain opaque with readable disabled text and 44px targets
+ok 88 - shared menu surfaces remain opaque with readable disabled text and 44px targets
+  ---
+  duration_ms: 0.390721
+  type: 'test'
+  ...
+# Subtest: menu, heading, lock and unlock condition text meet WCAG AA contrast
+ok 89 - menu, heading, lock and unlock condition text meet WCAG AA contrast
+  ---
+  duration_ms: 0.57839
+  type: 'test'
+  ...
+# Subtest: room mode selection retains a pressed state and disabled join/create actions
+ok 90 - room mode selection retains a pressed state and disabled join/create actions
+  ---
+  duration_ms: 1.2196
+  type: 'test'
+  ...
+# Subtest: buildRadarSummaryText returns highlighted stat text
+ok 91 - buildRadarSummaryText returns highlighted stat text
+  ---
+  duration_ms: 1.164439
+  type: 'test'
+  ...
+# Subtest: buildRadarSummaryText returns balanced message when no emphasis
+ok 92 - buildRadarSummaryText returns balanced message when no emphasis
+  ---
+  duration_ms: 0.314439
+  type: 'test'
+  ...
+# Subtest: RADAR_ABSOLUTE_RANGE covers min/max across all BASE_STATS types with ±12% margin
+ok 93 - RADAR_ABSOLUTE_RANGE covers min/max across all BASE_STATS types with ±12% margin
+  ---
+  duration_ms: 1.19276
+  type: 'test'
+  ...
+# Subtest: mapAbsoluteToRadius maps absolute min/max and clamps out-of-range values
+ok 94 - mapAbsoluteToRadius maps absolute min/max and clamps out-of-range values
+  ---
+  duration_ms: 0.309234
+  type: 'test'
+  ...
+# Subtest: compareRadarStats returns even for identical stats
+ok 95 - compareRadarStats returns even for identical stats
+  ---
+  duration_ms: 1.021371
+  type: 'test'
+  ...
+# Subtest: compareRadarStats marks attack up/down for attack 199 vs 85
+ok 96 - compareRadarStats marks attack up/down for attack 199 vs 85
+  ---
+  duration_ms: 0.313285
+  type: 'test'
+  ...
+# Subtest: compareRadarStats is symmetric between players
+ok 97 - compareRadarStats is symmetric between players
+  ---
+  duration_ms: 0.224687
+  type: 'test'
+  ...
+# Subtest: getStrongestAdvantageKey returns max-radius-diff key and null when all even
+ok 98 - getStrongestAdvantageKey returns max-radius-diff key and null when all even
+  ---
+  duration_ms: 0.299629
+  type: 'test'
+  ...
+# Subtest: getStrongestAdvantageKey respects ADVANTAGE_THRESHOLD
+ok 99 - getStrongestAdvantageKey respects ADVANTAGE_THRESHOLD
+  ---
+  duration_ms: 0.300346
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 1
+ok 100 - getBossData normal mode floor 1
+  ---
+  duration_ms: 2.532078
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 2
+ok 101 - getBossData normal mode floor 2
+  ---
+  duration_ms: 0.303166
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 3
+ok 102 - getBossData normal mode floor 3
+  ---
+  duration_ms: 0.196988
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 4
+ok 103 - getBossData normal mode floor 4
+  ---
+  duration_ms: 0.185037
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 5 phase 1
+ok 104 - getBossData normal mode floor 5 phase 1
+  ---
+  duration_ms: 0.164588
+  type: 'test'
+  ...
+# Subtest: getBossData normal mode floor 5 phase 2
+ok 105 - getBossData normal mode floor 5 phase 2
+  ---
+  duration_ms: 0.164315
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 1
+ok 106 - getBossData hard mode floor 1
+  ---
+  duration_ms: 0.193633
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 2
+ok 107 - getBossData hard mode floor 2
+  ---
+  duration_ms: 0.174238
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 3
+ok 108 - getBossData hard mode floor 3
+  ---
+  duration_ms: 0.486685
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 4
+ok 109 - getBossData hard mode floor 4
+  ---
+  duration_ms: 0.525162
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 5 phase 1
+ok 110 - getBossData hard mode floor 5 phase 1
+  ---
+  duration_ms: 0.237615
+  type: 'test'
+  ...
+# Subtest: getBossData hard mode floor 5 phase 2
+ok 111 - getBossData hard mode floor 5 phase 2
+  ---
+  duration_ms: 0.158337
+  type: 'test'
+  ...
+# Subtest: getBossData defaults to normal when difficulty is omitted
+ok 112 - getBossData defaults to normal when difficulty is omitted
+  ---
+  duration_ms: 0.116722
+  type: 'test'
+  ...
+# Subtest: getBossData same typeName/characterType/imageUrl for both difficulties on floor 1
+ok 113 - getBossData same typeName/characterType/imageUrl for both difficulties on floor 1
+  ---
+  duration_ms: 0.105666
+  type: 'test'
+  ...
+# Subtest: getBossData throws for invalid floor
+ok 114 - getBossData throws for invalid floor
+  ---
+  duration_ms: 0.302956
+  type: 'test'
+  ...
+# Subtest: battle balance stays within the Step 2 win-rate bands and runs mirrors only once
+ok 115 - battle balance stays within the Step 2 win-rate bands and runs mirrors only once
+  ---
+  duration_ms: 3130.783976
+  type: 'test'
+  ...
+# Subtest: axis-extreme profiles stay near 50-50 against their own base profile
+ok 116 - axis-extreme profiles stay near 50-50 against their own base profile
+  ---
+  duration_ms: 4256.182308
+  type: 'test'
+  ...
+# Subtest: mirror-only matrices avoid duplicate swapped runs
+ok 117 - mirror-only matrices avoid duplicate swapped runs
+  ---
+  duration_ms: 91.176444
+  type: 'test'
+  ...
+# Subtest: mirror profiles with matching identity still run only one side order
+ok 118 - mirror profiles with matching identity still run only one side order
+  ---
+  duration_ms: 269.272565
+  type: 'test'
+  ...
+# Subtest: getAvailableActions blocks previous category and PP shortage
+ok 119 - getAvailableActions blocks previous category and PP shortage
+  ---
+  duration_ms: 2.341889
+  type: 'test'
+  ...
+# Subtest: getAvailableActions blocks attack and magic while their new ban counters are active
+ok 120 - getAvailableActions blocks attack and magic while their new ban counters are active
+  ---
+  duration_ms: 0.287046
+  type: 'test'
+  ...
+# Subtest: resolveTurn applies attack vs attack formula with defense mitigation
+ok 121 - resolveTurn applies attack vs attack formula with defense mitigation
+  ---
+  duration_ms: 2.003893
+  type: 'test'
+  ...
+# Subtest: applyDefense matches the new diminishing-returns expectations
+ok 122 - applyDefense matches the new diminishing-returns expectations
+  ---
+  duration_ms: 0.27273
+  type: 'test'
+  ...
+# Subtest: resolveTurn records the attacker's charge multiplier on damage events
+ok 123 - resolveTurn records the attacker's charge multiplier on damage events
+  ---
+  duration_ms: 0.509894
+  type: 'test'
+  ...
+# Subtest: resolveTurn halves defense on each flagged charge while retaining charge effects
+ok 124 - resolveTurn halves defense on each flagged charge while retaining charge effects
+  ---
+  duration_ms: 0.947337
+  type: 'test'
+  ...
+# Subtest: resolveTurn applies custom weak-magic selection effects instead of the legacy default pool
+ok 125 - resolveTurn applies custom weak-magic selection effects instead of the legacy default pool
+  ---
+  duration_ms: 0.709886
+  type: 'test'
+  ...
+# Subtest: resolveTurn can apply tie-ban from a custom weak-magic selection
+ok 126 - resolveTurn can apply tie-ban from a custom weak-magic selection
+  ---
+  duration_ms: 0.643384
+  type: 'test'
+  ...
+# Subtest: resolveTurn applies no additional effect when custom weak-magic pool is empty
+ok 127 - resolveTurn applies no additional effect when custom weak-magic pool is empty
+  ---
+  duration_ms: 0.678836
+  type: 'test'
+  ...
+# Subtest: roguelike: player with 0 learned effects deals damage only (no status effect)
+ok 128 - roguelike: player with 0 learned effects deals damage only (no status effect)
+  ---
+  duration_ms: 0.727079
+  type: 'test'
+  ...
+# Subtest: roguelike: enemy always draws from fixed 3-kind pool regardless of player's learned pool
+ok 129 - roguelike: enemy always draws from fixed 3-kind pool regardless of player's learned pool
+  ---
+  duration_ms: 0.444186
+  type: 'test'
+  ...
+# Subtest: roguelike: player's learned pool does not bleed into enemy's effect pool
+ok 130 - roguelike: player's learned pool does not bleed into enemy's effect pool
+  ---
+  duration_ms: 0.564916
+  type: 'test'
+  ...
+# Subtest: getAvailableActions returns no actions while paralyzed
+ok 131 - getAvailableActions returns no actions while paralyzed
+  ---
+  duration_ms: 0.150001
+  type: 'test'
+  ...
+# Subtest: getAvailableActions excludes charge on turn 1
+ok 132 - getAvailableActions excludes charge on turn 1
+  ---
+  duration_ms: 0.11701
+  type: 'test'
+  ...
+# Subtest: resolveTurn: paralyzed player deals no damage while opponent's action still lands
+ok 133 - resolveTurn: paralyzed player deals no damage while opponent's action still lands
+  ---
+  duration_ms: 0.28205
+  type: 'test'
+  ...
+# Subtest: resolveTurn: tie-ban suppresses the affected player's own same-category action
+ok 134 - resolveTurn: tie-ban suppresses the affected player's own same-category action
+  ---
+  duration_ms: 0.320397
+  type: 'test'
+  ...
+# Subtest: resolveTurn: barrier still damages a tie-banned barrier opponent
+ok 135 - resolveTurn: barrier still damages a tie-banned barrier opponent
+  ---
+  duration_ms: 0.277906
+  type: 'test'
+  ...
+# Subtest: getDamageMultiplier changes at >15 and >20 turns
+ok 136 - getDamageMultiplier changes at >15 and >20 turns
+  ---
+  duration_ms: 0.109631
+  type: 'test'
+  ...
+# Subtest: resolveTurn applies global damage multiplier on long turns
+ok 137 - resolveTurn applies global damage multiplier on long turns
+  ---
+  duration_ms: 0.288218
+  type: 'test'
+  ...
+# Subtest: resolveTurn can use the triple-damage multiplier before turn 21
+ok 138 - resolveTurn can use the triple-damage multiplier before turn 21
+  ---
+  duration_ms: 0.369385
+  type: 'test'
+  ...
+# Subtest: resolveTurn: barrier vs paralyzed gives counter damage with the shared defense scaling
+ok 139 - resolveTurn: barrier vs paralyzed gives counter damage with the shared defense scaling
+  ---
+  duration_ms: 0.250932
+  type: 'test'
+  ...
+# Subtest: resolveTurn: barrier vs charge uses the same diminishing-returns defense scaling
+ok 140 - resolveTurn: barrier vs charge uses the same diminishing-returns defense scaling
+  ---
+  duration_ms: 0.236948
+  type: 'test'
+  ...
+# Subtest: resolveTurn: barrier vs barrier logs simple attack reason
+ok 141 - resolveTurn: barrier vs barrier logs simple attack reason
+  ---
+  duration_ms: 0.22067
+  type: 'test'
+  ...
+# Subtest: resolveTurn: chargeMultiplier resets after the turn following charge (turn-based reset)
+ok 142 - resolveTurn: chargeMultiplier resets after the turn following charge (turn-based reset)
+  ---
+  duration_ms: 0.32979
+  type: 'test'
+  ...
+# Subtest: resolveTurn: chargeMultiplier applies to damage on the turn immediately after charge
+ok 143 - resolveTurn: chargeMultiplier applies to damage on the turn immediately after charge
+  ---
+  duration_ms: 0.425775
+  type: 'test'
+  ...
+# Subtest: voidmination: triggered when EVA0 nickname present and avoidance occurs
+ok 144 - voidmination: triggered when EVA0 nickname present and avoidance occurs
+  ---
+  duration_ms: 0.302284
+  type: 'test'
+  ...
+# Subtest: voidmination: not triggered if no avoidance occurs (all hits land)
+ok 145 - voidmination: not triggered if no avoidance occurs (all hits land)
+  ---
+  duration_ms: 0.192452
+  type: 'test'
+  ...
+# Subtest: voidmination: not triggered without EVA0 nickname even if avoidance occurs
+ok 146 - voidmination: not triggered without EVA0 nickname even if avoidance occurs
+  ---
+  duration_ms: 0.190773
+  type: 'test'
+  ...
+# Subtest: voidmination: once active, voidminationTriggered is false on subsequent turns
+ok 147 - voidmination: once active, voidminationTriggered is false on subsequent turns
+  ---
+  duration_ms: 0.275275
+  type: 'test'
+  ...
+# Subtest: voidmination: generic EVA0 mode does not force evasion to 0%
+ok 148 - voidmination: generic EVA0 mode does not force evasion to 0%
+  ---
+  duration_ms: 0.233052
+  type: 'test'
+  ...
+# Subtest: voidmination: disableVoidmination prevents triggering (single-play)
+ok 149 - voidmination: disableVoidmination prevents triggering (single-play)
+  ---
+  duration_ms: 0.193015
+  type: 'test'
+  ...
+# Subtest: voidmination: case-insensitive EVA0 match (eva0 triggers)
+ok 150 - voidmination: case-insensitive EVA0 match (eva0 triggers)
+  ---
+  duration_ms: 0.175101
+  type: 'test'
+  ...
+# Subtest: damageCaps: clamps damage dealt to the capped target
+ok 151 - damageCaps: clamps damage dealt to the capped target
+  ---
+  duration_ms: 0.283799
+  type: 'test'
+  ...
+# Subtest: damageCaps: without cap, same setup deals uncapped damage
+ok 152 - damageCaps: without cap, same setup deals uncapped damage
+  ---
+  duration_ms: 0.205537
+  type: 'test'
+  ...
+# Subtest: damageCaps: barrier reflection with cap – player survives (floor-20 scenario)
+ok 153 - damageCaps: barrier reflection with cap – player survives (floor-20 scenario)
+  ---
+  duration_ms: 0.320637
+  type: 'test'
+  ...
+# Subtest: damageCaps: without cap, floor-20 reflection still defeats a low-HP player
+ok 154 - damageCaps: without cap, floor-20 reflection still defeats a low-HP player
+  ---
+  duration_ms: 0.330187
+  type: 'test'
+  ...
+# Subtest: damageCaps: damage events record the capped (applied) value
+ok 155 - damageCaps: damage events record the capped (applied) value
+  ---
+  duration_ms: 0.277453
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 19 makes the boss's remaining action unavoidable on the trigger turn
+ok 156 - roguelike void-domination floor 19 makes the boss's remaining action unavoidable on the trigger turn
+  ---
+  duration_ms: 0.588405
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floors other than 19 do not force evasion to 0%
+ok 157 - roguelike void-domination floors other than 19 do not force evasion to 0%
+  ---
+  duration_ms: 0.383047
+  type: 'test'
+  ...
+# Subtest: charge recovery is always resolved before damage regardless of speed order
+ok 158 - charge recovery is always resolved before damage regardless of speed order
+  ---
+  duration_ms: 0.282372
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 16 overcharge lets the boss store PP above max and spends boosted costs
+ok 159 - roguelike void-domination floor 16 overcharge lets the boss store PP above max and spends boosted costs
+  ---
+  duration_ms: 0.530484
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 10 reflects pain-share damage on the triggering hit
+ok 160 - roguelike void-domination floor 10 reflects pain-share damage on the triggering hit
+  ---
+  duration_ms: 0.299975
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 18 color drain permanently lowers the player's max HP/PP on trigger
+ok 161 - roguelike void-domination floor 18 color drain permanently lowers the player's max HP/PP on trigger
+  ---
+  duration_ms: 0.369338
+  type: 'test'
+  ...
+# Subtest: roguelike floor 17 weak magic uses the form reached during the same turn
+ok 162 - roguelike floor 17 weak magic uses the form reached during the same turn
+  ---
+  duration_ms: 0.622104
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 17 keeps the first form for three full turns before rotating
+ok 163 - roguelike void-domination floor 17 keeps the first form for three full turns before rotating
+  ---
+  duration_ms: 0.653707
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 17 countdown does not advance while the boss is paralyzed
+ok 164 - roguelike void-domination floor 17 countdown does not advance while the boss is paralyzed
+  ---
+  duration_ms: 0.511579
+  type: 'test'
+  ...
+# Subtest: roguelike void-domination floor 17 magic form keeps spell costs based on the base max PP
+ok 165 - roguelike void-domination floor 17 magic form keeps spell costs based on the base max PP
+  ---
+  duration_ms: 0.314966
+  type: 'test'
+  ...
+# Subtest: missing, empty, and unrelated skills preserve complete old results and RNG usage
+ok 166 - missing, empty, and unrelated skills preserve complete old results and RNG usage
+  ---
+  duration_ms: 11.520815
+  type: 'test'
+  ...
+# Subtest: attack resistance applies after defense, caps at three stacks, and never reduces hits below one
+ok 167 - attack resistance applies after defense, caps at three stacks, and never reduces hits below one
+  ---
+  duration_ms: 0.721259
+  type: 'test'
+  ...
+# Subtest: pursuit adds 50 damage against a paralyzed or charging target only
+ok 168 - pursuit adds 50 damage against a paralyzed or charging target only
+  ---
+  duration_ms: 0.614358
+  type: 'test'
+  ...
+# Subtest: pursuit preserves barrier hits and does not display on avoided, filtered or absent hits
+ok 169 - pursuit preserves barrier hits and does not display on avoided, filtered or absent hits
+  ---
+  duration_ms: 0.607745
+  type: 'test'
+  ...
+# Subtest: pursuit display respects caps, Guts, boss thresholds and magic damping without changing total damage
+ok 170 - pursuit display respects caps, Guts, boss thresholds and magic damping without changing total damage
+  ---
+  duration_ms: 1.194722
+  type: 'test'
+  ...
+# Subtest: pursuit stays at 50 with fight spirit and late-turn damage multipliers
+ok 171 - pursuit stays at 50 with fight spirit and late-turn damage multipliers
+  ---
+  duration_ms: 0.321566
+  type: 'test'
+  ...
+# Subtest: fight spirit raises damage by 20% without lowering the opponent's defense
+ok 172 - fight spirit raises damage by 20% without lowering the opponent's defense
+  ---
+  duration_ms: 0.488987
+  type: 'test'
+  ...
+# Subtest: fight spirit increases incoming damage by 20% against balanced attackers for every damage source
+ok 173 - fight spirit increases incoming damage by 20% against balanced attackers for every damage source
+  ---
+  duration_ms: 12.925543
+  type: 'test'
+  ...
+# Subtest: fight spirit rounds outgoing and incoming bonus damage upward without modifying defense
+ok 174 - fight spirit rounds outgoing and incoming bonus damage upward without modifying defense
+  ---
+  duration_ms: 0.657944
+  type: 'test'
+  ...
+# Subtest: incoming fight spirit scales pursuit damage while outgoing fight spirit keeps pursuit at 50
+ok 175 - incoming fight spirit scales pursuit damage while outgoing fight spirit keeps pursuit at 50
+  ---
+  duration_ms: 0.691596
+  type: 'test'
+  ...
+# Subtest: incoming fight spirit respects resistance and late-turn scaling
+ok 176 - incoming fight spirit respects resistance and late-turn scaling
+  ---
+  duration_ms: 0.338497
+  type: 'test'
+  ...
+# Subtest: incoming fight spirit does not log increased damage for avoided, filtered or capped hits
+ok 177 - incoming fight spirit does not log increased damage for avoided, filtered or capped hits
+  ---
+  duration_ms: 0.435383
+  type: 'test'
+  ...
+# Subtest: Guts saves a player from lethal damage only once and records the use across battles
+ok 178 - Guts saves a player from lethal damage only once and records the use across battles
+  ---
+  duration_ms: 0.265915
+  type: 'test'
+  ...
+# Subtest: direct magic uses only magic resistance
+ok 179 - direct magic uses only magic resistance
+  ---
+  duration_ms: 0.189555
+  type: 'test'
+  ...
+# Subtest: barrier collisions, one-sided hits, and reflections use only barrier resistance
+ok 180 - barrier collisions, one-sided hits, and reflections use only barrier resistance
+  ---
+  duration_ms: 0.367448
+  type: 'test'
+  ...
+# Subtest: tie boost strengthens only the owner's attack, magic, and barrier tie damage
+ok 181 - tie boost strengthens only the owner's attack, magic, and barrier tie damage
+  ---
+  duration_ms: 0.507628
+  type: 'test'
+  ...
+# Subtest: charge ties recover 35 percent only for the tie boost owner, with normal caps
+ok 182 - charge ties recover 35 percent only for the tie boost owner, with normal caps
+  ---
+  duration_ms: 0.289188
+  type: 'test'
+  ...
+# Subtest: filter blocks first-turn hits and reflected damage, expires, and does not block statuses
+ok 183 - filter blocks first-turn hits and reflected damage, expires, and does not block statuses
+  ---
+  duration_ms: 0.381767
+  type: 'test'
+  ...
+# Subtest: status resistance cancels direct and reflected weak effects at the 50 percent boundary without changing damage
+ok 184 - status resistance cancels direct and reflected weak effects at the 50 percent boundary without changing damage
+  ---
+  duration_ms: 0.404875
+  type: 'test'
+  ...
+# Subtest: PP absorb uses actual paid PP, caps recovery, and requires a real barrier reflection
+ok 185 - PP absorb uses actual paid PP, caps recovery, and requires a real barrier reflection
+  ---
+  duration_ms: 0.778264
+  type: 'test'
+  ...
+# Subtest: PP absorb respects boss overcharge costs and PP availability
+ok 186 - PP absorb respects boss overcharge costs and PP availability
+  ---
+  duration_ms: 0.405939
+  type: 'test'
+  ...
+# Subtest: pain share is not reduced by normal resistances or boosted by tie boost; first-turn filter blocks it
+ok 187 - pain share is not reduced by normal resistances or boosted by tie boost; first-turn filter blocks it
+  ---
+  duration_ms: 0.64705
+  type: 'test'
+  ...
+# Subtest: filter does not log without a landed positive hit or positive pain-share damage
+ok 188 - filter does not log without a landed positive hit or positive pain-share damage
+  ---
+  duration_ms: 0.373093
+  type: 'test'
+  ...
+# Subtest: auto HP and PP recovery runs after combat, reports actual gains, and caps resources
+ok 189 - auto HP and PP recovery runs after combat, reports actual gains, and caps resources
+  ---
+  duration_ms: 0.262143
+  type: 'test'
+  ...
+# Subtest: auto recovery does not resurrect a defeated player or alter the winner
+ok 190 - auto recovery does not resurrect a defeated player or alter the winner
+  ---
+  duration_ms: 0.169316
+  type: 'test'
+  ...
+# Subtest: auto recovery skips capped resources and applies only to the skill owner
+ok 191 - auto recovery skips capped resources and applies only to the skill owner
+  ---
+  duration_ms: 0.222312
+  type: 'test'
+  ...
+# Subtest: getEffectiveStats returns player.stats as-is
+ok 192 - getEffectiveStats returns player.stats as-is
+  ---
+  duration_ms: 1.341499
+  type: 'test'
+  ...
+# Subtest: getEffectiveStats reflects stats modified by enhancementSlot (speed)
+ok 193 - getEffectiveStats reflects stats modified by enhancementSlot (speed)
+  ---
+  duration_ms: 0.260532
+  type: 'test'
+  ...
+# Subtest: getEffectiveStats reflects stats modified by enhancementSlot (evasion)
+ok 194 - getEffectiveStats reflects stats modified by enhancementSlot (evasion)
+  ---
+  duration_ms: 0.200909
+  type: 'test'
+  ...
+# Subtest: getEffectiveStats is the same object reference as player.stats
+ok 195 - getEffectiveStats is the same object reference as player.stats
+  ---
+  duration_ms: 0.158136
+  type: 'test'
+  ...
+# Subtest: co-op starts on alternating layers and skips a defeated player
+ok 196 - co-op starts on alternating layers and skips a defeated player
+  ---
+  duration_ms: 1.396664
+  type: 'test'
+  ...
+# Subtest: co-op paralysis consumes the active player's turn before handoff
+ok 197 - co-op paralysis consumes the active player's turn before handoff
+  ---
+  duration_ms: 0.229406
+  type: 'test'
+  ...
+# Subtest: an active player afflicted with paralysis keeps the next hand until their forced turn is spent
+ok 198 - an active player afflicted with paralysis keeps the next hand until their forced turn is spent
+  ---
+  duration_ms: 2.414107
+  type: 'test'
+  ...
+# Subtest: co-op consecutive-action restriction is tracked per player
+ok 199 - co-op consecutive-action restriction is tracked per player
+  ---
+  duration_ms: 1.148493
+  type: 'test'
+  ...
+# Subtest: co-op charge stacks across players to 2.25x and expires on any non-charge action
+ok 200 - co-op charge stacks across players to 2.25x and expires on any non-charge action
+  ---
+  duration_ms: 0.287191
+  type: 'test'
+  ...
+# Subtest: co-op turn resolution passes shared charge into the next player's damage
+ok 201 - co-op turn resolution passes shared charge into the next player's damage
+  ---
+  duration_ms: 1.023062
+  type: 'test'
+  ...
+# Subtest: co-op floor clear and mutual defeat outcomes require a surviving teammate
+ok 202 - co-op floor clear and mutual defeat outcomes require a surviving teammate
+  ---
+  duration_ms: 0.223807
+  type: 'test'
+  ...
+# Subtest: co-op rewards follow layer parity except for surviving boss last attackers
+ok 203 - co-op rewards follow layer parity except for surviving boss last attackers
+  ---
+  duration_ms: 0.201889
+  type: 'test'
+  ...
+# Subtest: co-op revival keeps at least one HP and restores a teammate to half HP/PP with cleared conditions
+ok 204 - co-op revival keeps at least one HP and restores a teammate to half HP/PP with cleared conditions
+  ---
+  duration_ms: 0.465022
+  type: 'test'
+  ...
+# Subtest: co-op weak-floor choices reuse solo rarity/skill/weak-magic slots with slot one intact
+ok 205 - co-op weak-floor choices reuse solo rarity/skill/weak-magic slots with slot one intact
+  ---
+  duration_ms: 2.307018
+  type: 'test'
+  ...
+# Subtest: co-op boss rewards replace only full heal with revival and never invent rewards on floors 18/19
+ok 206 - co-op boss rewards replace only full heal with revival and never invent rewards on floors 18/19
+  ---
+  duration_ms: 0.956651
+  type: 'test'
+  ...
+# Subtest: co-op revival charges current HP without healing the payer first
+ok 207 - co-op revival charges current HP without healing the payer first
+  ---
+  duration_ms: 0.326788
+  type: 'test'
+  ...
+# Subtest: co-op skills and weak magic are personal rewards and are supplied to battle resolution
+ok 208 - co-op skills and weak magic are personal rewards and are supplied to battle resolution
+  ---
+  duration_ms: 0.788246
+  type: 'test'
+  ...
+# Subtest: VS/switch/speech completion starts the shared 30s or paralysis 3s deadline only in battle
+ok 209 - VS/switch/speech completion starts the shared 30s or paralysis 3s deadline only in battle
+  ---
+  duration_ms: 0.35463
+  type: 'test'
+  ...
+# Subtest: host waits for both presentations, except disconnected peers, and cannot finish other stages
+ok 210 - host waits for both presentations, except disconnected peers, and cannot finish other stages
+  ---
+  duration_ms: 0.231794
+  type: 'test'
+  ...
+# Subtest: filter uses the new floor's opening turn without resetting the global damage multiplier
+ok 211 - filter uses the new floor's opening turn without resetting the global damage multiplier
+  ---
+  duration_ms: 0.946622
+  type: 'test'
+  ...
+# Subtest: each ally's filter protects their own first action even when the other ally starts
+ok 212 - each ally's filter protects their own first action even when the other ally starts
+  ---
+  duration_ms: 0.74524
+  type: 'test'
+  ...
+# Subtest: loadSlots returns SLOT_COUNT null entries when storage is empty
+ok 213 - loadSlots returns SLOT_COUNT null entries when storage is empty
+  ---
+  duration_ms: 1.248819
+  type: 'test'
+  ...
+# Subtest: persistSlots and loadSlots round-trip correctly
+ok 214 - persistSlots and loadSlots round-trip correctly
+  ---
+  duration_ms: 1.126343
+  type: 'test'
+  ...
+# Subtest: loadSlots returns nulls for malformed localStorage data
+ok 215 - loadSlots returns nulls for malformed localStorage data
+  ---
+  duration_ms: 0.187345
+  type: 'test'
+  ...
+# Subtest: loadSlots pads short arrays to SLOT_COUNT
+ok 216 - loadSlots pads short arrays to SLOT_COUNT
+  ---
+  duration_ms: 2.705918
+  type: 'test'
+  ...
+# Subtest: loadSlots rejects entries missing required fields
+ok 217 - loadSlots rejects entries missing required fields
+  ---
+  duration_ms: 0.229236
+  type: 'test'
+  ...
+# Subtest: buildDrawingTags returns plain when every feature stays below threshold
+ok 218 - buildDrawingTags returns plain when every feature stays below threshold
+  ---
+  duration_ms: 1.822027
+  type: 'test'
+  ...
+# Subtest: buildDrawingTags picks the strongest two features and respects sign
+ok 219 - buildDrawingTags picks the strongest two features and respects sign
+  ---
+  duration_ms: 0.295823
+  type: 'test'
+  ...
+# Subtest: buildDrawingTags converts offCenter and paletteSpread from 0-1 into signed values
+ok 220 - buildDrawingTags converts offCenter and paletteSpread from 0-1 into signed values
+  ---
+  duration_ms: 0.249476
+  type: 'test'
+  ...
+# Subtest: buildDrawingTags respects maxTags=1
+ok 221 - buildDrawingTags respects maxTags=1
+  ---
+  duration_ms: 0.167342
+  type: 'test'
+  ...
+# Subtest: buildDrawingTags effect text stays aligned with AXIS_WEIGHTS directions
+ok 222 - buildDrawingTags effect text stays aligned with AXIS_WEIGHTS directions
+  ---
+  duration_ms: 0.688715
+  type: 'test'
+  ...
+# Subtest: prepareDrawingForWire removes timestamps and shrinks dense point data
+ok 223 - prepareDrawingForWire removes timestamps and shrinks dense point data
+  ---
+  duration_ms: 2.171973
+  type: 'test'
+  ...
+# Subtest: drawingToDataUrl returns an svg data url for battle portraits
+ok 224 - drawingToDataUrl returns an svg data url for battle portraits
+  ---
+  duration_ms: 0.638265
+  type: 'test'
+  ...
+# Subtest: drawingToDataUrl renders fill strokes as rects
+ok 225 - drawingToDataUrl renders fill strokes as rects
+  ---
+  duration_ms: 0.44233
+  type: 'test'
+  ...
+# Subtest: drawingToDataUrl has no white background rect and eraser uses svg mask
+ok 226 - drawingToDataUrl has no white background rect and eraser uses svg mask
+  ---
+  duration_ms: 0.459691
+  type: 'test'
+  ...
+# Subtest: drawingToDataUrl preserves repainting after erasing, including fills
+ok 227 - drawingToDataUrl preserves repainting after erasing, including fills
+  ---
+  duration_ms: 0.641416
+  type: 'test'
+  ...
+# Subtest: drawingToDataUrl does not erase ink painted after an initial eraser
+ok 228 - drawingToDataUrl does not erase ink painted after an initial eraser
+  ---
+  duration_ms: 0.325542
+  type: 'test'
+  ...
+# Subtest: wireDrawingToStrokes reconstructs editable strokes with placeholder timestamps
+ok 229 - wireDrawingToStrokes reconstructs editable strokes with placeholder timestamps
+  ---
+  duration_ms: 0.499666
+  type: 'test'
+  ...
+# Subtest: wireDrawingToStrokes preserves fillSpans
+ok 230 - wireDrawingToStrokes preserves fillSpans
+  ---
+  duration_ms: 0.22872
+  type: 'test'
+  ...
+# Subtest: every roguelike floor has an enemy with a visible image
+ok 231 - every roguelike floor has an enemy with a visible image
+  ---
+  duration_ms: 1.377023
+  type: 'test'
+  ...
+# Subtest: every seed ghost (weak-floor / ghost-match fallback enemy) has a visible image
+ok 232 - every seed ghost (weak-floor / ghost-match fallback enemy) has a visible image
+  ---
+  duration_ms: 0.281305
+  type: 'test'
+  ...
+# Subtest: every single-play boss has a visible image
+ok 233 - every single-play boss has a visible image
+  ---
+  duration_ms: 0.288741
+  type: 'test'
+  ...
+# Subtest: applyEnhancementSlot adds +1 PP
+ok 234 - applyEnhancementSlot adds +1 PP
+  ---
+  duration_ms: 1.032732
+  type: 'test'
+  ...
+# Subtest: applyEnhancementSlot adds +2 speed
+ok 235 - applyEnhancementSlot adds +2 speed
+  ---
+  duration_ms: 0.182273
+  type: 'test'
+  ...
+# Subtest: applyEnhancementSlot adds +4% evasion
+ok 236 - applyEnhancementSlot adds +4% evasion
+  ---
+  duration_ms: 0.21379
+  type: 'test'
+  ...
+# Subtest: pickGhostCpuAction returns magicStrong during limit break
+ok 237 - pickGhostCpuAction returns magicStrong during limit break
+  ---
+  duration_ms: 4.323215
+  type: 'test'
+  ...
+# Subtest: pickGhostCpuAction filters charge above configured hp ratio
+ok 238 - pickGhostCpuAction filters charge above configured hp ratio
+  ---
+  duration_ms: 0.433635
+  type: 'test'
+  ...
+# Subtest: pickGhostCpuAction falls back to paralysis when no action is available
+ok 239 - pickGhostCpuAction falls back to paralysis when no action is available
+  ---
+  duration_ms: 0.183748
+  type: 'test'
+  ...
+# Subtest: pickGhostCpuAction uses configured action weights
+ok 240 - pickGhostCpuAction uses configured action weights
+  ---
+  duration_ms: 0.250234
+  type: 'test'
+  ...
+# Subtest: listArchiveGhosts excludes the specified player
+ok 241 - listArchiveGhosts excludes the specified player
+  ---
+  duration_ms: 1.962075
+  type: 'test'
+  ...
+# Subtest: pickRandomGhost falls back to seed ghosts when archive is sparse
+ok 242 - pickRandomGhost falls back to seed ghosts when archive is sparse
+  ---
+  duration_ms: 0.304787
+  type: 'test'
+  ...
+# Subtest: pickRandomGhost uses archive ghosts when enough records exist
+ok 243 - pickRandomGhost uses archive ghosts when enough records exist
+  ---
+  duration_ms: 0.424412
+  type: 'test'
+  ...
+# Subtest: pickRandomGhostFromPool falls back to seed when pool is sparse
+ok 244 - pickRandomGhostFromPool falls back to seed when pool is sparse
+  ---
+  duration_ms: 0.317352
+  type: 'test'
+  ...
+# Subtest: pickRandomGhostFromPool uses pool when enough entries
+ok 245 - pickRandomGhostFromPool uses pool when enough entries
+  ---
+  duration_ms: 0.35144
+  type: 'test'
+  ...
+# Subtest: pickRandomGhostFromPool excludes specified player
+ok 246 - pickRandomGhostFromPool excludes specified player
+  ---
+  duration_ms: 0.258571
+  type: 'test'
+  ...
+# [imageThumbnail] compressFallback: all compression paths failed; returning placeholder. { sourceLength: 300054 }
+# Subtest: isBlankThumbnail returns true for short data image URLs
+ok 247 - isBlankThumbnail returns true for short data image URLs
+  ---
+  duration_ms: 0.8755
+  type: 'test'
+  ...
+# Subtest: isBlankThumbnail returns false for non-data URLs
+ok 248 - isBlankThumbnail returns false for non-data URLs
+  ---
+  duration_ms: 0.176468
+  type: 'test'
+  ...
+# Subtest: createThumbnailFromImageSource returns PNG when decode and render succeed
+ok 249 - createThumbnailFromImageSource returns PNG when decode and render succeed
+  ---
+  duration_ms: 0.843284
+  type: 'test'
+  ...
+# Subtest: createThumbnailFromImageSource falls back when canvas is fully transparent
+ok 250 - createThumbnailFromImageSource falls back when canvas is fully transparent
+  ---
+  duration_ms: 0.607617
+  type: 'test'
+  ...
+# Subtest: createThumbnailFromImageSource falls back when decode fails
+ok 251 - createThumbnailFromImageSource falls back when decode fails
+  ---
+  duration_ms: 0.321117
+  type: 'test'
+  ...
+# Subtest: createThumbnailFromImageSource keeps a short non-transparent PNG instead of falling back
+ok 252 - createThumbnailFromImageSource keeps a short non-transparent PNG instead of falling back
+  ---
+  duration_ms: 0.315591
+  type: 'test'
+  ...
+# Subtest: compressFallback: returns valid placeholder (never truncated string) when all decode paths fail and source is oversized
+ok 253 - compressFallback: returns valid placeholder (never truncated string) when all decode paths fail and source is oversized
+  ---
+  duration_ms: 1.883739
+  type: 'test'
+  ...
+# Subtest: compressFallback fills a white background before JPEG export
+ok 254 - compressFallback fills a white background before JPEG export
+  ---
+  duration_ms: 1.101692
+  type: 'test'
+  ...
+# Subtest: compressFallback: does not return blank JPEG when drawImage produces no visible content
+ok 255 - compressFallback: does not return blank JPEG when drawImage produces no visible content
+  ---
+  duration_ms: 0.653921
+  type: 'test'
+  ...
+# Subtest: safeImageUrl allows data URLs and root-relative static asset paths
+ok 256 - safeImageUrl allows data URLs and root-relative static asset paths
+  ---
+  duration_ms: 0.702299
+  type: 'test'
+  ...
+# Subtest: safeImageUrl rejects non-whitelisted URL schemes
+ok 257 - safeImageUrl rejects non-whitelisted URL schemes
+  ---
+  duration_ms: 0.125571
+  type: 'test'
+  ...
+# Subtest: isBlankSvgDataUrl detects SVGs that draw nothing (empty or erase-only drawings)
+ok 258 - isBlankSvgDataUrl detects SVGs that draw nothing (empty or erase-only drawings)
+  ---
+  duration_ms: 0.966127
+  type: 'test'
+  ...
+# Subtest: isBlankSvgDataUrl keeps real drawings and non-SVG images
+ok 259 - isBlankSvgDataUrl keeps real drawings and non-SVG images
+  ---
+  duration_ms: 0.258968
+  type: 'test'
+  ...
+# Subtest: resolveCharacterImageUrl falls back for missing, invalid, empty or blank images
+ok 260 - resolveCharacterImageUrl falls back for missing, invalid, empty or blank images
+  ---
+  duration_ms: 0.206366
+  type: 'test'
+  ...
+# Subtest: fallback character image is itself a visible SVG
+ok 261 - fallback character image is itself a visible SVG
+  ---
+  duration_ms: 0.165934
+  type: 'test'
+  ...
+# Subtest: remapTurnResultsToPersistentIds: remaps winnerId from session to persistent ID
+ok 262 - remapTurnResultsToPersistentIds: remaps winnerId from session to persistent ID
+  ---
+  duration_ms: 1.033967
+  type: 'test'
+  ...
+# Subtest: remapTurnResultsToPersistentIds: remaps null winnerId unchanged
+ok 263 - remapTurnResultsToPersistentIds: remaps null winnerId unchanged
+  ---
+  duration_ms: 0.170874
+  type: 'test'
+  ...
+# Subtest: remapTurnResultsToPersistentIds: remaps nextStates keys
+ok 264 - remapTurnResultsToPersistentIds: remaps nextStates keys
+  ---
+  duration_ms: 0.242769
+  type: 'test'
+  ...
+# Subtest: remapTurnResultsToPersistentIds: does not mutate original turn results
+ok 265 - remapTurnResultsToPersistentIds: does not mutate original turn results
+  ---
+  duration_ms: 0.244831
+  type: 'test'
+  ...
+# Subtest: remapTurnResultsToPersistentIds: remaps multiple turns
+ok 266 - remapTurnResultsToPersistentIds: remaps multiple turns
+  ---
+  duration_ms: 0.1967
+  type: 'test'
+  ...
+# Subtest: remapped turnResults pass passesMatchSanity (winner_mismatch regression)
+ok 267 - remapped turnResults pass passesMatchSanity (winner_mismatch regression)
+  ---
+  duration_ms: 0.637344
+  type: 'test'
+  ...
+# Subtest: un-remapped turnResults (session IDs) fail passesMatchSanity with winner_mismatch
+ok 268 - un-remapped turnResults (session IDs) fail passesMatchSanity with winner_mismatch
+  ---
+  duration_ms: 0.305507
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity accepts consistent multiplayer results
+ok 269 - passesMatchSanity accepts consistent multiplayer results
+  ---
+  duration_ms: 0.981885
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity rejects mismatched final hp ratio
+ok 270 - passesMatchSanity rejects mismatched final hp ratio
+  ---
+  duration_ms: 0.180038
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity accepts singleplay records with a real player
+ok 271 - passesMatchSanity accepts singleplay records with a real player
+  ---
+  duration_ms: 0.140461
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity accepts ghostmatch record with seed thumbnail path
+ok 272 - passesMatchSanity accepts ghostmatch record with seed thumbnail path
+  ---
+  duration_ms: 0.153247
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity rejects ghostmatch with unknown ghost opponent id
+ok 273 - passesMatchSanity rejects ghostmatch with unknown ghost opponent id
+  ---
+  duration_ms: 0.179473
+  type: 'test'
+  ...
+# Subtest: passesMatchSanity accepts roguelike records with a real player
+ok 274 - passesMatchSanity accepts roguelike records with a real player
+  ---
+  duration_ms: 0.130965
+  type: 'test'
+  ...
+# Subtest: ensurePlayerIdentity creates and reuses a persistent id
+ok 275 - ensurePlayerIdentity creates and reuses a persistent id
+  ---
+  duration_ms: 2.053626
+  type: 'test'
+  ...
+# Subtest: persistPlayerIdentity and loadPlayerIdentity round-trip nickname
+ok 276 - persistPlayerIdentity and loadPlayerIdentity round-trip nickname
+  ---
+  duration_ms: 0.51181
+  type: 'test'
+  ...
+# Subtest: updateStoredNickname keeps player id and normalizes blank names
+ok 277 - updateStoredNickname keeps player id and normalizes blank names
+  ---
+  duration_ms: 0.269918
+  type: 'test'
+  ...
+# Subtest: applyMatchToPlayerRecords updates wins losses and streaks
+ok 278 - applyMatchToPlayerRecords updates wins losses and streaks
+  ---
+  duration_ms: 0.894929
+  type: 'test'
+  ...
+# Subtest: applyMatchToPlayerRecords records singleplay best floor only after clearing all floors
+ok 279 - applyMatchToPlayerRecords records singleplay best floor only after clearing all floors
+  ---
+  duration_ms: 0.214591
+  type: 'test'
+  ...
+# Subtest: applyMatchToPlayerRecords tracks ghost counters separately from multiplayer record
+ok 280 - applyMatchToPlayerRecords tracks ghost counters separately from multiplayer record
+  ---
+  duration_ms: 0.222269
+  type: 'test'
+  ...
+# Subtest: applyMatchToPlayerRecords tracks roguelike best floor reached
+ok 281 - applyMatchToPlayerRecords tracks roguelike best floor reached
+  ---
+  duration_ms: 0.164437
+  type: 'test'
+  ...
+# Subtest: submitMatchRecord posts to matches api
+ok 282 - submitMatchRecord posts to matches api
+  ---
+  duration_ms: 24.217831
+  type: 'test'
+  ...
+# Subtest: fetchPlayerProfile reads player endpoint
+ok 283 - fetchPlayerProfile reads player endpoint
+  ---
+  duration_ms: 1.005125
+  type: 'test'
+  ...
+# Subtest: syncPlayerNickname patches player endpoint
+ok 284 - syncPlayerNickname patches player endpoint
+  ---
+  duration_ms: 0.647158
+  type: 'test'
+  ...
+# Subtest: unexpected disconnect triggers forfeit result after 30 s
+    # Subtest: close without intentional flag sets a timer
+    ok 1 - close without intentional flag sets a timer
+      ---
+      duration_ms: 1.082919
+      type: 'test'
+      ...
+    1..1
+ok 285 - unexpected disconnect triggers forfeit result after 30 s
+  ---
+  duration_ms: 2.173383
+  type: 'test'
+  ...
+# Subtest: goToTitle clears reconnect timer – result screen never shown
+    # Subtest: timer is cleared and stage stays title
+    ok 1 - timer is cleared and stage stays title
+      ---
+      duration_ms: 0.372459
+      type: 'test'
+      ...
+    1..1
+ok 286 - goToTitle clears reconnect timer – result screen never shown
+  ---
+  duration_ms: 0.634246
+  type: 'test'
+  ...
+# Subtest: intentional flag prevents forfeit when set before close fires
+    # Subtest: close is a no-op when intentionalDisconnect is true
+    ok 1 - close is a no-op when intentionalDisconnect is true
+      ---
+      duration_ms: 0.320924
+      type: 'test'
+      ...
+    1..1
+ok 287 - intentional flag prevents forfeit when set before close fires
+  ---
+  duration_ms: 0.589737
+  type: 'test'
+  ...
+# Subtest: genuine unexpected disconnect still eventually forfeits
+    # Subtest: onClose starts a timer when disconnect is not intentional
+    ok 1 - onClose starts a timer when disconnect is not intentional
+      ---
+      duration_ms: 0.258336
+      type: 'test'
+      ...
+    1..1
+ok 288 - genuine unexpected disconnect still eventually forfeits
+  ---
+  duration_ms: 0.599596
+  type: 'test'
+  ...
+# Subtest: initial state: isResolvingTurn is false
+ok 289 - initial state: isResolvingTurn is false
+  ---
+  duration_ms: 1.91742
+  type: 'test'
+  ...
+# Subtest: selecting action sets isResolvingTurn to true
+ok 290 - selecting action sets isResolvingTurn to true
+  ---
+  duration_ms: 0.30591
+  type: 'test'
+  ...
+# Subtest: turn advances but epoch does not advance: keep resolving
+ok 291 - turn advances but epoch does not advance: keep resolving
+  ---
+  duration_ms: 0.199405
+  type: 'test'
+  ...
+# Subtest: epoch advances but turn does not advance: keep resolving
+ok 292 - epoch advances but turn does not advance: keep resolving
+  ---
+  duration_ms: 0.199762
+  type: 'test'
+  ...
+# Subtest: turn and epoch both advance: clear resolving
+ok 293 - turn and epoch both advance: clear resolving
+  ---
+  duration_ms: 0.181462
+  type: 'test'
+  ...
+# Subtest: stale high countdown value alone never clears resolving
+ok 294 - stale high countdown value alone never clears resolving
+  ---
+  duration_ms: 0.161598
+  type: 'test'
+  ...
+# Subtest: paralysis window also clears on epoch+turn, not countdown seconds
+ok 295 - paralysis window also clears on epoch+turn, not countdown seconds
+  ---
+  duration_ms: 0.26298
+  type: 'test'
+  ...
+# Subtest: rapid multi-turn actions stay consistent
+ok 296 - rapid multi-turn actions stay consistent
+  ---
+  duration_ms: 0.162438
+  type: 'test'
+  ...
+# Subtest: reset clears resolving and epochs
+ok 297 - reset clears resolving and epochs
+  ---
+  duration_ms: 0.500253
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 5 uses hardcoded stats
+ok 298 - buildRoguelikeBossState floor 5 uses hardcoded stats
+  ---
+  duration_ms: 1.953774
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 10 uses hardcoded stats
+ok 299 - buildRoguelikeBossState floor 10 uses hardcoded stats
+  ---
+  duration_ms: 0.260135
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 13 uses hardcoded stats
+ok 300 - buildRoguelikeBossState floor 13 uses hardcoded stats
+  ---
+  duration_ms: 0.181681
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 16 uses hardcoded stats
+ok 301 - buildRoguelikeBossState floor 16 uses hardcoded stats
+  ---
+  duration_ms: 0.297306
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState builds hardcoded floor 17 boss
+ok 302 - buildRoguelikeBossState builds hardcoded floor 17 boss
+  ---
+  duration_ms: 0.172084
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 18 uses hardcoded stats with zero evasion
+ok 303 - buildRoguelikeBossState floor 18 uses hardcoded stats with zero evasion
+  ---
+  duration_ms: 0.187637
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 19 uses hardcoded stats with zero evasion
+ok 304 - buildRoguelikeBossState floor 19 uses hardcoded stats with zero evasion
+  ---
+  duration_ms: 0.262462
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeBossState floor 20 has ALL999 stats and no forceMagicStrongAction
+ok 305 - buildRoguelikeBossState floor 20 has ALL999 stats and no forceMagicStrongAction
+  ---
+  duration_ms: 0.239574
+  type: 'test'
+  ...
+# Subtest: clampRoguelikeDebugFloor keeps values within the 1-20 floor range
+ok 306 - clampRoguelikeDebugFloor keeps values within the 1-20 floor range
+  ---
+  duration_ms: 1.094275
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeDebugRunInit uses the default config to reproduce the roguelike initial stats
+ok 307 - buildRoguelikeDebugRunInit uses the default config to reproduce the roguelike initial stats
+  ---
+  duration_ms: 1.176548
+  type: 'test'
+  ...
+# Subtest: debug skills exclude consumables and clamp finite stacks to registry limits
+ok 308 - debug skills exclude consumables and clamp finite stacks to registry limits
+  ---
+  duration_ms: 0.391264
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeDebugRunInit applies custom stats, floor, and acquired weak-magic kinds
+ok 309 - buildRoguelikeDebugRunInit applies custom stats, floor, and acquired weak-magic kinds
+  ---
+  duration_ms: 0.352319
+  type: 'test'
+  ...
+# Subtest: buildRoguelikeDebugRunInit clamps floor and evasion into valid ranges
+ok 310 - buildRoguelikeDebugRunInit clamps floor and evasion into valid ranges
+  ---
+  duration_ms: 0.209592
+  type: 'test'
+  ...
+# Subtest: isRoguelikeDebugQueryEnabled only returns true for the exact rlDebug=1 flag
+ok 311 - isRoguelikeDebugQueryEnabled only returns true for the exact rlDebug=1 flag
+  ---
+  duration_ms: 0.349913
+  type: 'test'
+  ...
+# Subtest: enemy weak magic effects follow character type
+ok 312 - enemy weak magic effects follow character type
+  ---
+  duration_ms: 5.22686
+  type: 'test'
+  ...
+# Subtest: unknown enemy types fall back to the original weak magic pool
+ok 313 - unknown enemy types fall back to the original weak magic pool
+  ---
+  duration_ms: 0.403072
+  type: 'test'
+  ...
+# Subtest: boss weak magic uses its current character type, including floor 17 forms
+ok 314 - boss weak magic uses its current character type, including floor 17 forms
+  ---
+  duration_ms: 0.67663
+  type: 'test'
+  ...
+# Subtest: applyTypeCorrection applies attack magic defense balanced corrections
+ok 315 - applyTypeCorrection applies attack magic defense balanced corrections
+  ---
+  duration_ms: 0.320337
+  type: 'test'
+  ...
+# Subtest: buildWeakEnemyStats uses floor 1-4 band
+ok 316 - buildWeakEnemyStats uses floor 1-4 band
+  ---
+  duration_ms: 0.401571
+  type: 'test'
+  ...
+# Subtest: buildWeakEnemyStats uses floor 6-9 band
+ok 317 - buildWeakEnemyStats uses floor 6-9 band
+  ---
+  duration_ms: 0.227602
+  type: 'test'
+  ...
+# Subtest: buildWeakEnemyStats uses floor 11-12 band
+ok 318 - buildWeakEnemyStats uses floor 11-12 band
+  ---
+  duration_ms: 0.255544
+  type: 'test'
+  ...
+# Subtest: buildWeakEnemyStats uses floor 14-15 band
+ok 319 - buildWeakEnemyStats uses floor 14-15 band
+  ---
+  duration_ms: 0.211498
+  type: 'test'
+  ...
+# Subtest: getUpgradeAddAmounts returns band-specific values
+ok 320 - getUpgradeAddAmounts returns band-specific values
+  ---
+  duration_ms: 0.42103
+  type: 'test'
+  ...
+# Subtest: pickRandomUpgradeSlots returns 3 unique keys
+ok 321 - pickRandomUpgradeSlots returns 3 unique keys
+  ---
+  duration_ms: 0.619798
+  type: 'test'
+  ...
+# Subtest: applyUpgrade updates target stats
+ok 322 - applyUpgrade updates target stats
+  ---
+  duration_ms: 0.308654
+  type: 'test'
+  ...
+# Subtest: applyPerfectVictoryBuff increases every stat by 10% with upward rounding
+ok 323 - applyPerfectVictoryBuff increases every stat by 10% with upward rounding
+  ---
+  duration_ms: 0.276529
+  type: 'test'
+  ...
+# Subtest: applyBossUpgrade applies floor-specific multipliers
+ok 324 - applyBossUpgrade applies floor-specific multipliers
+  ---
+  duration_ms: 0.208241
+  type: 'test'
+  ...
+# Subtest: applyBossMultiplyUpgrade applies floor 17 single-key multipliers
+ok 325 - applyBossMultiplyUpgrade applies floor 17 single-key multipliers
+  ---
+  duration_ms: 0.230411
+  type: 'test'
+  ...
+# Subtest: isWeakFloor and isBossFloor classify floors
+ok 326 - isWeakFloor and isBossFloor classify floors
+  ---
+  duration_ms: 0.146722
+  type: 'test'
+  ...
+# Subtest: boss multipliers round every affected stat upward without changing other stats
+ok 327 - boss multipliers round every affected stat upward without changing other stats
+  ---
+  duration_ms: 0.492265
+  type: 'test'
+  ...
+# Subtest: multipliers remove floating point noise before ceiling and remain integer over repeated upgrades
+ok 328 - multipliers remove floating point noise before ceiling and remain integer over repeated upgrades
+  ---
+  duration_ms: 0.35012
+  type: 'test'
+  ...
+# Subtest: registry contains stable IDs with complete metadata and rarity pools
+ok 329 - registry contains stable IDs with complete metadata and rarity pools
+  ---
+  duration_ms: 2.249862
+  type: 'test'
+  ...
+# Subtest: registry uses requested labels and precise barrier, filter and PP absorption descriptions
+ok 330 - registry uses requested labels and precise barrier, filter and PP absorption descriptions
+  ---
+  duration_ms: 0.806266
+  type: 'test'
+  ...
+# Subtest: central balance constants match the skill and offer contracts
+ok 331 - central balance constants match the skill and offer contracts
+  ---
+  duration_ms: 0.22402
+  type: 'test'
+  ...
+# Subtest: empty acquired skills and consumables yield no battle effects
+ok 332 - empty acquired skills and consumables yield no battle effects
+  ---
+  duration_ms: 0.367237
+  type: 'test'
+  ...
+# Subtest: skill labels show stacks, unique names, healing acquisition counts and remaining guts
+ok 333 - skill labels show stacks, unique names, healing acquisition counts and remaining guts
+  ---
+  duration_ms: 0.599457
+  type: 'test'
+  ...
+# Subtest: effects use resistance stack counts and flags for every other passive
+ok 334 - effects use resistance stack counts and flags for every other passive
+  ---
+  duration_ms: 0.207173
+  type: 'test'
+  ...
+# Subtest: effects sanitize over-cap, negative, fractional and nonfinite stack counts
+ok 335 - effects sanitize over-cap, negative, fractional and nonfinite stack counts
+  ---
+  duration_ms: 0.293079
+  type: 'test'
+  ...
+# Subtest: each heal restores both resources with upward rounding without retaining consumables
+ok 336 - each heal restores both resources with upward rounding without retaining consumables
+  ---
+  duration_ms: 0.396333
+  type: 'test'
+  ...
+# Subtest: heal rewards cap resources at maxima and can be selected repeatedly
+ok 337 - heal rewards cap resources at maxima and can be selected repeatedly
+  ---
+  duration_ms: 0.451613
+  type: 'test'
+  ...
+# Subtest: passive rewards stack up to registry caps without changing the player or input
+ok 338 - passive rewards stack up to registry caps without changing the player or input
+  ---
+  duration_ms: 1.085071
+  type: 'test'
+  ...
+# Subtest: new passive skills are single-acquisition skills
+ok 339 - new passive skills are single-acquisition skills
+  ---
+  duration_ms: 0.260164
+  type: 'test'
+  ...
+# Subtest: auto recovery supports each flag independently and rounds up from maxima
+ok 340 - auto recovery supports each flag independently and rounds up from maxima
+  ---
+  duration_ms: 0.274467
+  type: 'test'
+  ...
+# Subtest: auto recovery caps resources and never revives defeated players
+ok 341 - auto recovery caps resources and never revives defeated players
+  ---
+  duration_ms: 0.169859
+  type: 'test'
+  ...
+# Subtest: auto recovery never subtracts resources already above their maxima
+ok 342 - auto recovery never subtracts resources already above their maxima
+  ---
+  duration_ms: 3.405036
+  type: 'test'
+  ...
+# Subtest: tooltip lists only acquired passives, descriptions and capped resistance stacks
+ok 343 - tooltip lists only acquired passives, descriptions and capped resistance stacks
+  ---
+  duration_ms: 0.282514
+  type: 'test'
+  ...
+# Subtest: healPlayerFully restores HP and PP to max
+ok 344 - healPlayerFully restores HP and PP to max
+  ---
+  duration_ms: 3.710094
+  type: 'test'
+  ...
+# Subtest: healPlayerFully resets charge and status effects
+ok 345 - healPlayerFully resets charge and status effects
+  ---
+  duration_ms: 0.333265
+  type: 'test'
+  ...
+# Subtest: healPlayerFully preserves identity fields
+ok 346 - healPlayerFully preserves identity fields
+  ---
+  duration_ms: 0.500254
+  type: 'test'
+  ...
+# Subtest: healPlayerFully with already-full HP still returns max
+ok 347 - healPlayerFully with already-full HP still returns max
+  ---
+  duration_ms: 0.182586
+  type: 'test'
+  ...
+# Subtest: healPlayerByRatio restores half of max HP and PP without exceeding their maxima
+ok 348 - healPlayerByRatio restores half of max HP and PP without exceeding their maxima
+  ---
+  duration_ms: 1.615311
+  type: 'test'
+  ...
+# Subtest: carryOverPlayerState 18→19 transition preserves HP/PP
+ok 349 - carryOverPlayerState 18→19 transition preserves HP/PP
+  ---
+  duration_ms: 0.20989
+  type: 'test'
+  ...
+# Subtest: carryOverPlayerState 19→20 transition preserves HP/PP
+ok 350 - carryOverPlayerState 19→20 transition preserves HP/PP
+  ---
+  duration_ms: 0.168036
+  type: 'test'
+  ...
+# Subtest: carryOverPlayerState resets battle effects without changing stats or resources
+ok 351 - carryOverPlayerState resets battle effects without changing stats or resources
+  ---
+  duration_ms: 1.03027
+  type: 'test'
+  ...
+# Subtest: carryOverPlayerState preserves the once-per-run Guts usage flag
+ok 352 - carryOverPlayerState preserves the once-per-run Guts usage flag
+  ---
+  duration_ms: 0.431903
+  type: 'test'
+  ...
+# Subtest: perfect victory restores only the increase in maximum HP/PP
+ok 353 - perfect victory restores only the increase in maximum HP/PP
+  ---
+  duration_ms: 0.712051
+  type: 'test'
+  ...
+# Subtest: normal HP/PP upgrades restore the maximum increase on the next floor
+ok 354 - normal HP/PP upgrades restore the maximum increase on the next floor
+  ---
+  duration_ms: 0.33714
+  type: 'test'
+  ...
+# Subtest: boss HP/PP multipliers restore the maximum increase, not all missing resources
+ok 355 - boss HP/PP multipliers restore the maximum increase, not all missing resources
+  ---
+  duration_ms: 0.302881
+  type: 'test'
+  ...
+# Subtest: maximum reductions clamp resources without subtracting from already-low values
+ok 356 - maximum reductions clamp resources without subtracting from already-low values
+  ---
+  duration_ms: 0.181883
+  type: 'test'
+  ...
+# Subtest: color drain reductions persist across floors without restoring drained maxima
+ok 357 - color drain reductions persist across floors without restoring drained maxima
+  ---
+  duration_ms: 0.233244
+  type: 'test'
+  ...
+# Subtest: boss floors offer 1.5x, 1.2x with half recovery, and full recovery
+ok 358 - boss floors offer 1.5x, 1.2x with half recovery, and full recovery
+  ---
+  duration_ms: 2.693439
+  type: 'test'
+  ...
+# Subtest: floor 17 offers HP x2, defense x1.5 with half recovery, and full recovery
+ok 359 - floor 17 offers HP x2, defense x1.5 with half recovery, and full recovery
+  ---
+  duration_ms: 0.299653
+  type: 'test'
+  ...
+# Subtest: floors without boss rewards still offer no boss upgrades
+ok 360 - floors without boss rewards still offer no boss upgrades
+  ---
+  duration_ms: 0.193213
+  type: 'test'
+  ...
+# Subtest: getRoguelikeUpgradeAddAmountsByRarity halves ★1 values with ceil for integers
+ok 361 - getRoguelikeUpgradeAddAmountsByRarity halves ★1 values with ceil for integers
+  ---
+  duration_ms: 0.35374
+  type: 'test'
+  ...
+# Subtest: rollRoguelikeUpgradeRarity uses normal rates while ★3 is available
+ok 362 - rollRoguelikeUpgradeRarity uses normal rates while ★3 is available
+  ---
+  duration_ms: 0.398682
+  type: 'test'
+  ...
+# Subtest: rollRoguelikeUpgradeRarity redistributes to ★1/★2 when all weak-magic effects are acquired
+ok 363 - rollRoguelikeUpgradeRarity redistributes to ★1/★2 when all weak-magic effects are acquired
+  ---
+  duration_ms: 0.163597
+  type: 'test'
+  ...
+# Subtest: pickRandomAvailableWeakMagicEffect excludes already-acquired effects
+ok 364 - pickRandomAvailableWeakMagicEffect excludes already-acquired effects
+  ---
+  duration_ms: 0.342592
+  type: 'test'
+  ...
+# Subtest: acquiring all weak magic leaves skill rewards available including ★3
+ok 365 - acquiring all weak magic leaves skill rewards available including ★3
+  ---
+  duration_ms: 1.016515
+  type: 'test'
+  ...
+# Subtest: the first slot is a stat and later slots do not duplicate weak magic
+ok 366 - the first slot is a stat and later slots do not duplicate weak magic
+  ---
+  duration_ms: 0.815812
+  type: 'test'
+  ...
+# Subtest: slot-specific rarity boundaries are 65/35, 55/33/12 and 55/30/15
+ok 367 - slot-specific rarity boundaries are 65/35, 55/33/12 and 55/30/15
+  ---
+  duration_ms: 0.799081
+  type: 'test'
+  ...
+# Subtest: rarity weights renormalize over available rarities, with zero-weight and empty pools rejected
+ok 368 - rarity weights renormalize over available rarities, with zero-weight and empty pools rejected
+  ---
+  duration_ms: 0.763007
+  type: 'test'
+  ...
+# Subtest: slot one is always a unique stat with the right floor-scaled amount
+ok 369 - slot one is always a unique stat with the right floor-scaled amount
+  ---
+  duration_ms: 0.96336
+  type: 'test'
+  ...
+# Subtest: slot two draws from the combined skill/weak-magic pool by rarity
+ok 370 - slot two draws from the combined skill/weak-magic pool by rarity
+  ---
+  duration_ms: 0.399227
+  type: 'test'
+  ...
+# Subtest: slot three category boundaries use 45% stat, 40% skill, 15% weak magic
+ok 371 - slot three category boundaries use 45% stat, 40% skill, 15% weak magic
+  ---
+  duration_ms: 2.194246
+  type: 'test'
+  ...
+# Subtest: deterministic grids reproduce slot rarity and category rates
+ok 372 - deterministic grids reproduce slot rarity and category rates
+  ---
+  duration_ms: 51.288468
+  type: 'test'
+  ...
+# Subtest: slot three renormalizes rarity within stats and not across categories
+ok 373 - slot three renormalizes rarity within stats and not across categories
+  ---
+  duration_ms: 0.330149
+  type: 'test'
+  ...
+# Subtest: skill category renormalizes missing rarities after capped passives and offered healing
+ok 374 - skill category renormalizes missing rarities after capped passives and offered healing
+  ---
+  duration_ms: 0.386844
+  type: 'test'
+  ...
+# Subtest: empty weak-magic categories redistribute to stat and skill proportionally
+ok 375 - empty weak-magic categories redistribute to stat and skill proportionally
+  ---
+  duration_ms: 0.313684
+  type: 'test'
+  ...
+# Subtest: below 40% HP slot two guarantees a heal of any rarity and 40% does not
+ok 376 - below 40% HP slot two guarantees a heal of any rarity and 40% does not
+  ---
+  duration_ms: 0.38419
+  type: 'test'
+  ...
+# Subtest: at 90% HP consumable candidate weights fall to 0.3, but below 90% they are unchanged
+ok 377 - at 90% HP consumable candidate weights fall to 0.3, but below 90% they are unchanged
+  ---
+  duration_ms: 0.413372
+  type: 'test'
+  ...
+# Subtest: healthy HP also lowers consumable weights in the third slot skill category
+ok 378 - healthy HP also lowers consumable weights in the third slot skill category
+  ---
+  duration_ms: 0.347488
+  type: 'test'
+  ...
+# Subtest: invalid or absent HP context does not force healing or reduce heal weights
+ok 379 - invalid or absent HP context does not force healing or reduce heal weights
+  ---
+  duration_ms: 0.312545
+  type: 'test'
+  ...
+# Subtest: skills at stack caps are excluded but repeatable consumables and below-cap resistance remain
+ok 380 - skills at stack caps are excluded but repeatable consumables and below-cap resistance remain
+  ---
+  duration_ms: 0.539374
+  type: 'test'
+  ...
+# Subtest: acquired unique skills cannot be offered again
+ok 381 - acquired unique skills cannot be offered again
+  ---
+  duration_ms: 0.298914
+  type: 'test'
+  ...
+# Subtest: large screens exhaust the pools without duplicate stat keys, skill IDs or weak effects
+ok 382 - large screens exhaust the pools without duplicate stat keys, skill IDs or weak effects
+  ---
+  duration_ms: 0.504908
+  type: 'test'
+  ...
+# Subtest: after skills and weak magic are exhausted category selection falls back to stats
+ok 383 - after skills and weak magic are exhausted category selection falls back to stats
+  ---
+  duration_ms: 0.289488
+  type: 'test'
+  ...
+# Subtest: skill rewards copy registry display metadata and keep inputs unchanged
+ok 384 - skill rewards copy registry display metadata and keep inputs unchanged
+  ---
+  duration_ms: 0.251561
+  type: 'test'
+  ...
+# Subtest: floor 20 reuses floor 19 void-domination effect
+ok 385 - floor 20 reuses floor 19 void-domination effect
+  ---
+  duration_ms: 0.845667
+  type: 'test'
+  ...
+# Subtest: void-domination threshold is floored to 66% max HP
+ok 386 - void-domination threshold is floored to 66% max HP
+  ---
+  duration_ms: 0.186109
+  type: 'test'
+  ...
+# Subtest: void-domination trigger stops lethal damage at the 66% threshold once
+ok 387 - void-domination trigger stops lethal damage at the 66% threshold once
+  ---
+  duration_ms: 0.651721
+  type: 'test'
+  ...
+# Subtest: magic damper reduces already-active boss magic damage by 25%
+ok 388 - magic damper reduces already-active boss magic damage by 25%
+  ---
+  duration_ms: 0.184979
+  type: 'test'
+  ...
+# Subtest: pain share returns 20% floored damage
+ok 389 - pain share returns 20% floored damage
+  ---
+  duration_ms: 0.16135
+  type: 'test'
+  ...
+# Subtest: reverse velocity makes the slower unit act first
+ok 390 - reverse velocity makes the slower unit act first
+  ---
+  duration_ms: 0.390918
+  type: 'test'
+  ...
+# Subtest: overcharge charge recovery heals 10% HP and full max PP up to double
+ok 391 - overcharge charge recovery heals 10% HP and full max PP up to double
+  ---
+  duration_ms: 0.20745
+  type: 'test'
+  ...
+# Subtest: overcharge magic cost ratios are raised to 25% and 50%
+ok 392 - overcharge magic cost ratios are raised to 25% and 50%
+  ---
+  duration_ms: 0.176312
+  type: 'test'
+  ...
+# Subtest: type change reapplies form bonuses from base stats without stacking
+ok 393 - type change reapplies form bonuses from base stats without stacking
+  ---
+  duration_ms: 0.47952
+  type: 'test'
+  ...
+# Subtest: type change merge preserves unrelated current stat mutations
+ok 394 - type change merge preserves unrelated current stat mutations
+  ---
+  duration_ms: 2.593071
+  type: 'test'
+  ...
+# Subtest: next type-change form never repeats the previous form
+ok 395 - next type-change form never repeats the previous form
+  ---
+  duration_ms: 0.357225
+  type: 'test'
+  ...
+# Subtest: color drain lowers player max stats and heals the boss within max limits
+ok 396 - color drain lowers player max stats and heals the boss within max limits
+  ---
+  duration_ms: 0.270484
+  type: 'test'
+  ...
+# Subtest: inevitable zone suppresses evasion for both sides
+ok 397 - inevitable zone suppresses evasion for both sides
+  ---
+  duration_ms: 0.12989
+  type: 'test'
+  ...
+# Subtest: floor 1 all S factors becomes SS
+ok 398 - floor 1 all S factors becomes SS
+  ---
+  duration_ms: 1.165973
+  type: 'test'
+  ...
+# Subtest: floor 5 special character threshold makes 3 chars rank A
+ok 399 - floor 5 special character threshold makes 3 chars rank A
+  ---
+  duration_ms: 0.217278
+  type: 'test'
+  ...
+# Subtest: floor score C starts at -2 or below
+ok 400 - floor score C starts at -2 or below
+  ---
+  duration_ms: 0.241965
+  type: 'test'
+  ...
+# Subtest: total score sample SS,SS,S,A,A becomes S
+ok 401 - total score sample SS,SS,S,A,A becomes S
+  ---
+  duration_ms: 0.241794
+  type: 'test'
+  ...
+# Subtest: total score uses C as -2 points
+ok 402 - total score uses C as -2 points
+  ---
+  duration_ms: 0.205803
+  type: 'test'
+  ...
+# Subtest: saveMatch and loadMatch round-trip
+ok 403 - saveMatch and loadMatch round-trip
+  ---
+  duration_ms: 22.728989
+  type: 'test'
+  ...
+# Subtest: matchExists returns false when not saved
+ok 404 - matchExists returns false when not saved
+  ---
+  duration_ms: 1.026497
+  type: 'test'
+  ...
+# Subtest: matchExists returns true after saving
+ok 405 - matchExists returns true after saving
+  ---
+  duration_ms: 1.592754
+  type: 'test'
+  ...
+# Subtest: appendMatchIndexForPlayer keeps newest-first and caps at limit
+ok 406 - appendMatchIndexForPlayer keeps newest-first and caps at limit
+  ---
+  duration_ms: 59.220893
+  type: 'test'
+  ...
+# Subtest: savePlayer and loadPlayer round-trip
+ok 407 - savePlayer and loadPlayer round-trip
+  ---
+  duration_ms: 1.466928
+  type: 'test'
+  ...
+# Subtest: incrPlayerCounter increments correctly
+ok 408 - incrPlayerCounter increments correctly
+  ---
+  duration_ms: 1.656324
+  type: 'test'
+  ...
+# Subtest: upsertGhostPool keeps at most 2 entries per player
+ok 409 - upsertGhostPool keeps at most 2 entries per player
+  ---
+  duration_ms: 4.433169
+  type: 'test'
+  ...
+# Subtest: ghostPoolEntryToGhostRecord maps source=archive
+ok 410 - ghostPoolEntryToGhostRecord maps source=archive
+  ---
+  duration_ms: 1.010885
+  type: 'test'
+  ...
+# Subtest: applySinglePlayLimitBreak fully restores HP/PP and raises stats to 999
+ok 411 - applySinglePlayLimitBreak fully restores HP/PP and raises stats to 999
+  ---
+  duration_ms: 4.271236
+  type: 'test'
+  ...
+# Subtest: getSinglePlayLimitBreakStatusLines formats each boosted status line
+ok 412 - getSinglePlayLimitBreakStatusLines formats each boosted status line
+  ---
+  duration_ms: 2.594162
+  type: 'test'
+  ...
+# Subtest: applySinglePlayLimitBreakSurvive leaves the boss at 1 HP with the charge glow active, without touching stats
+ok 413 - applySinglePlayLimitBreakSurvive leaves the boss at 1 HP with the charge glow active, without touching stats
+  ---
+  duration_ms: 2.535811
+  type: 'test'
+  ...
+# Subtest: resetSinglePlayLimitBreakPlayerActions unlocks actions and clears temporary restrictions
+ok 414 - resetSinglePlayLimitBreakPlayerActions unlocks actions and clears temporary restrictions
+  ---
+  duration_ms: 0.469969
+  type: 'test'
+  ...
+# Subtest: getSinglePlayLimitBreakDisplayDurationMs waits 3 seconds after the final reveal
+ok 415 - getSinglePlayLimitBreakDisplayDurationMs waits 3 seconds after the final reveal
+  ---
+  duration_ms: 0.283111
+  type: 'test'
+  ...
+# Subtest: default sound volumes match updated title options defaults
+ok 416 - default sound volumes match updated title options defaults
+  ---
+  duration_ms: 0.658375
+  type: 'test'
+  ...
+# Subtest: analyzeDrawing keeps pure red filled art close to the attack preset
+ok 417 - analyzeDrawing keeps pure red filled art close to the attack preset
+  ---
+  duration_ms: 3.618006
+  type: 'test'
+  ...
+# Subtest: analyzeDrawing reports expected pure, mixed, and empty weight distributions
+ok 418 - analyzeDrawing reports expected pure, mixed, and empty weight distributions
+  ---
+  duration_ms: 4.353099
+  type: 'test'
+  ...
+# Subtest: stat calculation stays mostly size-independent for the same simple shape
+ok 419 - stat calculation stays mostly size-independent for the same simple shape
+  ---
+  duration_ms: 4.329314
+  type: 'test'
+  ...
+# Subtest: extra visual complexity does not push overall power far beyond the base preset
+ok 420 - extra visual complexity does not push overall power far beyond the base preset
+  ---
+  duration_ms: 13.117539
+  type: 'test'
+  ...
+# Subtest: attack and PP stay zero-sum around the blended base
+ok 421 - attack and PP stay zero-sum around the blended base
+  ---
+  duration_ms: 0.809646
+  type: 'test'
+  ...
+# Subtest: random synthetic drawings stay inside the configured stat ranges
+ok 422 - random synthetic drawings stay inside the configured stat ranges
+  ---
+  duration_ms: 61.066999
+  type: 'test'
+  ...
+# Subtest: higher defense drawings trade HP while preserving effective HP
+ok 423 - higher defense drawings trade HP while preserving effective HP
+  ---
+  duration_ms: 1.88313
+  type: 'test'
+  ...
+# Subtest: empty canvases still map to the balanced preset
+ok 424 - empty canvases still map to the balanced preset
+  ---
+  duration_ms: 0.377735
+  type: 'test'
+  ...
+# Subtest: normal turn progression: finalize once, timer advances to next turn
+ok 425 - normal turn progression: finalize once, timer advances to next turn
+  ---
+  duration_ms: 1.958565
+  type: 'test'
+  ...
+# Subtest: early finalization: both actions present → finalize without waiting for timer
+ok 426 - early finalization: both actions present → finalize without waiting for timer
+  ---
+  duration_ms: 0.332497
+  type: 'test'
+  ...
+# Subtest: idempotency guard: finalizeTurn(N) called twice only executes once
+ok 427 - idempotency guard: finalizeTurn(N) called twice only executes once
+  ---
+  duration_ms: 0.208333
+  type: 'test'
+  ...
+# Subtest: scheduleTurnFinalize guard: stale call does not cancel next-turn timer
+ok 428 - scheduleTurnFinalize guard: stale call does not cancel next-turn timer
+  ---
+  duration_ms: 0.279112
+  type: 'test'
+  ...
+# Subtest: stale turn_action filter: late guest action for old turn is discarded
+ok 429 - stale turn_action filter: late guest action for old turn is discarded
+  ---
+  duration_ms: 0.237001
+  type: 'test'
+  ...
+# Subtest: race condition scenario: late guest action + host next-turn action do not softlock
+ok 430 - race condition scenario: late guest action + host next-turn action do not softlock
+  ---
+  duration_ms: 0.363116
+  type: 'test'
+  ...
+# Subtest: paralysis scenario: both-paralyzed early finalize still blocked by guard if already done
+ok 431 - paralysis scenario: both-paralyzed early finalize still blocked by guard if already done
+  ---
+  duration_ms: 0.17666
+  type: 'test'
+  ...
+# Subtest: vs screen duration stays at 3600ms
+ok 432 - vs screen duration stays at 3600ms
+  ---
+  duration_ms: 0.683469
+  type: 'test'
+  ...
+# Subtest: multiplayer vs stage keeps bgm silent until battle
+ok 433 - multiplayer vs stage keeps bgm silent until battle
+  ---
+  duration_ms: 0.147505
+  type: 'test'
+  ...
+# Subtest: title stage uses the title BGM
+ok 434 - title stage uses the title BGM
+  ---
+  duration_ms: 0.163813
+  type: 'test'
+  ...
+# Subtest: single play vs stage keeps bgm silent until battle
+ok 435 - single play vs stage keeps bgm silent until battle
+  ---
+  duration_ms: 0.115215
+  type: 'test'
+  ...
+# Subtest: single play battle bgm still follows floor and boss phase
+ok 436 - single play battle bgm still follows floor and boss phase
+  ---
+  duration_ms: 0.105321
+  type: 'test'
+  ...
+# Subtest: single play limit break bgm still overrides other stage bgm
+ok 437 - single play limit break bgm still overrides other stage bgm
+  ---
+  duration_ms: 0.095904
+  type: 'test'
+  ...
+# Subtest: roguelike stage bgm follows stage and floor
+ok 438 - roguelike stage bgm follows stage and floor
+  ---
+  duration_ms: 0.117902
+  type: 'test'
+  ...
+1..438
+# tests 442
+# suites 0
+# pass 442
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9169.069892
+
+> frontend@0.1.0 lint
+> eslint
+

@@ -15,6 +15,7 @@ import {
   reviveCoopPlayer,
   startCoopBattle,
   isCoopPresentationComplete,
+  getCoopSkillTurn,
   type CoopSnapshot,
 } from "@/lib/coopRoguelike";
 import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots } from "@/lib/roguelikeUpgrades";
@@ -165,7 +166,7 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
 
   function snapshot(floor = 1): CoopSnapshot {
     return {
-      runId: "run", floor, turn: 1, floorTurn: 1, playerIds: ["p1", "p2"], activePlayerId: "p1",
+      runId: "run", floor, turn: 1, actedPlayerIds: [], playerIds: ["p1", "p2"], activePlayerId: "p1",
       players: { p1: player("p1"), p2: player("p2") }, enemy: player("enemy"),
       stage: "vs", turnResult: null, chargeMultiplier: 1, deadline: 0,
       excludedPlayerIds: [], pendingRevivalId: null, rewardPlayerId: null, upgradeChoices: [],
@@ -274,3 +275,22 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
     assert.equal(run(1).players.p1?.currentHp, 100);
     assert.ok(run(2).turnResult.damageEvents.some((event) => event.to === "p1" && event.amount > 0));
   });
+
+    test("each ally's filter protects their own first action even when the other ally starts", () => {
+      const current = snapshot();
+      current.actedPlayerIds = ["p1"];
+      assert.equal(getCoopSkillTurn(current, "p1"), 2);
+      assert.equal(getCoopSkillTurn(current, "p2"), 1);
+      const run = (playerId: string) => resolveCoopTurn({
+        turn: 22, skillTurn: getCoopSkillTurn(current, playerId),
+        players: current.players, enemy: current.enemy!, activePlayerId: playerId,
+        playerAction: "charge", enemyAction: "attack", chargeMultiplier: 1,
+        playerIds: current.playerIds, rng: () => 0.99,
+        skillEffects: { [playerId]: { filter: true } },
+      });
+      assert.equal(run("p2").players.p2?.currentHp, 100);
+      assert.ok(run("p1").turnResult.damageEvents.some((event) => event.to === "p1" && event.amount > 0));
+      current.actedPlayerIds = [];
+      assert.equal(getCoopSkillTurn(current, "p1"), 1);
+      assert.equal(getCoopSkillTurn(current, "p2"), 1);
+    });

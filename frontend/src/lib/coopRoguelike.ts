@@ -22,7 +22,7 @@ export interface CoopSnapshot {
   runId: string;
   floor: number;
   turn: number;
-  floorTurn: number;
+  actedPlayerIds: CoopPlayerId[];
   playerIds: readonly [CoopPlayerId, CoopPlayerId];
   activePlayerId: CoopPlayerId | null;
   players: Record<CoopPlayerId, PlayerBattleState>;
@@ -116,6 +116,10 @@ export function startCoopBattle(snapshot: CoopSnapshot, now: number): CoopSnapsh
 export function isCoopPresentationComplete(snapshot: CoopSnapshot, readyPlayerIds: ReadonlySet<string>): boolean {
   return (snapshot.stage === "vs" || snapshot.stage === "resolving")
     && snapshot.playerIds.filter((id) => !snapshot.excludedPlayerIds.includes(id)).every((id) => readyPlayerIds.has(id));
+}
+
+export function getCoopSkillTurn(snapshot: CoopSnapshot, playerId: CoopPlayerId): number {
+  return snapshot.actedPlayerIds.includes(playerId) ? 2 : 1;
 }
 
 export function getCoopAlivePlayerIds(
