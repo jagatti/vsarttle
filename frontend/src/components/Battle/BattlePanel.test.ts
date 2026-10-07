@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { PlayerBattleState, TurnResult } from "@/types/game";
+import type { RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import {
   BattlePanel,
   SELECTABLE_ACTIONS,
@@ -33,7 +34,7 @@ const player: PlayerBattleState = {
   lastActionCategory: null,
 };
 
-function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false, skillLabels?: string[], turnResult: TurnResult | null = null) {
+function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1, bossActive = false, skillLabels?: string[], turnResult: TurnResult | null = null, skillEffects?: RoguelikeSkillEffects) {
   return renderToStaticMarkup(createElement(BattlePanel, {
     me: player,
     enemy: {
@@ -53,8 +54,55 @@ function renderBattle(isResolvingTurn = false, limitBreakMode = false, turn = 1,
     onRematchRedraw: () => {},
     isResolvingTurn,
     roguelikeSkillLabels: skillLabels,
+    roguelikeSkillEffects: skillEffects,
   }));
 }
+
+test("enhanced magic renders increased PP labels only for the skill owner", () => {
+  const normal = renderBattle();
+  const enhanced = renderBattle(false, false, 1, false, undefined, null, { enhancedMagic: true });
+  const actionButton = (markup: string, action: string) =>
+    markup.match(new RegExp(`<button data-action="${action}"[^>]*>.*?</button>`))?.[0] ?? "";
+  assert.ok(actionButton(normal, "magicWeak").includes("弱まほう（-20PP）"));
+  assert.ok(actionButton(normal, "magicStrong").includes("強まほう（-40PP）"));
+  assert.ok(actionButton(enhanced, "magicWeak").includes("弱まほう（-25PP）"));
+  assert.ok(actionButton(enhanced, "magicStrong").includes("強まほう（-50PP）"));
+  const enemyWeak = [...enhanced.matchAll(/<button data-action="magicWeak"[^>]*>.*?<\/button>/g)][1]?.[0];
+  assert.ok(enemyWeak?.includes(">弱まほう</button>"), "read-only enemy label remains unchanged");
+});
+
+test("enhanced magic rendered action availability uses its increased affordability boundaries", () => {
+  for (const [action, cost] of [["magicWeak", 25], ["magicStrong", 50]] as const) {
+    for (const currentPp of [cost - 1, cost]) {
+      for (const enhancedMagic of [false, true]) {
+        const markup = renderToStaticMarkup(createElement(BattlePanel, {
+          me: { ...player, currentPp }, enemy: { ...player, id: "enemy" }, role: "host",
+          turn: 2, turnResult: null, countdown: 30,
+          onActionSelect: () => {}, onRematchSame: () => {}, onRematchRedraw: () => {},
+          roguelikeSkillEffects: { enhancedMagic },
+        }));
+        const button = markup.match(new RegExp(`<button data-action="${action}"[^>]*>`))?.[0];
+        assert.ok(button);
+        assert.equal(button.includes("cursor:not-allowed"), enhancedMagic && currentPp < cost);
+        assert.equal(button.includes("cursor:pointer"), !enhancedMagic || currentPp >= cost);
+      }
+    }
+  }
+});
+
+test("short battle renders accelerated announcements without changing later triple damage", () => {
+  for (const [turn, text] of [
+    [8, "あと3ターンで常時ダメージ2倍（短期決戦）"],
+    [10, "あと1ターンで常時ダメージ2倍（短期決戦）"],
+    [11, "現在ダメージ2倍中"],
+    [13, "現在ダメージ2倍中"],
+    [18, "あと3ターンで常時ダメージ3倍（現在2倍）"],
+    [21, "現在ダメージ3倍中"],
+  ] as const) {
+    const markup = renderBattle(false, false, turn, false, undefined, null, { shortBattle: true });
+    assert.equal(markup.match(/<div class="battle-damage-announcement"[^>]*>(.*?)<\/div>/)?.[1], text);
+  }
+});
 
 test("damage log separates pursuit damage and omits pursuit for inactive or blocked hits", () => {
   const result: TurnResult = {

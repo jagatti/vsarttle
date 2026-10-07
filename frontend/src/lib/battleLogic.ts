@@ -50,11 +50,12 @@ export function actionCategory(action: ActionType): ActionCategory {
 export function magicCost(
   action: ActionType,
   stats: CharacterStats,
-  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
+  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number; costMultiplier?: number },
 ): number {
   const maxPp = options?.baseMaxPp ?? stats.maxPp;
-  if (action === "magicWeak") return Math.max(1, Math.ceil(maxPp * (options?.magicWeak ?? 0.2)));
-  if (action === "magicStrong") return Math.max(1, Math.ceil(maxPp * (options?.magicStrong ?? 0.4)));
+  const multiplier = options?.costMultiplier ?? 1;
+  if (action === "magicWeak") return Math.max(1, Math.ceil(maxPp * (options?.magicWeak ?? 0.2) * multiplier));
+  if (action === "magicStrong") return Math.max(1, Math.ceil(maxPp * (options?.magicStrong ?? 0.4) * multiplier));
   return 0;
 }
 
@@ -100,7 +101,7 @@ const getWeakMagicEffects = (selection?: WeakMagicEffectSelection): WeakMagicEff
     .filter((effect): effect is WeakMagicEffectDefinition => !!effect);
 };
 
-export function getAvailableActions(player: PlayerBattleState, turn: number): ActionType[] {
+export function getAvailableActions(player: PlayerBattleState, turn: number, skillEffects?: RoguelikeSkillEffects): ActionType[] {
   if (player.forceMagicStrongAction) return ["magicStrong"];
   if (player.paralyzedNextTurn) return [];
   const disallowed = player.lastActionCategory;
@@ -111,7 +112,7 @@ export function getAvailableActions(player: PlayerBattleState, turn: number): Ac
     if (action === "charge" && (player.chargeBanTurns ?? 0) > 0) return false;
     if ((action === "magicWeak" || action === "magicStrong") && (player.magicBanTurns ?? 0) > 0) return false;
     if (action === "charge" && turn === 1) return false;
-    const cost = magicCost(action, player.stats);
+    const cost = magicCost(action, player.stats, skillEffects?.enhancedMagic ? { costMultiplier: 1.25 } : undefined);
     return player.currentPp >= cost;
   });
 }
@@ -134,7 +135,7 @@ const magicDamage = (
   action: ActionType,
   attacker: PlayerBattleState,
   target: PlayerBattleState,
-  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
+  options?: Parameters<typeof magicCost>[2],
 ) =>
   applyDefense(magicCost(action, attacker.stats, options) * 5 * attacker.chargeMultiplier, target.stats.defense);
 
@@ -145,7 +146,7 @@ const reflectionDamage = (
   magicAction: ActionType,
   magicUser: PlayerBattleState,
   targetDefense: number,
-  options?: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number },
+  options?: Parameters<typeof magicCost>[2],
 ) =>
   applyDefense(magicCost(magicAction, magicUser.stats, options) * 5 * magicUser.chargeMultiplier, targetDefense);
 
@@ -155,10 +156,25 @@ const reflectionDamage = (
 const maybeAvoid = (damage: number, evasion: number, rng: () => number, voidminationActive?: boolean) =>
   voidminationActive || rng() >= evasion ? damage : 0;
 
-export function getDamageMultiplier(turn: number): number {
+export function getDamageMultiplier(turn: number, shortBattle = false): number {
   if (turn > 20) return 3;
-  if (turn > 15) return 2;
+  if (shortBattle ? turn >= 11 : turn > 15) return 2;
   return 1;
+}
+
+export function getDamageAnnouncement(turn: number, shortBattle = false, forceTripleDamage = false): string {
+  const current = forceTripleDamage ? 3 : getDamageMultiplier(turn, shortBattle);
+  if (!forceTripleDamage) {
+    const milestones = [{ turn: shortBattle ? 11 : 16, multiplier: 2 }, { turn: 21, multiplier: 3 }];
+    for (const milestone of milestones) {
+      const remain = milestone.turn - turn;
+      if (remain >= 1 && remain <= 3) {
+        const skillLabel = shortBattle && milestone.multiplier === 2 ? "（短期決戦）" : "";
+        return `あと${remain}ターンで常時ダメージ${milestone.multiplier}倍${skillLabel}${current > 1 ? `（現在${current}倍）` : ""}`;
+      }
+    }
+  }
+  return current > 1 ? `現在ダメージ${current}倍中` : "";
 }
 
 export function resolveTurn(params: {
@@ -192,7 +208,8 @@ export function resolveTurn(params: {
   const right = structuredClone(params.players[rightId]);
   const leftAction = left.forceMagicStrongAction ? ("magicStrong" as ActionType) : params.actions[leftId];
   const rightAction = right.forceMagicStrongAction ? ("magicStrong" as ActionType) : params.actions[rightId];
-  const damageMultiplier = params.forceTripleDamage ? 3 : getDamageMultiplier(params.turn);
+  const shortBattle = Object.values(params.skillEffects ?? {}).some((effects) => effects?.shortBattle);
+  const damageMultiplier = params.forceTripleDamage ? 3 : getDamageMultiplier(params.turn, shortBattle);
 
   // Capture whether each player charged on the previous turn (before any new
   // charge this turn can overwrite the flag). The 1.5x multiplier expires at
@@ -254,12 +271,13 @@ export function resolveTurn(params: {
       && actor.voidminationForm === "magic"
       ? actor.voidminationBaseStats?.maxPp
       : undefined;
-    const result: { magicWeak?: number; magicStrong?: number; baseMaxPp?: number } = {};
+    const result: NonNullable<Parameters<typeof magicCost>[2]> = {};
     if (overchargeRatio !== null) {
       if (action === "magicWeak") result.magicWeak = overchargeRatio;
       if (action === "magicStrong") result.magicStrong = overchargeRatio;
     }
     if (baseMaxPp !== undefined) result.baseMaxPp = baseMaxPp;
+    if (effectsFor(actor)?.enhancedMagic) result.costMultiplier = 1.25;
     return Object.keys(result).length > 0 ? result : undefined;
   };
 
@@ -356,14 +374,15 @@ export function resolveTurn(params: {
     const resistedAmount = stacks > 0 || tieMultiplier !== 1
       ? Math.max(MIN_DAMAGE, Math.round(amount * tieMultiplier * (1 - stacks * ROGUELIKE_SKILL_BALANCE.resistancePerStack)))
       : amount;
+    const underdogMultiplier = effectsFor(from)?.underdog && from.stats.maxHp < to.stats.maxHp ? 1.5 : 1;
     const scaledAmount = Math.max(MIN_DAMAGE, Math.round(resistedAmount * damageMultiplier));
     const cap = params.damageCaps?.[to.id];
     const fightSpiritBonus = effectsFor(from)?.fightSpirit && to.characterType === "balanced"
       ? Math.ceil(scaledAmount / 5)
       : 0;
     const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || to.chargeMultiplier > 1) ? 50 : 0;
-    const normalAmount = scaledAmount + fightSpiritBonus;
-    const outgoingAmount = normalAmount + pursuitBonus;
+    const normalAmount = Math.round((scaledAmount + fightSpiritBonus) * underdogMultiplier);
+    const outgoingAmount = Math.round((scaledAmount + fightSpiritBonus + pursuitBonus) * underdogMultiplier);
     const incomingFightSpirit = effectsFor(to)?.fightSpirit && from.characterType === "balanced";
     const incomingBonus = incomingFightSpirit ? Math.ceil(outgoingAmount / 5) : 0;
     const modifiedAmount = outgoingAmount + incomingBonus;
@@ -445,21 +464,29 @@ export function resolveTurn(params: {
   // Applies a random 弱まほう special effect to `affected`, caused by `caster`'s weak magic hit.
   const applyWeakMagicEffect = (caster: PlayerBattleState, affected: PlayerBattleState, reflected: boolean) => {
     const selection = params.weakMagicSelections?.[caster.id];
-    const effects = getWeakMagicEffects(typeof selection === "function" ? selection(caster) : selection);
-    const pick = effects[Math.floor(rng() * effects.length)];
-    if (!pick) return;
-    if (effectsFor(affected)?.statusResistance && rng() < ROGUELIKE_SKILL_BALANCE.statusResistanceChance) {
-      logs.push(`[スキル] ${affected.nickname} は特殊効果を防いだ！`);
-      return;
+    const selectedEffects = getWeakMagicEffects(typeof selection === "function" ? selection(caster) : selection);
+    const effects = effectsFor(caster)?.extraStatus
+      ? [...new Map(selectedEffects.map((effect) => [effect.kind, effect])).values()]
+      : selectedEffects;
+    const count = effectsFor(caster)?.extraStatus && effects.length >= 2 ? 2 : 1;
+    let remaining = effects;
+    for (let i = 0; i < count; i += 1) {
+      const pick = remaining[Math.floor(rng() * remaining.length)];
+      if (!pick) return;
+      remaining = remaining.filter((effect) => effect.kind !== pick.kind);
+      if (effectsFor(affected)?.statusResistance && rng() < ROGUELIKE_SKILL_BALANCE.statusResistanceChance) {
+        logs.push(`[スキル] ${affected.nickname} は特殊効果を防いだ！`);
+        continue;
+      }
+      if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;
+      if (pick.kind === "barrierBan") affected.barrierBanTurns = pick.turns;
+      if (pick.kind === "magicBan") affected.magicBanTurns = pick.turns;
+      if (pick.kind === "chargeBan") affected.chargeBanTurns = pick.turns;
+      if (pick.kind === "paralysis") affected.paralyzedNextTurn = true;
+      if (pick.kind === "tieBan") affected.tieBanActive = true;
+      magicEffectEvents.push({ casterId: caster.id, affectedId: affected.id, effectName: pick.name, reflected });
+      logs.push(`${affected.nickname} に「${pick.name}」が発動！`);
     }
-    if (pick.kind === "attackBan") affected.attackBanTurns = pick.turns;
-    if (pick.kind === "barrierBan") affected.barrierBanTurns = pick.turns;
-    if (pick.kind === "magicBan") affected.magicBanTurns = pick.turns;
-    if (pick.kind === "chargeBan") affected.chargeBanTurns = pick.turns;
-    if (pick.kind === "paralysis") affected.paralyzedNextTurn = true;
-    if (pick.kind === "tieBan") affected.tieBanActive = true;
-    magicEffectEvents.push({ casterId: caster.id, affectedId: affected.id, effectName: pick.name, reflected });
-    logs.push(`${affected.nickname} に「${pick.name}」が発動！`);
   };
 
   const recoverFromCharge = (player: PlayerBattleState) => {

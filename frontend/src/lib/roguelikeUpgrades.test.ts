@@ -213,7 +213,8 @@ test("at 90% HP consumable candidate weights fall to 0.3, but below 90% they are
     assert.equal(slot.kind, "skill");
     if (slot.kind === "skill") assert.equal(slot.skillId, expected);
   }
-  const reducedBoundary = 0.3 / 5.3;
+  const passiveCount = Object.values(ROGUELIKE_SKILLS).filter((skill) => skill.rarity === 1 && !skill.consumable).length;
+  const reducedBoundary = 0.3 / (passiveCount + 0.3);
   const slot = pickRoguelikeWeakFloorUpgradeSlots(1, [], 2, sequence(0, 0, 0, reducedBoundary - 0.00001), { currentHp: 90, maxHp: 100 })[1];
   if (slot.kind !== "skill") throw new Error("expected skill");
   assert.equal(slot.skillId, "smallHeal");
@@ -261,7 +262,8 @@ test("acquired unique skills cannot be offered again", () => {
 
 test("large screens exhaust the pools without duplicate stat keys, skill IDs or weak effects", () => {
   const slots = pickRoguelikeWeakFloorUpgradeSlots(1, [], 100, () => 0.99);
-  assert.equal(slots.length, 27);
+  assert.equal(slots.length, Object.keys(getRoguelikeUpgradeAddAmountsByRarity(1)[1]).length
+    + Object.keys(ROGUELIKE_SKILLS).length + ROGUELIKE_WEAK_MAGIC_EFFECTS.length);
   const ids = slots.map((slot) => slot.kind === "stat" ? `stat:${slot.key}` : slot.kind === "skill" ? `skill:${slot.skillId}` : `weak:${slot.effectKind}`);
   assert.equal(new Set(ids).size, slots.length);
   assert.ok(slots.every((slot) => slot.kind === "stat" ? [1, 2].includes(slot.rarity) : slot.kind === "weak-magic" ? slot.rarity === 3 : slot.rarity === ROGUELIKE_SKILLS[slot.skillId].rarity));
