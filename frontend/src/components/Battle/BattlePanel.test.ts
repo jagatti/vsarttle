@@ -12,6 +12,9 @@ import {
   getVoidminationTooltipEvasionDisplay,
   shouldResetBattlePanelTransientState,
   VOIDMINATION_CUT_IN_DURATION_MS,
+  getTurnPhaseDurationMs,
+  TURN_ANIMATION_SETTLE_MS,
+  TURN_PHASE_INTERVAL_MS,
 } from "@/components/Battle/BattlePanel";
 
 test("selectable actions follow the two-column battle grid order", () => {
@@ -238,4 +241,188 @@ test("enemy with a blank/missing image still renders a visible fallback characte
     assert.ok(enemyImg.includes('data-fallback="true"'), enemyImg);
     assert.ok(enemyImg.includes("%3Ccircle"), "fallback silhouette should be drawn");
   }
+});
+
+const partner: PlayerBattleState = {
+  ...player,
+  id: "partner",
+  nickname: "なかま",
+  currentHp: 37,
+  currentPp: 19,
+};
+
+function renderCooperative(
+  activeId = player.id,
+  switching = false,
+  standby = partner,
+  turnResult: TurnResult | null = null,
+  presentation: Pick<Parameters<typeof BattlePanel>[0], "roguelikeSkillLabels" | "roguelikeWeakMagicTooltipTitle"> = {},
+) {
+  return renderToStaticMarkup(createElement(BattlePanel, {
+    me: activeId === player.id ? player : standby,
+    enemy: { ...player, id: "enemy", nickname: "ボス" },
+    role: "host",
+    cooperativePlayers: [player, standby],
+    cooperativeActivePlayerId: activeId,
+    cooperativeSwitching: switching,
+    turn: 1,
+    turnResult,
+    countdown: 30,
+    onActionSelect: () => {},
+    onRematchSame: () => {},
+    onRematchRedraw: () => {},
+    ...presentation,
+  }));
+}
+
+test("cooperative stage retains both allies' name, HP and PP frames", () => {
+  const markup = renderCooperative();
+  assert.equal((markup.match(/class="doodle-frame battle-status"/g) ?? []).length, 3);
+  assert.ok(markup.includes('aria-label="味方のステータス"'));
+  assert.ok(markup.includes("なかま"));
+  assert.ok(markup.includes("HP 37%"));
+  assert.ok(markup.includes("19/100"));
+  assert.equal((markup.match(/class="battle-cooperative-sprite"/g) ?? []).length, 2);
+});
+
+test("cooperative switching changes roles without changing player-keyed sprite order", () => {
+  for (const active of [player.id, partner.id]) {
+    const markup = renderCooperative(active);
+    const sprites = [...markup.matchAll(/class="battle-cooperative-sprite" data-player-id="([^"]+)" data-active="([^"]+)" data-defeated="([^"]+)"/g)];
+    assert.deepEqual(sprites.map((sprite) => sprite[1]), [player.id, partner.id]);
+    assert.deepEqual(sprites.map((sprite) => sprite[2]), [String(active === player.id), String(active === partner.id)]);
+  }
+  const source = readFileSync(new URL("./BattlePanel.tsx", import.meta.url), "utf8");
+  assert.ok(source.includes('key={player.id}\n                    className="battle-cooperative-sprite"'));
+});
+
+test("cooperative status cards interpolate between equal persistent rows instead of changing order", () => {
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const rule = (selector: string) => css.split(`${selector} {`)[1]?.split("}")[0] ?? "";
+  assert.ok(rule(".battle-cooperative-status-stack").includes("grid-template-rows: repeat(2, minmax(0, 1fr));"));
+  assert.ok(rule(".battle-cooperative-status-card").includes("transition: transform 2s ease-in-out;"));
+  assert.ok(!rule(".battle-cooperative-status-card").includes("order:"));
+  assert.ok(!rule('.battle-cooperative-status-card[data-active="true"]').includes("order:"));
+  assert.ok(rule('.battle-cooperative-status-card:nth-child(1)[data-active="false"]').includes("calc(100% + var(--cooperative-card-gap))"));
+  assert.ok(rule('.battle-cooperative-status-card:nth-child(2)[data-active="true"]').includes("calc(-100% - var(--cooperative-card-gap))"));
+  const deadRule = rule('.battle-cooperative-status-card[data-defeated="true"]');
+  assert.ok(deadRule.includes("translate(0,"));
+  assert.ok(deadRule.includes("transition: none;"));
+  const mobileRules = css.split("@media (max-width: 600px) {")[1] ?? "";
+  assert.ok(mobileRules.includes("--cooperative-card-standby-scale: 1;"));
+  assert.ok(mobileRules.includes("--cooperative-card-offset: 0px;"));
+  const reducedMotion = css.split("@media (prefers-reduced-motion: reduce)")[1] ?? "";
+  assert.ok(reducedMotion.includes(".battle-cooperative-sprite,\n  .battle-cooperative-status-card {\n    transition: none;"));
+});
+
+test("cooperative active card retains personal skill labels and weak-magic tooltip", () => {
+  for (const active of [player.id, partner.id]) {
+    const markup = renderCooperative(active, false, partner, null, {
+      roguelikeSkillLabels: ["追撃", "根性"],
+      roguelikeWeakMagicTooltipTitle: "獲得した弱まほう",
+    });
+    const cards = markup.split('class="battle-cooperative-status-card"').slice(1);
+    assert.equal(cards.length, 2);
+    const activeCard = cards.find((card) => card.startsWith(` data-player-id="${active}"`)) ?? "";
+    assert.ok(activeCard.includes('aria-label="獲得スキル"'));
+    assert.ok(activeCard.includes('title="獲得した弱まほう"'));
+    assert.equal((markup.match(/aria-label="獲得スキル"/g) ?? []).length, 1);
+  }
+});
+
+test("cooperative status HUD shares the safe header middle with the boss badge", () => {
+  const label = "第13層 / 合計20ターン / チャージ3回";
+  const markup = renderToStaticMarkup(createElement(BattlePanel, {
+    me: player,
+    enemy: { ...partner, id: "enemy", voidminationActive: true, voidminationSourceFloor: 13 },
+    role: "host",
+    cooperativePlayers: [player, partner],
+    cooperativeStatusLabel: label,
+    turn: 2,
+    turnResult: null,
+    countdown: 30,
+    onActionSelect: () => {},
+    onRematchSame: () => {},
+    onRematchRedraw: () => {},
+  }));
+  const middle = markup.split('class="battle-header-middle"')[1]?.split('class="doodle-btn battle-matchup-button"')[0] ?? "";
+  assert.ok(middle.includes(`class="battle-cooperative-status-label" role="status" title="${label}"`));
+  assert.ok(middle.includes('class="battle-boss-badge-button"'));
+  assert.ok(middle.includes("ヴォイドミネーション：リバース・ヴェロシティ"));
+  assert.ok(!renderCooperative().includes('class="battle-cooperative-status-label"'));
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const rule = css.split(".battle-header-middle {")[1]?.split("}")[0] ?? "";
+  assert.ok(rule.includes("grid-column: 2;"));
+  assert.ok(rule.includes("grid-row: 1;"));
+  assert.ok(rule.includes("min-width: 0;"));
+  assert.ok(!rule.includes("position: absolute"));
+});
+
+test("cooperative switching suppresses action input independently of resolving", () => {
+  const markup = renderCooperative(player.id, true);
+  assert.ok(markup.includes('class="battle-action-placeholder"'));
+  assert.equal((markup.match(/data-action=/g) ?? []).length, 5);
+  assert.equal((renderCooperative().match(/data-action=/g) ?? []).length, 10);
+});
+
+test("cooperative damage log keeps the original target name after the active ally switches", () => {
+  const result: TurnResult = {
+    turn: 1,
+    actions: { me: "attack", enemy: "attack" },
+    damageEvents: [{ from: "enemy", to: "me", amount: 20, avoided: false, reason: "こうげき", chargeMultiplier: 1 }],
+    chargeEvents: [],
+    magicEffectEvents: [],
+    suppressedByTieBanIds: [],
+    logs: [],
+    nextStates: {},
+    winnerId: null,
+  };
+  const markup = renderCooperative(partner.id, false, partner, result);
+  assert.ok(markup.includes("ジャガっち に 20 ダメージ"));
+  assert.ok(!markup.includes("ボス に 20 ダメージ"));
+});
+
+test("fallen ally is marked grey/fixed left while mobile hides standby sprites", () => {
+  const markup = renderCooperative(player.id, false, { ...partner, currentHp: 0 });
+  assert.ok(markup.includes('class="battle-cooperative-sprite" data-player-id="partner" data-active="false" data-defeated="true"'));
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const deadRule = css.split('.battle-cooperative-sprite[data-defeated="true"] {')[1]?.split("}")[0] ?? "";
+  assert.ok(deadRule.includes("left: 20%;"));
+  assert.ok(deadRule.includes("transition: none;"));
+  assert.ok(deadRule.includes("filter: grayscale(1);"));
+  assert.ok(css.includes("transition: left 2s ease-in-out, transform 2s ease-in-out;"));
+  const mobileRules = css.split("@media (max-width: 600px) {")[1] ?? "";
+  assert.ok(mobileRules.includes(".battle-cooperative-sprite {\n    display: none;"));
+  assert.ok(mobileRules.includes('.battle-cooperative-sprite[data-active="true"] {\n    display: block;'));
+});
+
+test("lethal result does not pin the active ally left before its animation completes", () => {
+  const fallenPartner = { ...partner, currentHp: 0 };
+  const result: TurnResult = {
+    turn: 1,
+    actions: { partner: "attack", enemy: "attack" },
+    damageEvents: [{ from: "enemy", to: "partner", amount: 37, avoided: false, reason: "こうげき", chargeMultiplier: 1 }],
+    chargeEvents: [],
+    magicEffectEvents: [],
+    suppressedByTieBanIds: [],
+    logs: [],
+    nextStates: { partner: fallenPartner },
+    winnerId: null,
+  };
+  const pendingMarkup = renderCooperative(partner.id, false, fallenPartner, result);
+  assert.ok(pendingMarkup.includes('class="battle-cooperative-sprite" data-player-id="partner" data-active="true" data-defeated="false"'));
+  assert.ok(pendingMarkup.includes('class="battle-cooperative-status-card" data-player-id="partner" data-active="true" data-defeated="false"'));
+  const finishedMarkup = renderCooperative(partner.id, false, fallenPartner);
+  assert.ok(finishedMarkup.includes('class="battle-cooperative-sprite" data-player-id="partner" data-active="true" data-defeated="true"'));
+  assert.ok(finishedMarkup.includes('class="battle-cooperative-status-card" data-player-id="partner" data-active="true" data-defeated="true"'));
+});
+
+test("turn completion budgets cover every phase and final gauge/effect tails, even with zero phases", () => {
+  assert.equal(TURN_PHASE_INTERVAL_MS, 850);
+  assert.equal(getTurnPhaseDurationMs(0), 850);
+  assert.equal(getTurnPhaseDurationMs(2), 1700);
+  assert.equal(getTurnPhaseDurationMs(5), 4250);
+  assert.ok(TURN_ANIMATION_SETTLE_MS >= 350 + 900, "delayed HP ghost bar");
+  assert.ok(TURN_ANIMATION_SETTLE_MS >= 1500, "damage floater lifetime");
+  assert.ok(TURN_ANIMATION_SETTLE_MS >= 1800, "portrait filter transition");
 });

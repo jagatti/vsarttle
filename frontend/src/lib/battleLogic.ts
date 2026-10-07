@@ -178,6 +178,7 @@ export function resolveTurn(params: {
    */
   damageCaps?: Record<string, number>;
   skillEffects?: Partial<Record<string, RoguelikeSkillEffects>>;
+  skillTurn?: number;
   roguelikeBossBattle?: {
     floor: number;
     bossId: string;
@@ -217,7 +218,7 @@ export function resolveTurn(params: {
   const bossId = params.roguelikeBossBattle?.bossId;
   const playerId = params.roguelikeBossBattle?.playerId;
   const effectsFor = (player: PlayerBattleState) => params.skillEffects?.[player.id];
-  const filterActive = (player: PlayerBattleState) => params.turn === 1 && !!effectsFor(player)?.filter;
+  const filterActive = (player: PlayerBattleState) => (params.skillTurn ?? params.turn) === 1 && !!effectsFor(player)?.filter;
   const filterLoggedIds = new Set<string>();
   const logFilterBlock = (player: PlayerBattleState) => {
     if (filterLoggedIds.has(player.id)) return;

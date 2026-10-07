@@ -1,26 +1,33 @@
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
-import type { ActionCategory, ActionType, PlayerBattleState, TurnResult, WeakMagicEffectSelection } from "@/types/game";
-import type { BossMultiplyKey, UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
+import type { ActionCategory, ActionType, PlayerBattleState, TurnResult, WeakMagicEffectKind, WeakMagicEffectSelection } from "@/types/game";
+import { applyBossMultiplyUpgrade, applyUpgrade, isWeakFloor } from "@/lib/roguelikeEnemyStats";
+import { applyPlayerStats, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
+import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots, type RoguelikeBossUpgradeChoice, type RoguelikeSkillUpgradeSlot } from "@/lib/roguelikeUpgrades";
+import { applyRoguelikeSkillReward, ROGUELIKE_SKILLS, type AcquiredSkills } from "@/lib/roguelikeSkills";
+import { getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
+import type { UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
 
 export const COOP_ROGUELIKE_DAMAGE_SCALING = { enemyHp: 1, enemyAttack: 1 } as const;
 
 export type CoopPlayerId = string;
 
 export type CoopUpgradeChoice =
-  | { kind: "stat"; key: UpgradeStatKey; amount: number; label: string }
-  | { kind: "boss-multiply"; key: BossMultiplyKey; multiplier: number; healRatio?: number; label: string }
-  | { kind: "full-heal"; label: string }
+  | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
+  | { kind: "weak-magic"; rarity: 3; effectKind: WeakMagicEffectKind; effectName: string }
+  | RoguelikeSkillUpgradeSlot
+  | RoguelikeBossUpgradeChoice
   | { kind: "revival"; label: string };
 
 export interface CoopSnapshot {
   runId: string;
   floor: number;
   turn: number;
+  actedPlayerIds: CoopPlayerId[];
   playerIds: readonly [CoopPlayerId, CoopPlayerId];
   activePlayerId: CoopPlayerId | null;
   players: Record<CoopPlayerId, PlayerBattleState>;
   enemy: PlayerBattleState | null;
-  stage: "loading" | "battle" | "resolving" | "upgrading" | "result";
+  stage: "loading" | "transition" | "vs" | "speech" | "battle" | "resolving" | "switching" | "upgrading" | "result";
   turnResult: TurnResult | null;
   chargeMultiplier: number;
   deadline: number;
@@ -31,14 +38,89 @@ export interface CoopSnapshot {
   lastAttackerId?: CoopPlayerId | null;
   outcome: "cleared" | "game-over" | null;
   status: string;
+  acquiredWeakMagicKinds: Record<CoopPlayerId, WeakMagicEffectKind[]>;
+  acquiredSkills: Record<CoopPlayerId, AcquiredSkills>;
+  acquiredHealingSkills: Record<CoopPlayerId, AcquiredSkills>;
+  floorDamageTaken: number;
+  perfectVictoryFloor: number | null;
 }
 
 export type CoopWireMessage =
   | { type: "coop_snapshot"; payload: CoopSnapshot }
   | { type: "coop_action"; payload: { runId: string; turn: number; playerId: CoopPlayerId; action: ActionType } }
   | { type: "coop_upgrade"; payload: { runId: string; floor: number; playerId: CoopPlayerId; choiceIndex: number } }
+  | { type: "coop_presentation_complete"; payload: { runId: string; floor: number; turn: number; playerId: CoopPlayerId; stage: "vs" | "resolving" } }
   | { type: "coop_restart"; payload: { runId: string } }
   | { type: "coop_redraw"; payload: { runId: string } };
+
+export function buildCoopUpgradeChoices(
+  snapshot: CoopSnapshot,
+  playerId: CoopPlayerId,
+  needsRevival: boolean,
+  random: () => number = Math.random,
+): CoopUpgradeChoice[] {
+  const player = snapshot.players[playerId]!;
+  const choices: CoopUpgradeChoice[] = isWeakFloor(snapshot.floor)
+    ? pickRoguelikeWeakFloorUpgradeSlots(
+        snapshot.floor, snapshot.acquiredWeakMagicKinds[playerId] ?? [], 3, random,
+        { acquiredSkills: snapshot.acquiredSkills[playerId], currentHp: player.currentHp, maxHp: player.stats.maxHp },
+      ).map((slot) => slot.kind === "stat" ? { ...slot, kind: "weak-stat" } : slot)
+    : getRoguelikeBossUpgradeChoices(snapshot.floor);
+  if (!needsRevival || !choices.length) return choices;
+  const fullHealIndex = choices.findIndex((choice) => choice.kind === "full-heal");
+  choices[fullHealIndex >= 0 ? fullHealIndex : choices.length - 1] = {
+    kind: "revival", label: "蘇生の儀式",
+  };
+  return choices;
+}
+
+export function applyCoopUpgrade(snapshot: CoopSnapshot, playerId: CoopPlayerId, choice: CoopUpgradeChoice): CoopSnapshot {
+  const player = snapshot.players[playerId]!;
+  let nextPlayer = player;
+  let acquiredSkills = snapshot.acquiredSkills;
+  let acquiredHealingSkills = snapshot.acquiredHealingSkills;
+  let acquiredWeakMagicKinds = snapshot.acquiredWeakMagicKinds;
+  if (choice.kind === "weak-stat") {
+    nextPlayer = applyPlayerStats(player, applyUpgrade(player.stats, choice.key, choice.amount));
+  } else if (choice.kind === "boss-multiply") {
+    nextPlayer = applyPlayerStats(player, applyBossMultiplyUpgrade(player.stats, choice.key, choice.multiplier));
+    if (choice.healRatio) nextPlayer = healPlayerByRatio(nextPlayer, choice.healRatio);
+  } else if (choice.kind === "full-heal") {
+    nextPlayer = healPlayerFully(player);
+  } else if (choice.kind === "weak-magic") {
+    const kinds = acquiredWeakMagicKinds[playerId] ?? [];
+    acquiredWeakMagicKinds = { ...acquiredWeakMagicKinds, [playerId]: [...new Set([...kinds, choice.effectKind])] };
+  } else if (choice.kind === "skill") {
+    const reward = applyRoguelikeSkillReward(player, choice.skillId, acquiredSkills[playerId] ?? {});
+    nextPlayer = reward.player;
+    acquiredSkills = { ...acquiredSkills, [playerId]: reward.acquiredSkills };
+    if (ROGUELIKE_SKILLS[choice.skillId].consumable) {
+      const healing = acquiredHealingSkills[playerId] ?? {};
+      acquiredHealingSkills = { ...acquiredHealingSkills, [playerId]: { ...healing, [choice.skillId]: (healing[choice.skillId] ?? 0) + 1 } };
+    }
+  } else if (snapshot.pendingRevivalId && !snapshot.excludedPlayerIds.includes(snapshot.pendingRevivalId)) {
+    nextPlayer = applyCoopRevivalCost(player);
+  }
+  return { ...snapshot, players: { ...snapshot.players, [playerId]: nextPlayer }, acquiredSkills, acquiredHealingSkills, acquiredWeakMagicKinds };
+}
+
+export function startCoopBattle(snapshot: CoopSnapshot, now: number): CoopSnapshot {
+  if ((snapshot.stage !== "vs" && snapshot.stage !== "switching" && snapshot.stage !== "speech")
+    || !snapshot.activePlayerId || !snapshot.enemy) return snapshot;
+  return {
+    ...snapshot, stage: "battle", turnResult: null,
+    deadline: now + getRoguelikeTurnSeconds(snapshot.players[snapshot.activePlayerId]!) * 1000,
+  };
+}
+
+export function isCoopPresentationComplete(snapshot: CoopSnapshot, readyPlayerIds: ReadonlySet<string>): boolean {
+  return (snapshot.stage === "vs" || snapshot.stage === "resolving")
+    && snapshot.playerIds.filter((id) => !snapshot.excludedPlayerIds.includes(id)).every((id) => readyPlayerIds.has(id));
+}
+
+export function getCoopSkillTurn(snapshot: CoopSnapshot, playerId: CoopPlayerId): number {
+  return snapshot.actedPlayerIds.includes(playerId) ? 2 : 1;
+}
 
 export function getCoopAlivePlayerIds(
   players: Record<CoopPlayerId, PlayerBattleState>,
@@ -163,6 +245,8 @@ export function resolveCoopTurn(params: {
   disableVoidmination?: boolean;
   damageCaps?: Record<string, number>;
   roguelikeBossBattle?: { floor: number; bossId: string; playerId: string };
+  skillEffects?: Parameters<typeof resolveTurn>[0]["skillEffects"];
+  skillTurn?: number;
 }): CoopTurnResolution {
   const originalPlayer = params.players[params.activePlayerId];
   if (!originalPlayer) throw new Error(`Unknown co-op player: ${params.activePlayerId}`);
@@ -183,6 +267,8 @@ export function resolveCoopTurn(params: {
     disableVoidmination: params.disableVoidmination,
     damageCaps: params.damageCaps,
     roguelikeBossBattle: params.roguelikeBossBattle,
+    skillEffects: params.skillEffects,
+    skillTurn: params.skillTurn,
   });
   const nextPlayer = {
     ...turnResult.nextStates[originalPlayer.id]!,
