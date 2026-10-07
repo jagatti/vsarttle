@@ -23,15 +23,18 @@ import { buildRoguelikeSkillEffects, buildRoguelikeSkillLabels } from "@/lib/rog
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   COOP_ROGUELIKE_DAMAGE_SCALING,
+  advanceCoopTurnCounters,
   applyCoopUpgrade,
   buildCoopUpgradeChoices,
   getCoopAvailableActions,
   getCoopAlivePlayerIds,
   getCoopNextPlayerId,
+  getCoopResultData,
   getCoopRewardPlayerId,
   getCoopStartingPlayerId,
   getCoopTurnOutcome,
   resolveCoopTurn,
+  resetCoopFloorTurn,
   reviveCoopPlayer,
   startCoopBattle,
   isCoopPresentationComplete,
@@ -46,7 +49,7 @@ import { TURN_SECONDS, POST_TURN_DELAY_MS, getRoguelikeTurnSeconds } from "@/lib
 import type { ActionType, CharacterStats, PlayerBattleState } from "@/types/game";
 
 const REWARD_SECONDS = 60;
-const PLAYER_SWITCH_MS = 2000;
+const PLAYER_SWITCH_MS = 700;
 
 function createInitialPlayer(player: PlayerBattleState): PlayerBattleState {
   return {
@@ -131,8 +134,8 @@ export function CooperativeRoguelikeManager(props: {
       : getCoopStartingPlayerId(players, floor, current.playerIds, current.excludedPlayerIds);
     const loading: CoopSnapshot = {
       ...current,
+      ...resetCoopFloorTurn({ ...current, turn: nextTurn }),
       floor,
-      turn: nextTurn,
       actedPlayerIds: [],
       activePlayerId: starter,
       players,
@@ -245,6 +248,8 @@ export function CooperativeRoguelikeManager(props: {
       runId,
       floor: 1,
       turn: 1,
+      floorTurn: 1,
+      totalTurn: 0,
       actedPlayerIds: [],
       playerIds,
       activePlayerId: playerIds[0],
@@ -299,7 +304,7 @@ export function CooperativeRoguelikeManager(props: {
     );
     const upgradeChoices = buildCoopUpgradeChoices(current, rewardPlayerId, !!deadAlly);
     if (!upgradeChoices.length) {
-      void prepareFloor(current, current.floor + 1, current.players, null, current.lastAttackerId ?? rewardPlayerId, current.turn + 1);
+      void prepareFloor(current, current.floor + 1, current.players, null, current.lastAttackerId ?? rewardPlayerId, current.turn);
       return;
     }
     const upgrade: CoopSnapshot = {
@@ -319,6 +324,7 @@ export function CooperativeRoguelikeManager(props: {
   }, [prepareFloor, publish]);
 
   const continueAfterTurn = useCallback((result: ReturnType<typeof resolveCoopTurn>, previous: CoopSnapshot, actingPlayerId: string) => {
+    previous = { ...previous, ...advanceCoopTurnCounters(previous) };
     const players = { ...result.players };
     for (const id of previous.excludedPlayerIds) {
       if (players[id]) players[id] = { ...players[id]!, currentHp: 0 };
@@ -363,7 +369,6 @@ export function CooperativeRoguelikeManager(props: {
       chargeMultiplier: result.chargeMultiplier,
       activePlayerId: nextPlayerId,
       stage: nextPlayerId !== actingPlayerId && getCoopAlivePlayerIds(players, previous.excludedPlayerIds).length === 2 ? "switching" : "battle",
-      turn: previous.turn + 1,
       deadline: 0,
       status: `第${previous.floor}層`,
     };
@@ -469,7 +474,7 @@ export function CooperativeRoguelikeManager(props: {
     const active = current.players[activeId];
     if (!active) return;
     resolvingRef.current = true;
-    const available = getCoopAvailableActions(active, current.turn, active.lastActionCategory);
+    const available = getCoopAvailableActions(active, current.floorTurn, active.lastActionCategory);
     const playerAction: ActionType = active.paralyzedNextTurn
       ? "paralysis"
       : requestedAction && available.includes(requestedAction)
@@ -477,12 +482,12 @@ export function CooperativeRoguelikeManager(props: {
         : available[Math.floor(Math.random() * available.length)] ?? "attack";
     const enemyAction = current.enemy.paralyzedNextTurn
       ? "paralysis"
-      : pickGhostCpuAction(current.enemy, current.turn, {
+      : pickGhostCpuAction(current.enemy, current.floorTurn, {
           chargeAllowedHpRatio: current.floor === 5 ? FLOOR5_BOSS_CHARGE_HP_THRESHOLD : undefined,
           weights: getGhostCpuActionWeights(current.enemy.characterType),
         });
     const result = resolveCoopTurn({
-      turn: current.turn,
+      turn: current.floorTurn,
       players: current.players,
       enemy: current.enemy,
       activePlayerId: activeId,
@@ -508,7 +513,7 @@ export function CooperativeRoguelikeManager(props: {
       players: result.players,
       enemy: result.enemy,
       turnResult: result.turnResult,
-      chargeMultiplier: result.chargeMultiplier,
+      chargeMultiplier: playerAction === "charge" ? result.chargeMultiplier : current.chargeMultiplier,
       lastAttackerId: activeId,
       actedPlayerIds: [...new Set([...current.actedPlayerIds, activeId])],
       stage: "resolving",
@@ -570,7 +575,7 @@ export function CooperativeRoguelikeManager(props: {
       players,
       pendingRevivalId,
       activeSnapshot.lastAttackerId ?? playerId,
-      activeSnapshot.turn + 1,
+      activeSnapshot.turn,
     );
   }, [prepareFloor, props.isHost, publish]);
 
@@ -736,10 +741,12 @@ export function CooperativeRoguelikeManager(props: {
   }
 
   if (snapshot.stage === "result") {
+    const resultData = getCoopResultData(snapshot);
     return (
       <section className="battle-manager-shell flex flex-col items-center justify-center gap-5 p-6 text-center text-amber-100">
         <h2 className="text-3xl font-bold">{snapshot.status}</h2>
-        <p>到達階層: 第{snapshot.floor}層</p>
+        <p>到達階層: 第{resultData.floorReached}層</p>
+        <p>通しターン数: {resultData.totalTurn}</p>
         {props.isHost ? (
           <>
             <button className="title-menu-button" onClick={restart}>第1層から再戦</button>
@@ -788,7 +795,7 @@ export function CooperativeRoguelikeManager(props: {
   const turnCountdown = snapshot.stage === "battle"
     ? countdown
     : 0;
-  const activeActions = getCoopAvailableActions(activePlayer, snapshot.turn, activePlayer.lastActionCategory);
+  const activeActions = getCoopAvailableActions(activePlayer, snapshot.floorTurn, activePlayer.lastActionCategory);
 
   return (
     <div className="battle-manager-shell" style={{ position: "relative" }}>
@@ -796,7 +803,7 @@ export function CooperativeRoguelikeManager(props: {
         me={activePlayer}
         enemy={snapshot.enemy}
         role="host"
-        turn={snapshot.turn}
+        turn={snapshot.floorTurn}
         turnResult={snapshot.turnResult}
         countdown={turnCountdown}
         onActionSelect={sendAction}
@@ -805,7 +812,8 @@ export function CooperativeRoguelikeManager(props: {
         cooperativePlayers={snapshot.playerIds.map((id) => snapshot.players[id]!) as [PlayerBattleState, PlayerBattleState]}
         cooperativeActivePlayerId={snapshot.activePlayerId}
         cooperativeSwitching={snapshot.stage === "switching"}
-        cooperativeStatusLabel={`第${snapshot.floor}層 / 通しターン ${snapshot.turn} / チャージ ×${snapshot.chargeMultiplier}`}
+        cooperativeChargeMultiplier={snapshot.chargeMultiplier}
+        cooperativeStatusLabel={`第${snapshot.floor}層 / 層内ターン ${snapshot.floorTurn} / チャージ ×${snapshot.chargeMultiplier}`}
         onTurnAnimationComplete={handleTurnAnimationComplete}
         roguelikeWeakMagicTooltipTitle={buildWeakMagicTooltip(snapshot.acquiredWeakMagicKinds[activePlayer.id] ?? [])}
         roguelikeSkillLabels={buildRoguelikeSkillLabels(snapshot.acquiredSkills[activePlayer.id] ?? {}, activePlayer.roguelikeGutsUsed, snapshot.acquiredHealingSkills[activePlayer.id] ?? {})}

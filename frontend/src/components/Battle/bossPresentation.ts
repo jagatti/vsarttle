@@ -18,6 +18,15 @@ export function getBossPortraitSize(kind: BossPortraitKind, charged: boolean, mi
   return `max(${minimum}px, min(${limits}))`;
 }
 
+export function getCooperativePortraitSize(kind: BossPortraitKind, charged: boolean, minimum: number): string {
+  const limits = kind === "final"
+    ? charged ? "46cqw, 94cqh, 54dvh" : "44cqw, 92cqh, 52dvh"
+    : kind === "boss"
+      ? charged ? "44cqw, 92cqh, 52dvh" : "42cqw, 90cqh, 50dvh"
+      : charged ? "42cqw, 90cqh, 50dvh" : "40cqw, 86cqh, 48dvh";
+  return `max(${minimum}px, min(${limits}))`;
+}
+
 export function getFinalBossEffect(
   motion: MoveMotionType,
   active: boolean,
