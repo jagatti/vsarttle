@@ -257,6 +257,7 @@ function renderCooperative(
   standby = partner,
   turnResult: TurnResult | null = null,
   presentation: Pick<Parameters<typeof BattlePanel>[0], "roguelikeSkillLabels" | "roguelikeWeakMagicTooltipTitle"> = {},
+  chargeMultiplier = 1,
 ) {
   return renderToStaticMarkup(createElement(BattlePanel, {
     me: activeId === player.id ? player : standby,
@@ -265,6 +266,7 @@ function renderCooperative(
     cooperativePlayers: [player, standby],
     cooperativeActivePlayerId: activeId,
     cooperativeSwitching: switching,
+    cooperativeChargeMultiplier: chargeMultiplier,
     turn: 1,
     turnResult,
     countdown: 30,
@@ -277,12 +279,22 @@ function renderCooperative(
 
 test("cooperative stage retains both allies' name, HP and PP frames", () => {
   const markup = renderCooperative();
-  assert.equal((markup.match(/class="doodle-frame battle-status"/g) ?? []).length, 3);
+  assert.equal((markup.match(/class="doodle-frame battle-status"/g) ?? []).length, 2);
   assert.ok(markup.includes('aria-label="味方のステータス"'));
   assert.ok(markup.includes("なかま"));
-  assert.ok(markup.includes("HP 37%"));
-  assert.ok(markup.includes("19/100"));
+  assert.ok(markup.includes('class="cooperative-standby-status"'));
+  assert.ok(markup.includes('class="cooperative-standby-name" title="なかま"'));
+  assert.ok(!markup.includes("19/100"));
   assert.equal((markup.match(/class="battle-cooperative-sprite"/g) ?? []).length, 2);
+});
+
+test("shared charge aura stages appear on both living allies and disappear for a fallen ally", () => {
+  const charged = renderCooperative(player.id, false, partner, null, {}, 1.5);
+  assert.equal((charged.match(/data-charge-aura-stage="charged"/g) ?? []).length, 2);
+  const overcharged = renderCooperative(player.id, false, partner, null, {}, 2.25);
+  assert.equal((overcharged.match(/data-charge-aura-stage="overcharged"/g) ?? []).length, 2);
+  const fallen = renderCooperative(player.id, false, { ...partner, currentHp: 0 }, null, {}, 2.25);
+  assert.ok(fallen.includes('data-player-id="partner" data-active="false" data-defeated="true" data-charge-aura-stage="none"'));
 });
 
 test("cooperative switching changes roles without changing player-keyed sprite order", () => {
@@ -296,20 +308,18 @@ test("cooperative switching changes roles without changing player-keyed sprite o
   assert.ok(source.includes('key={player.id}\n                    className="battle-cooperative-sprite"'));
 });
 
-test("cooperative status cards interpolate between equal persistent rows instead of changing order", () => {
+test("cooperative status cards keep the active full frame above a compact persistent standby row", () => {
   const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
   const rule = (selector: string) => css.split(`${selector} {`)[1]?.split("}")[0] ?? "";
-  assert.ok(rule(".battle-cooperative-status-stack").includes("grid-template-rows: repeat(2, minmax(0, 1fr));"));
-  assert.ok(rule(".battle-cooperative-status-card").includes("transition: transform 2s ease-in-out;"));
+  assert.ok(rule(".battle-cooperative-status-stack").includes("grid-template-rows: auto auto;"));
+  assert.ok(rule('.battle-cooperative-status-card[data-active="true"]').includes("grid-row: 1;"));
+  assert.ok(rule('.battle-cooperative-status-card[data-active="false"]').includes("width: 38%;"));
+  assert.ok(rule(".battle-cooperative-status-card").includes("720ms cubic-bezier(0.16, 1.15, 0.3, 1)"));
   assert.ok(!rule(".battle-cooperative-status-card").includes("order:"));
-  assert.ok(!rule('.battle-cooperative-status-card[data-active="true"]').includes("order:"));
-  assert.ok(rule('.battle-cooperative-status-card:nth-child(1)[data-active="false"]').includes("calc(100% + var(--cooperative-card-gap))"));
-  assert.ok(rule('.battle-cooperative-status-card:nth-child(2)[data-active="true"]').includes("calc(-100% - var(--cooperative-card-gap))"));
   const deadRule = rule('.battle-cooperative-status-card[data-defeated="true"]');
-  assert.ok(deadRule.includes("translate(0,"));
+  assert.ok(deadRule.includes("grid-row: 2;"));
   assert.ok(deadRule.includes("transition: none;"));
   const mobileRules = css.split("@media (max-width: 600px) {")[1] ?? "";
-  assert.ok(mobileRules.includes("--cooperative-card-standby-scale: 1;"));
   assert.ok(mobileRules.includes("--cooperative-card-offset: 0px;"));
   const reducedMotion = css.split("@media (prefers-reduced-motion: reduce)")[1] ?? "";
   assert.ok(reducedMotion.includes(".battle-cooperative-sprite,\n  .battle-cooperative-status-card {\n    transition: none;"));
@@ -390,10 +400,11 @@ test("fallen ally is marked grey/fixed left while mobile hides standby sprites",
   assert.ok(deadRule.includes("left: 20%;"));
   assert.ok(deadRule.includes("transition: none;"));
   assert.ok(deadRule.includes("filter: grayscale(1);"));
-  assert.ok(css.includes("transition: left 2s ease-in-out, transform 2s ease-in-out;"));
+  assert.ok(css.includes("transition: left 720ms cubic-bezier(0.16, 1.15, 0.3, 1), transform 720ms cubic-bezier(0.16, 1.15, 0.3, 1)"));
   const mobileRules = css.split("@media (max-width: 600px) {")[1] ?? "";
-  assert.ok(mobileRules.includes(".battle-cooperative-sprite {\n    display: none;"));
-  assert.ok(mobileRules.includes('.battle-cooperative-sprite[data-active="true"] {\n    display: block;'));
+  assert.ok(mobileRules.includes(".battle-cooperative-sprite {\n    left: 50%;\n    opacity: 0;"));
+  assert.ok(mobileRules.includes('.battle-cooperative-sprite[data-active="true"] {\n    opacity: 1;'));
+  assert.ok(mobileRules.includes(".battle-panel-card-cooperative .battle-cooperative-sprite img"));
 });
 
 test("lethal result does not pin the active ally left before its animation completes", () => {

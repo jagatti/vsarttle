@@ -206,11 +206,11 @@ body {
 .battle-cooperative-status-stack {
   --cooperative-card-gap: 6px;
   --cooperative-card-offset: clamp(4px, 0.8vw, 12px);
-  --cooperative-card-standby-scale: 0.88;
   display: grid;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: var(--cooperative-card-gap);
-  width: clamp(140px, 24vw, 360px);
+  grid-template-rows: auto auto;
+  align-content: start;
+  row-gap: var(--cooperative-card-gap);
+  width: clamp(120px, 22vw, 330px);
   min-width: 0;
 }
 
@@ -225,30 +225,89 @@ body {
 }
 
 .battle-cooperative-status-card {
-  --cooperative-card-y: 0px;
   min-width: 0;
-  transform: translate(0, var(--cooperative-card-y)) scale(var(--cooperative-card-standby-scale));
-  transform-origin: left center;
-  transition: transform 2s ease-in-out;
+  grid-row: 2;
+  transition: transform 720ms cubic-bezier(0.16, 1.15, 0.3, 1), opacity 240ms ease-out;
   z-index: 1;
 }
 
-.battle-cooperative-status-card:nth-child(1)[data-active="false"] {
-  --cooperative-card-y: calc(100% + var(--cooperative-card-gap));
-}
-
-.battle-cooperative-status-card:nth-child(2)[data-active="true"] {
-  --cooperative-card-y: calc(-100% - var(--cooperative-card-gap));
+.battle-cooperative-status-card[data-active="false"] {
+  width: 38%;
 }
 
 .battle-cooperative-status-card[data-active="true"] {
-  transform: translate(var(--cooperative-card-offset), var(--cooperative-card-y)) scale(1);
+  grid-row: 1;
+  width: 100%;
+  transform: translateX(var(--cooperative-card-offset));
   z-index: 2;
 }
 
+.battle-cooperative-status-card[data-switching="true"] {
+  animation: cooperativeStatusSwitch 720ms cubic-bezier(0.16, 1.15, 0.3, 1);
+}
+
 .battle-cooperative-status-card[data-defeated="true"] {
-  transform: translate(0, var(--cooperative-card-y)) scale(var(--cooperative-card-standby-scale));
+  grid-row: 2;
+  width: 38%;
+  transform: none;
   transition: none;
+  filter: grayscale(1);
+}
+
+.cooperative-standby-status {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 42px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border: 1px solid rgba(203, 213, 225, 0.55);
+  border-radius: 8px;
+  background: rgba(6, 8, 16, 0.78);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+.cooperative-standby-name {
+  overflow: hidden;
+  color: #e2e8f0;
+  font-size: clamp(10px, 0.8vw, 12px);
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cooperative-standby-bars {
+  display: grid;
+  gap: 2px;
+}
+
+.cooperative-standby-bar {
+  height: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.65);
+  border-radius: 999px;
+  background: #0b0d14;
+}
+
+.cooperative-standby-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 450ms ease-out;
+}
+
+.cooperative-standby-bar [data-resource="hp"] {
+  background: linear-gradient(to right, #22c55e, #86efac);
+}
+
+.cooperative-standby-bar [data-resource="pp"] {
+  background: linear-gradient(to right, #0ea5e9, #7dd3fc);
+}
+
+.cooperative-standby-status[data-defeated="true"] {
   filter: grayscale(1);
 }
 
@@ -267,7 +326,7 @@ body {
   width: 100%;
   transform: translate(-50%, -50%) scale(0.6);
   transform-origin: center 80%;
-  transition: left 2s ease-in-out, transform 2s ease-in-out;
+  transition: left 720ms cubic-bezier(0.16, 1.15, 0.3, 1), transform 720ms cubic-bezier(0.16, 1.15, 0.3, 1), opacity 720ms ease-out, filter 220ms ease-out;
   z-index: 1;
 }
 
@@ -275,6 +334,51 @@ body {
   left: 65%;
   transform: translate(-50%, -50%) scale(1);
   z-index: 2;
+}
+
+.battle-cooperative-sprite[data-switching="true"] {
+  filter: blur(0.6px) drop-shadow(0 6px 8px rgba(248, 250, 252, 0.35));
+}
+
+.battle-cooperative-sprite[data-switching="true"]::after {
+  position: absolute;
+  top: 12%;
+  left: 10%;
+  z-index: -1;
+  width: 80%;
+  height: 72%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(226, 232, 240, 0.16), transparent 70%);
+  content: "";
+  pointer-events: none;
+  animation: cooperativeSwitchTrail 720ms ease-out both;
+}
+
+.battle-cooperative-sprite[data-charge-aura-stage="charged"]::before,
+.battle-cooperative-sprite[data-charge-aura-stage="overcharged"]::before {
+  position: absolute;
+  bottom: 7%;
+  left: 50%;
+  z-index: 0;
+  width: 82%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: cooperativeChargeAura 1.2s ease-in-out infinite;
+}
+
+.battle-cooperative-sprite[data-charge-aura-stage="charged"]::before {
+  background: radial-gradient(ellipse, rgba(250, 204, 21, 0.2), transparent 68%);
+  filter: drop-shadow(0 0 9px rgba(250, 204, 21, 0.52));
+}
+
+.battle-cooperative-sprite[data-charge-aura-stage="overcharged"]::before {
+  bottom: 4%;
+  width: 94%;
+  background: radial-gradient(ellipse, rgba(224, 242, 254, 0.36), rgba(96, 165, 250, 0.12) 44%, transparent 70%);
+  filter: drop-shadow(0 0 11px rgba(224, 242, 254, 0.86)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.62));
 }
 
 .battle-cooperative-sprite[data-defeated="true"] {
@@ -287,22 +391,53 @@ body {
 
 @media (max-width: 600px) {
   .battle-cooperative-status-stack {
-    --cooperative-card-gap: 4px;
     --cooperative-card-offset: 0px;
-    --cooperative-card-standby-scale: 1;
+    row-gap: 4px;
     flex: 1;
   }
 
+  .battle-panel-card-cooperative .battle-cooperative-sprite img {
+    width: max(64px, min(36cqw, 86cqh, 48dvh)) !important;
+    height: max(64px, min(36cqw, 86cqh, 48dvh)) !important;
+  }
+
   .battle-cooperative-sprite {
-    display: none;
-    transition: none;
+    left: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.84);
   }
 
   .battle-cooperative-sprite[data-active="true"] {
-    display: block;
-    left: 50%;
+    opacity: 1;
+    pointer-events: auto;
     transform: translate(-50%, -50%) scale(1);
   }
+}
+
+.battle-panel-card-cooperative .battle-status-row {
+  padding-top: 4px !important;
+}
+
+.battle-panel-card-cooperative .battle-portrait-row {
+  padding-top: clamp(16px, 2.4dvh, 30px) !important;
+  padding-bottom: 10px !important;
+}
+
+@keyframes cooperativeSwitchTrail {
+  0% { opacity: 0.7; transform: translateX(-14%) scale(0.9); }
+  100% { opacity: 0; transform: translateX(12%) scale(1.08); }
+}
+
+@keyframes cooperativeStatusSwitch {
+  0% { opacity: 0.65; transform: translateY(7px) scale(0.97); }
+  72% { opacity: 1; transform: translateY(-2px) scale(1.015); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes cooperativeChargeAura {
+  0%, 100% { opacity: 0.58; scale: 0.94; }
+  50% { opacity: 1; scale: 1.04; }
 }
 
 /* 大きいボスでも技名とダメージ数字がステータス枠に重ならない余白。 */
@@ -727,6 +862,11 @@ input {
 @keyframes chargeGlowPortrait {
   0%, 100% { filter: drop-shadow(0 0 4px #facc1588) drop-shadow(0 0 8px #facc1544); }
   50% { filter: drop-shadow(0 0 6px #facc15aa) drop-shadow(0 0 12px #facc1566); }
+}
+
+@keyframes cooperativeChargeGlowPortrait {
+  0%, 100% { filter: drop-shadow(0 0 6px #bae6fd) drop-shadow(0 0 14px #60a5fa88); }
+  50% { filter: drop-shadow(0 0 10px #e0f2fe) drop-shadow(0 0 22px #38bdf8bb); }
 }
 
 /* ---- Battle motion keyframes: held poses with short eased transitions ---- */
@@ -1371,6 +1511,19 @@ input {
   .battle-cooperative-sprite,
   .battle-cooperative-status-card {
     transition: none;
+  }
+
+  .battle-cooperative-sprite::after,
+  .battle-cooperative-sprite::before {
+    animation: none !important;
+  }
+
+  .battle-cooperative-sprite[data-switching="true"]::after {
+    display: none;
+  }
+
+  .battle-cooperative-status-card[data-switching="true"] {
+    animation: none !important;
   }
 
   .final-boss-impact,

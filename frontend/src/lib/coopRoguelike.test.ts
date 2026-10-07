@@ -4,14 +4,18 @@ import type { PlayerBattleState } from "@/types/game";
 import {
   applyCoopRevivalCost,
   applyCoopUpgrade,
+  advanceCoopTurnCounters,
   buildCoopUpgradeChoices,
   getCoopAvailableActions,
   getCoopChargeMultiplierAfterAction,
+  getCoopChargeAuraStage,
   getCoopNextPlayerId,
+  getCoopResultData,
   getCoopRewardPlayerId,
   getCoopStartingPlayerId,
   getCoopTurnOutcome,
   resolveCoopTurn,
+  resetCoopFloorTurn,
   reviveCoopPlayer,
   startCoopBattle,
   isCoopPresentationComplete,
@@ -81,6 +85,19 @@ test("co-op charge stacks across players to 2.25x and expires on any non-charge 
   assert.equal(getCoopChargeMultiplierAfterAction(afterP2, "barrier"), 1);
 });
 
+test("co-op charge aura stages follow the shared multiplier", () => {
+  assert.equal(getCoopChargeAuraStage(1), "none");
+  assert.equal(getCoopChargeAuraStage(1.5), "charged");
+  assert.equal(getCoopChargeAuraStage(2.25), "overcharged");
+});
+
+test("co-op turn counters advance globally and reset only the floor turn between layers", () => {
+  const afterAction = advanceCoopTurnCounters({ turn: 8, floorTurn: 4, totalTurn: 7 });
+  assert.deepEqual(afterAction, { turn: 9, floorTurn: 5, totalTurn: 8 });
+  assert.deepEqual(resetCoopFloorTurn(afterAction), { turn: 9, floorTurn: 1, totalTurn: 8 });
+  assert.deepEqual(getCoopResultData({ floor: 5, totalTurn: 42 }), { floorReached: 5, totalTurn: 42 });
+});
+
 test("co-op turn resolution passes shared charge into the next player's damage", () => {
   const players = { p1: player("p1"), p2: player("p2") };
   const enemy = player("enemy");
@@ -122,6 +139,21 @@ test("co-op turn resolution passes shared charge into the next player's damage",
   assert.equal(second.chargeMultiplier, 2.25);
   assert.equal(third.turnResult.damageEvents.find((event) => event.from === "p1")?.chargeMultiplier, 2.25);
   assert.equal(third.chargeMultiplier, 1);
+});
+
+test("co-op damage multiplier follows the floor turn, not the cumulative turn", () => {
+  const resolveAt = (turn: number) => resolveCoopTurn({
+    turn,
+    players: { p1: player("p1"), p2: player("p2") },
+    enemy: player("enemy"),
+    activePlayerId: "p1",
+    playerAction: "attack",
+    enemyAction: "barrier",
+    chargeMultiplier: 1,
+    playerIds: ["p1", "p2"],
+    rng: () => 0.99,
+  }).turnResult.damageEvents.find((event) => event.from === "p1")?.amount;
+  assert.equal(resolveAt(16), resolveAt(1)! * 2);
 });
 
 test("co-op floor clear and mutual defeat outcomes require a surviving teammate", () => {
@@ -166,7 +198,7 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
 
   function snapshot(floor = 1): CoopSnapshot {
     return {
-      runId: "run", floor, turn: 1, actedPlayerIds: [], playerIds: ["p1", "p2"], activePlayerId: "p1",
+      runId: "run", floor, turn: 1, floorTurn: 1, totalTurn: 0, actedPlayerIds: [], playerIds: ["p1", "p2"], activePlayerId: "p1",
       players: { p1: player("p1"), p2: player("p2") }, enemy: player("enemy"),
       stage: "vs", turnResult: null, chargeMultiplier: 1, deadline: 0,
       excludedPlayerIds: [], pendingRevivalId: null, rewardPlayerId: null, upgradeChoices: [],
@@ -264,10 +296,10 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
     assert.equal(isCoopPresentationComplete({ ...snapshot(), stage: "battle" }, new Set(["p1", "p2"])), false);
   });
 
-  test("filter uses the new floor's opening turn without resetting the global damage multiplier", () => {
+  test("filter protects the active player's first floor action", () => {
     const current = snapshot();
     const run = (skillTurn: number) => resolveCoopTurn({
-      turn: 21, skillTurn, players: current.players, enemy: current.enemy!,
+      turn: 1, skillTurn, players: current.players, enemy: current.enemy!,
       activePlayerId: "p1", playerAction: "charge", enemyAction: "attack",
       chargeMultiplier: 1, playerIds: current.playerIds, rng: () => 0.99,
       skillEffects: { p1: { filter: true } },

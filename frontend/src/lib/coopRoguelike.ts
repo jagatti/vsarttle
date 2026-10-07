@@ -22,6 +22,8 @@ export interface CoopSnapshot {
   runId: string;
   floor: number;
   turn: number;
+  floorTurn: number;
+  totalTurn: number;
   actedPlayerIds: CoopPlayerId[];
   playerIds: readonly [CoopPlayerId, CoopPlayerId];
   activePlayerId: CoopPlayerId | null;
@@ -52,6 +54,29 @@ export type CoopWireMessage =
   | { type: "coop_presentation_complete"; payload: { runId: string; floor: number; turn: number; playerId: CoopPlayerId; stage: "vs" | "resolving" } }
   | { type: "coop_restart"; payload: { runId: string } }
   | { type: "coop_redraw"; payload: { runId: string } };
+
+export type CoopChargeAuraStage = "none" | "charged" | "overcharged";
+
+export function getCoopChargeAuraStage(multiplier: number): CoopChargeAuraStage {
+  if (multiplier >= 2.25) return "overcharged";
+  return multiplier > 1 ? "charged" : "none";
+}
+
+export function advanceCoopTurnCounters(counters: Pick<CoopSnapshot, "turn" | "floorTurn" | "totalTurn">) {
+  return {
+    turn: counters.turn + 1,
+    floorTurn: counters.floorTurn + 1,
+    totalTurn: counters.totalTurn + 1,
+  };
+}
+
+export function resetCoopFloorTurn(counters: Pick<CoopSnapshot, "turn" | "floorTurn" | "totalTurn">) {
+  return { ...counters, floorTurn: 1 };
+}
+
+export function getCoopResultData(snapshot: Pick<CoopSnapshot, "floor" | "totalTurn">) {
+  return { floorReached: snapshot.floor, totalTurn: snapshot.totalTurn };
+}
 
 export function buildCoopUpgradeChoices(
   snapshot: CoopSnapshot,

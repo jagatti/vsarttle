@@ -10,6 +10,8 @@ import {
   getRoguelikeVoidDominationSpec,
   getVoidminationFormLabel,
 } from "@/lib/roguelikeVoidDomination";
+import { getCoopChargeAuraStage } from "@/lib/coopRoguelike";
+import type { CoopChargeAuraStage } from "@/lib/coopRoguelike";
 import { soundManager } from "@/lib/soundManager";
 import type { ActionType, CharacterType, EnhancementSlot, PlayerBattleState, TurnResult } from "@/types/game";
 import type { MoveMotionType } from "./battleAnimationPhases";
@@ -29,7 +31,7 @@ import {
   getPortraitMotionStyle,
 } from "./MoveMotionOverlay";
 import { MATCHUP_TONE_COLORS, getMatchupCommentary } from "./matchupCommentary";
-import { getBossPortraitKind, getBossPortraitSize, getFinalBossEffect } from "./bossPresentation";
+import { getBossPortraitKind, getBossPortraitSize, getCooperativePortraitSize, getFinalBossEffect } from "./bossPresentation";
 
 const ACTION_SE: Record<ActionType, string> = {
   attack: "/sounds/se/attack.mp3",
@@ -332,6 +334,29 @@ function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; 
   );
 }
 
+function CooperativeStandbyStatus({ player }: { player: PlayerBattleState }) {
+  const hpPct = player.stats.maxHp > 0 ? Math.max(0, Math.min(100, (player.currentHp / player.stats.maxHp) * 100)) : 0;
+  const ppPct = player.stats.maxPp > 0 ? Math.max(0, Math.min(100, (player.currentPp / player.stats.maxPp) * 100)) : 0;
+  const defeated = player.currentHp <= 0;
+  return (
+    <div
+      className="cooperative-standby-status"
+      data-defeated={defeated}
+      aria-label={`${player.nickname} の待機ステータス`}
+    >
+      <span className="cooperative-standby-name" title={player.nickname}>{player.nickname}</span>
+      <div className="cooperative-standby-bars">
+        <div className="cooperative-standby-bar" role="progressbar" aria-label="HP" aria-valuenow={Math.round(hpPct)} aria-valuemin={0} aria-valuemax={100}>
+          <span data-resource="hp" style={{ width: defeated ? "0%" : `${hpPct}%` }} />
+        </div>
+        <div className="cooperative-standby-bar" role="progressbar" aria-label="PP" aria-valuenow={Math.round(ppPct)} aria-valuemin={0} aria-valuemax={100}>
+          <span data-resource="pp" style={{ width: defeated ? "0%" : `${ppPct}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PortraitBlock({
   player,
   floaters,
@@ -352,6 +377,8 @@ function PortraitBlock({
   transformPulse,
   drainDesaturate,
   motionChargeMultiplier,
+  cooperativePortrait,
+  cooperativeChargeAuraStage,
 }: {
   player: PlayerBattleState;
   floaters: DamageFloater[];
@@ -372,9 +399,16 @@ function PortraitBlock({
   transformPulse?: boolean;
   drainDesaturate?: boolean;
   motionChargeMultiplier?: number;
+  cooperativePortrait?: boolean;
+  cooperativeChargeAuraStage?: CoopChargeAuraStage;
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
-  const isCharged = player.chargeMultiplier > 1;
+  const isCharged = cooperativeChargeAuraStage === undefined
+    ? player.chargeMultiplier > 1
+    : cooperativeChargeAuraStage !== "none" && player.currentHp > 0;
+  const chargeGlowAnimation = cooperativeChargeAuraStage === "overcharged"
+    ? "cooperativeChargeGlowPortrait 1.2s ease-in-out infinite"
+    : isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "none";
   const activeEffects: string[] = [];
   if (player.paralyzedNextTurn) activeEffects.push("まひ");
   if (player.tieBanActive) activeEffects.push("あいこ禁止");
@@ -404,8 +438,9 @@ function PortraitBlock({
   const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
   // Size against the available stage, leaving room for labels and damage above.
   // The px floor keeps fighters visible even if the stage container collapses.
-  const baseSize = getBossPortraitSize(portraitKind, false, PORTRAIT_MIN_SIZE_PX);
-  const chargedSize = getBossPortraitSize(portraitKind, true, PORTRAIT_MIN_SIZE_PX);
+  const getPortraitSize = cooperativePortrait ? getCooperativePortraitSize : getBossPortraitSize;
+  const baseSize = getPortraitSize(portraitKind, false, PORTRAIT_MIN_SIZE_PX);
+  const chargedSize = getPortraitSize(portraitKind, true, PORTRAIT_MIN_SIZE_PX);
 
   // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
   const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
@@ -542,7 +577,7 @@ function PortraitBlock({
               >
                 <div
                   className="portrait-charge-glow"
-                  style={{ animation: isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "none" }}
+                  style={{ animation: chargeGlowAnimation }}
                 >
                   <div
                     className="portrait-void-pulse"
@@ -567,7 +602,11 @@ function PortraitBlock({
                             "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
                             "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
                             transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
-                            isCharged ? "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)" : "",
+                            isCharged
+                              ? cooperativeChargeAuraStage === "overcharged"
+                                ? "drop-shadow(0 0 8px #e0f2fe) drop-shadow(0 0 18px #60a5fa) drop-shadow(0 0 26px #38bdf8aa)"
+                                : "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)"
+                              : "",
                           ].filter(Boolean).join(" "),
                           transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
                           transform: isActing && portraitKind === "normal" ? "scale(1.08)" : "scale(1)",
@@ -916,6 +955,7 @@ export function BattlePanel(props: {
   cooperativeActivePlayerId?: string;
   cooperativeSwitching?: boolean;
   cooperativeStatusLabel?: string;
+  cooperativeChargeMultiplier?: number;
   /** Once per result, after reveal, phases, status effects and resource transitions. */
   onTurnAnimationComplete?: () => void;
   /** Disable local action input while a co-op partner owns the active turn. */
@@ -1011,6 +1051,7 @@ export function BattlePanel(props: {
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
   const cooperativeActiveId = props.cooperativeActivePlayerId ?? props.me.id;
+  const cooperativeChargeAuraStage = getCoopChargeAuraStage(props.cooperativeChargeMultiplier ?? 1);
   const cooperativeDisplayPlayers = props.cooperativePlayers?.map((player) => ({
     ...player,
     ...(displayResources[player.id] ?? { currentHp: player.currentHp, currentPp: player.currentPp }),
@@ -1807,7 +1848,7 @@ export function BattlePanel(props: {
       )}
 
       <section
-        className={`battle-panel-card${finalBossStageEffects.some(({ effect }) => effect === "attack") ? " final-boss-impact" : ""}`}
+        className={`battle-panel-card${props.cooperativePlayers ? " battle-panel-card-cooperative" : ""}${finalBossStageEffects.some(({ effect }) => effect === "attack") ? " final-boss-impact" : ""}`}
         style={{
           // 木目調のRPG枠から、スケッチブックのページを切り取ったような
           // 「インクの枠」に変更。主役であるラクガキが枠に負けないようにする。
@@ -1992,13 +2033,16 @@ export function BattlePanel(props: {
                   data-player-id={player.id}
                   data-active={player.id === cooperativeActiveId}
                   data-defeated={player.currentHp <= 0 && (player.id !== cooperativeActiveId || (!isAnimating && !pendingAnimation))}
+                  data-switching={props.cooperativeSwitching || undefined}
                 >
-                  <NameHpBox
-                    player={player}
-                    align="left"
-                    title={player.id === cooperativeActiveId ? props.roguelikeWeakMagicTooltipTitle : undefined}
-                    skillLabels={player.id === cooperativeActiveId ? props.roguelikeSkillLabels : undefined}
-                  />
+                  {player.id === cooperativeActiveId ? (
+                    <NameHpBox
+                      player={player}
+                      align="left"
+                      title={props.roguelikeWeakMagicTooltipTitle}
+                      skillLabels={props.roguelikeSkillLabels}
+                    />
+                  ) : <CooperativeStandbyStatus player={player} />}
                 </div>
               ))}
             </div>
@@ -2039,6 +2083,8 @@ export function BattlePanel(props: {
                     data-player-id={player.id}
                     data-active={active}
                     data-defeated={defeated}
+                    data-switching={props.cooperativeSwitching || undefined}
+                    data-charge-aura-stage={defeated ? "none" : cooperativeChargeAuraStage}
                   >
                     <PortraitBlock
                       player={player}
@@ -2059,6 +2105,8 @@ export function BattlePanel(props: {
                       sourceActionType={active ? activePhaseMotions.me.sourceActionType : undefined}
                       motionChargeMultiplier={active ? activePhaseMotions.me.chargeMultiplier : undefined}
                       side="left"
+                      cooperativePortrait
+                      cooperativeChargeAuraStage={defeated ? "none" : cooperativeChargeAuraStage}
                     />
                   </div>
                 );
@@ -2160,6 +2208,7 @@ export function BattlePanel(props: {
             sourceActionType={activePhaseMotions.enemy.sourceActionType}
             motionChargeMultiplier={activePhaseMotions.enemy.chargeMultiplier}
             side="right"
+            cooperativePortrait={!!props.cooperativePlayers}
           />
         </div>
 

@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { getBossPortraitKind, getBossPortraitSize, getFinalBossEffect } from "./bossPresentation";
+import { getBossPortraitKind, getBossPortraitSize, getCooperativePortraitSize, getFinalBossEffect } from "./bossPresentation";
 import { FinalBossAuraEffect, MagicBullet } from "./MoveMotionOverlay";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { BattlePanel } from "./BattlePanel";
@@ -28,6 +28,10 @@ test("portrait sizes retain viewport and stage caps, and normal sizing is unchan
   assert.equal(getBossPortraitSize("boss", true, 64), "max(64px, min(32cqw, 68cqh, 36dvh))");
   assert.equal(getBossPortraitSize("final", false, 64), "max(64px, min(36cqw, 74cqh, 40dvh))");
   assert.equal(getBossPortraitSize("final", true, 64), "max(64px, min(38cqw, 78cqh, 42dvh))");
+  assert.equal(getCooperativePortraitSize("normal", false, 64), "max(64px, min(40cqw, 86cqh, 48dvh))");
+  assert.equal(getCooperativePortraitSize("normal", true, 64), "max(64px, min(42cqw, 90cqh, 50dvh))");
+  assert.equal(getCooperativePortraitSize("boss", false, 64), "max(64px, min(42cqw, 90cqh, 50dvh))");
+  assert.equal(getCooperativePortraitSize("final", false, 64), "max(64px, min(44cqw, 92cqh, 52dvh))");
 });
 
 test("BattlePanel applies boss sizing without changing normal portraits or fallback images", () => {
