@@ -2,25 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
-import { CharacterImage } from "@/components/Battle/CharacterImage";
+import { VsScreen } from "@/components/Vs/VsScreen";
+import { RoguelikeUpgradePanel } from "@/components/RoguelikeMode/RoguelikeUpgradePanel";
+import { PerfectVictoryNotice } from "@/components/RoguelikeMode/PerfectVictoryNotice";
+import { RoguelikeBossTransition } from "@/components/RoguelikeMode/RoguelikeBossTransition";
+import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
 import {
-  applyBossMultiplyUpgrade,
-  applyUpgrade,
+  applyPerfectVictoryBuff,
   buildWeakEnemyStats,
   getEnemyWeakMagicKindsByType,
-  getUpgradeAddAmounts,
   isBossFloor,
   isWeakFloor,
   ROGUELIKE_PLAYER_INITIAL_STATS,
   ROGUELIKE_TOTAL_FLOORS,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
-import { applyPlayerStats, carryOverPlayerState, healPlayerFully } from "@/lib/roguelikeTransition";
-import { getRoguelikeBossUpgradeChoices } from "@/lib/roguelikeUpgrades";
+import { applyPlayerStats, carryOverPlayerState } from "@/lib/roguelikeTransition";
+import { buildWeakMagicTooltip } from "@/lib/roguelikeUpgrades";
+import { buildRoguelikeSkillEffects, buildRoguelikeSkillLabels } from "@/lib/roguelikeSkills";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   COOP_ROGUELIKE_DAMAGE_SCALING,
-  applyCoopRevivalCost,
+  applyCoopUpgrade,
+  buildCoopUpgradeChoices,
   getCoopAvailableActions,
   getCoopAlivePlayerIds,
   getCoopNextPlayerId,
@@ -29,77 +33,19 @@ import {
   getCoopTurnOutcome,
   resolveCoopTurn,
   reviveCoopPlayer,
+  startCoopBattle,
+  isCoopPresentationComplete,
   type CoopSnapshot,
-  type CoopUpgradeChoice,
   type CoopWireMessage,
 } from "@/lib/coopRoguelike";
 import { soundManager } from "@/lib/soundManager";
+import { getRoguelikeStageBgm } from "@/lib/vsTransition";
+import { LIMIT_BREAK_BGM_PATH, LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS, getSinglePlayLimitBreakStatusLines, getSinglePlayLimitBreakDisplayDurationMs } from "@/lib/singlePlayLimitBreak";
+import { TURN_SECONDS, POST_TURN_DELAY_MS, getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
 import type { ActionType, CharacterStats, PlayerBattleState } from "@/types/game";
 
-const TURN_SECONDS = 5;
 const REWARD_SECONDS = 60;
-const POST_TURN_ANIMATION_MS = 4200;
 const PLAYER_SWITCH_MS = 2000;
-const STAT_LABELS: Record<string, string> = {
-  hp: "HP",
-  pp: "PP",
-  attack: "攻撃",
-  defense: "防御",
-  speed: "速度",
-  evasion: "回避",
-};
-
-function getPlayerAfterUpgrade(
-  player: PlayerBattleState,
-  choice: CoopUpgradeChoice,
-): PlayerBattleState {
-  if (choice.kind === "stat") {
-    return applyPlayerStats(player, applyUpgrade(player.stats, choice.key, choice.amount));
-  }
-  if (choice.kind === "boss-multiply") {
-    const upgraded = applyPlayerStats(
-      player,
-      applyBossMultiplyUpgrade(player.stats, choice.key, choice.multiplier),
-    );
-    if (choice.healRatio === undefined) return upgraded;
-    return {
-      ...upgraded,
-      currentHp: Math.min(upgraded.stats.maxHp, upgraded.currentHp + Math.ceil(upgraded.stats.maxHp * choice.healRatio)),
-      currentPp: Math.min(upgraded.stats.maxPp, upgraded.currentPp + Math.ceil(upgraded.stats.maxPp * choice.healRatio)),
-    };
-  }
-  return healPlayerFully(player);
-}
-
-function makeUpgradeChoices(floor: number, needsRevival: boolean): CoopUpgradeChoice[] {
-  const bossChoices = getRoguelikeBossUpgradeChoices(floor).map((choice): CoopUpgradeChoice =>
-    choice.kind === "full-heal"
-      ? { kind: "full-heal", label: choice.label }
-      : { ...choice },
-  );
-  let choices: CoopUpgradeChoice[] = bossChoices;
-  if (choices.length === 0) {
-    const amounts = getUpgradeAddAmounts(isWeakFloor(floor) ? floor : 15);
-    const keys = Object.keys(amounts) as (keyof typeof amounts)[];
-    for (let i = keys.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [keys[i], keys[j]] = [keys[j]!, keys[i]!];
-    }
-    choices = keys.slice(0, 3).map((key) => ({
-      kind: "stat",
-      key,
-      amount: amounts[key],
-      label: `${STAT_LABELS[key]} +${key === "evasion" ? `${Math.round(amounts[key] * 100)}%` : amounts[key]}`,
-    }));
-  }
-  if (needsRevival) {
-    choices = [
-      { kind: "revival" as const, label: "蘇生の儀式（現在HPの33%を消費）" },
-      ...choices.filter((choice) => choice.kind !== "full-heal"),
-    ].slice(0, 3);
-  }
-  return choices;
-}
 
 function createInitialPlayer(player: PlayerBattleState): PlayerBattleState {
   return {
@@ -126,12 +72,18 @@ export function CooperativeRoguelikeManager(props: {
 }) {
   const [snapshot, setSnapshot] = useState<CoopSnapshot | null>(null);
   const [countdown, setCountdown] = useState(TURN_SECONDS);
+  const [dismissedPerfectFloor, setDismissedPerfectFloor] = useState<number | null>(null);
+  const [visibleStatCount, setVisibleStatCount] = useState(0);
   const snapshotRef = useRef<CoopSnapshot | null>(null);
   const turnTimerRef = useRef<number | null>(null);
   const postTurnTimerRef = useRef<number | null>(null);
   const rewardTimerRef = useRef<number | null>(null);
   const chooseUpgradeRef = useRef<((current: CoopSnapshot, playerId: string, choiceIndex: number) => void) | null>(null);
   const resolvingRef = useRef(false);
+  const presentationReadyRef = useRef(new Set<string>());
+  const pendingResolutionRef = useRef<ReturnType<typeof resolveCoopTurn> | null>(null);
+  const continuePresentationRef = useRef<(() => void) | null>(null);
+  const resolutionDelayDoneRef = useRef(false);
   const knownRunIdRef = useRef<string | null>(null);
   const initialPlayersRef = useRef(props.initialPlayers.map(createInitialPlayer) as unknown as [PlayerBattleState, PlayerBattleState]);
   const playerIds = useMemo(
@@ -180,6 +132,7 @@ export function CooperativeRoguelikeManager(props: {
       ...current,
       floor,
       turn: nextTurn,
+      floorTurn: 1,
       activePlayerId: starter,
       players,
       enemy: null,
@@ -191,6 +144,8 @@ export function CooperativeRoguelikeManager(props: {
       rewardPlayerId: null,
       upgradeChoices: [],
       outcome: null,
+      floorDamageTaken: 0,
+      perfectVictoryFloor: current.perfectVictoryFloor,
       status: `第${floor}層の敵を準備しています…`,
     };
     publish(loading);
@@ -253,13 +208,24 @@ export function CooperativeRoguelikeManager(props: {
         players,
         enemy,
         activePlayerId,
-        stage: activePlayerId ? "battle" : "result",
+        stage: activePlayerId ? "vs" : "result",
         turn: nextTurn,
-        deadline: Date.now() + TURN_SECONDS * 1000,
+        deadline: 0,
         outcome: activePlayerId ? null : "game-over",
         status: activePlayerId ? `第${floor}層` : "全員が戦闘不能になりました。",
       };
-      publish(ready);
+      presentationReadyRef.current.clear();
+      if ((floor === 19 || floor === 20) && current.floor === floor - 1) {
+        if (floor === 20 && current.enemy) {
+          for (const key of ["voidminationActive", "voidminationUsed", "voidminationSourceFloor", "voidminationBaseStats", "voidminationForm", "voidminationFormTurnsRemaining"] as const) {
+            Object.assign(enemy, { [key]: current.enemy[key] });
+          }
+        }
+        const duration = floor === 19 ? 2500 : getSinglePlayLimitBreakDisplayDurationMs(getSinglePlayLimitBreakStatusLines(enemy).length);
+        publish({ ...ready, stage: "transition", deadline: Date.now() + duration });
+      } else {
+        publish(ready);
+      }
     } catch {
       const latest = snapshotRef.current;
       if (!latest || latest.runId !== current.runId || latest.floor !== floor || latest.stage !== "loading") return;
@@ -270,11 +236,15 @@ export function CooperativeRoguelikeManager(props: {
   const startRun = useCallback((runId: string) => {
     clearTimers();
     resolvingRef.current = false;
+    setDismissedPerfectFloor(null);
+    presentationReadyRef.current.clear();
+    pendingResolutionRef.current = null;
     knownRunIdRef.current = runId;
     const initial = {
       runId,
       floor: 1,
       turn: 1,
+      floorTurn: 1,
       playerIds,
       activePlayerId: playerIds[0],
       players: Object.fromEntries(playerIds.map((id, index) => [id, initialPlayersRef.current[index]!])) as Record<string, PlayerBattleState>,
@@ -289,6 +259,11 @@ export function CooperativeRoguelikeManager(props: {
       upgradeChoices: [],
       outcome: null,
       status: "協力ローグライクを開始します",
+      acquiredWeakMagicKinds: {},
+      acquiredSkills: {},
+      acquiredHealingSkills: {},
+      floorDamageTaken: 0,
+      perfectVictoryFloor: null,
     } satisfies CoopSnapshot;
     snapshotRef.current = initial;
     setSnapshot(initial);
@@ -321,7 +296,11 @@ export function CooperativeRoguelikeManager(props: {
       && current.players[id]!.currentHp <= 0
       && !current.excludedPlayerIds.includes(id),
     );
-    const upgradeChoices = makeUpgradeChoices(current.floor, !!deadAlly);
+    const upgradeChoices = buildCoopUpgradeChoices(current, rewardPlayerId, !!deadAlly);
+    if (!upgradeChoices.length) {
+      void prepareFloor(current, current.floor + 1, current.players, null, current.lastAttackerId ?? rewardPlayerId, current.turn + 1);
+      return;
+    }
     const upgrade: CoopSnapshot = {
       ...current,
       stage: "upgrading",
@@ -336,7 +315,7 @@ export function CooperativeRoguelikeManager(props: {
       () => chooseUpgradeRef.current?.(upgrade, rewardPlayerId, 0),
       REWARD_SECONDS * 1000,
     );
-  }, [publish]);
+  }, [prepareFloor, publish]);
 
   const continueAfterTurn = useCallback((result: ReturnType<typeof resolveCoopTurn>, previous: CoopSnapshot, actingPlayerId: string) => {
     const players = { ...result.players };
@@ -350,6 +329,14 @@ export function CooperativeRoguelikeManager(props: {
     };
     const outcome = getCoopTurnOutcome(players, result.enemy.currentHp, previous.excludedPlayerIds);
     if (outcome === "floor-clear") {
+      if (previous.floorDamageTaken === 0) {
+        for (const id of previous.playerIds) {
+          if (players[id]!.currentHp > 0) {
+            players[id] = applyPlayerStats(players[id]!, applyPerfectVictoryBuff(players[id]!.stats));
+          }
+        }
+        previous = { ...previous, perfectVictoryFloor: previous.floor };
+      }
       if (previous.floor >= ROGUELIKE_TOTAL_FLOORS) {
         publish({ ...previous, players, enemy: result.enemy, turnResult: synchronizedResult.turnResult, stage: "result", outcome: "cleared", status: "20層制覇！" });
       } else {
@@ -371,16 +358,98 @@ export function CooperativeRoguelikeManager(props: {
       ...previous,
       players,
       enemy: result.enemy,
-      turnResult: synchronizedResult.turnResult,
+      turnResult: null,
       chargeMultiplier: result.chargeMultiplier,
       activePlayerId: nextPlayerId,
-      stage: "battle",
+      stage: nextPlayerId !== actingPlayerId && getCoopAlivePlayerIds(players, previous.excludedPlayerIds).length === 2 ? "switching" : "battle",
       turn: previous.turn + 1,
-      deadline: Date.now() + TURN_SECONDS * 1000,
+      floorTurn: previous.floorTurn + 1,
+      deadline: 0,
       status: `第${previous.floor}層`,
     };
+    if (next.stage === "battle" && nextPlayerId) {
+      next.deadline = Date.now() + getRoguelikeTurnSeconds(players[nextPlayerId]!) * 1000;
+    }
     publish(next);
   }, [openReward, publish]);
+
+  const finishPresentation = useCallback(() => {
+    const current = snapshotRef.current;
+    if (!props.isHost || !current || (current.stage !== "vs" && current.stage !== "resolving")) return;
+    if (!isCoopPresentationComplete(current, presentationReadyRef.current)) return;
+    if (current.stage === "vs") {
+      if (current.floor === 20) {
+        publish({ ...current, stage: "speech", deadline: Date.now() + 3000 });
+      } else {
+        publish(startCoopBattle(current, Date.now()));
+      }
+    } else if (resolutionDelayDoneRef.current && pendingResolutionRef.current && current.activePlayerId) {
+      const result = pendingResolutionRef.current;
+      pendingResolutionRef.current = null;
+      resolvingRef.current = false;
+      continueAfterTurn(result, current, current.activePlayerId);
+    }
+  }, [continueAfterTurn, props.isHost, publish]);
+
+  useEffect(() => { continuePresentationRef.current = finishPresentation; }, [finishPresentation]);
+
+  const completePresentation = useCallback((stage: "vs" | "resolving") => {
+    const current = snapshotRef.current;
+    if (!current || current.stage !== stage) return;
+    if (isHost) {
+      presentationReadyRef.current.add(props.localPlayerId);
+      finishPresentation();
+    } else {
+      sendMessage({ type: "coop_presentation_complete", payload: {
+        runId: current.runId, floor: current.floor, turn: current.turn, playerId: props.localPlayerId, stage,
+      } });
+    }
+  }, [finishPresentation, isHost, props.localPlayerId, sendMessage]);
+  const completePresentationRef = useRef(completePresentation);
+  useEffect(() => { completePresentationRef.current = completePresentation; }, [completePresentation]);
+  const handleVsComplete = useCallback(() => completePresentationRef.current("vs"), []);
+  const handleTurnAnimationComplete = useCallback(() => completePresentationRef.current("resolving"), []);
+
+  useEffect(() => {
+    if (!isHost || !snapshot) return;
+    if (snapshot.stage !== "switching" && snapshot.stage !== "transition" && snapshot.stage !== "speech") return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const delay = snapshot.stage === "switching"
+      ? reducedMotion ? 0 : PLAYER_SWITCH_MS
+      : Math.max(0, snapshot.deadline - Date.now());
+    const timer = window.setTimeout(() => {
+      const current = snapshotRef.current;
+      if (!current || current.runId !== snapshot.runId || current.stage !== snapshot.stage) return;
+      if (current.stage === "transition") {
+        presentationReadyRef.current.clear();
+        publish({ ...current, stage: "vs", deadline: 0 });
+      } else {
+        publish(startCoopBattle(current, Date.now()));
+      }
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [isHost, publish, snapshot]);
+
+  useEffect(() => {
+    if (!snapshot || snapshot.stage === "vs" || snapshot.stage === "loading" || snapshot.stage === "transition") return;
+    const bgmStage = snapshot.stage === "upgrading" ? "upgrade" : snapshot.stage === "result" ? "result" : "battle";
+    const bgm = snapshot.enemy?.limitBreakActive ? LIMIT_BREAK_BGM_PATH : getRoguelikeStageBgm(bgmStage, snapshot.floor);
+    if (bgm) soundManager.playBgm(bgm);
+  }, [snapshot?.stage, snapshot?.floor, snapshot?.enemy?.limitBreakActive, snapshot]);
+
+  useEffect(() => {
+    if (snapshot?.stage !== "transition" || snapshot.floor !== 20 || !snapshot.enemy) return;
+    const lines = getSinglePlayLimitBreakStatusLines(snapshot.enemy);
+    setVisibleStatCount(1);
+    const timers = lines.slice(1).map((_, index) => window.setTimeout(() => setVisibleStatCount(index + 2), (index + 1) * LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS));
+    return () => timers.forEach(window.clearTimeout);
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (!snapshot?.perfectVictoryFloor) return;
+    const timer = window.setTimeout(() => setDismissedPerfectFloor(snapshot.perfectVictoryFloor), 4000);
+    return () => window.clearTimeout(timer);
+  }, [snapshot?.perfectVictoryFloor]);
 
   const resolveAction = useCallback((current: CoopSnapshot, requestedAction: ActionType | null) => {
     const latest = snapshotRef.current;
@@ -423,8 +492,11 @@ export function CooperativeRoguelikeManager(props: {
       excludedIds: current.excludedPlayerIds,
       playerIds: current.playerIds,
       weakMagicSelections: {
+        [activeId]: { kinds: current.acquiredWeakMagicKinds[activeId] ?? [] },
         [current.enemy.id]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
+      skillEffects: { [activeId]: buildRoguelikeSkillEffects(current.acquiredSkills[activeId] ?? {}) },
+      skillTurn: current.floorTurn,
       disableVoidmination: true,
       ...(isWeakFloor(current.floor) ? {} : {
         roguelikeBossBattle: { floor: current.floor, bossId: current.enemy.id, playerId: activeId },
@@ -440,18 +512,24 @@ export function CooperativeRoguelikeManager(props: {
       lastAttackerId: activeId,
       stage: "resolving",
       deadline: 0,
-    } as CoopSnapshot;
+      floorDamageTaken: current.floorDamageTaken + result.turnResult.damageEvents.reduce(
+        (sum, event) => sum + (event.to === activeId ? event.amount : 0), 0,
+      ),
+    };
     if (turnTimerRef.current !== null) window.clearTimeout(turnTimerRef.current);
     turnTimerRef.current = null;
+    presentationReadyRef.current.clear();
+    pendingResolutionRef.current = result;
+    resolutionDelayDoneRef.current = false;
     publish(resolving);
     postTurnTimerRef.current = window.setTimeout(() => {
       postTurnTimerRef.current = null;
-      resolvingRef.current = false;
       const latest = snapshotRef.current;
       if (!latest || latest.runId !== current.runId || latest.stage !== "resolving") return;
-      continueAfterTurn(result, latest, activeId);
-    }, POST_TURN_ANIMATION_MS + PLAYER_SWITCH_MS);
-  }, [continueAfterTurn, props.isHost, publish]);
+      resolutionDelayDoneRef.current = true;
+      continuePresentationRef.current?.();
+    }, POST_TURN_DELAY_MS);
+  }, [props.isHost, publish]);
 
   const chooseUpgrade = useCallback((current: CoopSnapshot, playerId: string, choiceIndex: number) => {
     if (!props.isHost || current.stage !== "upgrading" || current.rewardPlayerId !== playerId) return;
@@ -467,18 +545,18 @@ export function CooperativeRoguelikeManager(props: {
     const player = activeSnapshot.players[playerId];
     if (!choice || !player) return;
     if (rewardTimerRef.current !== null) window.clearTimeout(rewardTimerRef.current);
-    let players = { ...activeSnapshot.players, [playerId]: getPlayerAfterUpgrade(player, choice) };
+    const upgraded = applyCoopUpgrade(activeSnapshot, playerId, choice);
+    const players = upgraded.players;
     let pendingRevivalId: string | null = null;
     if (
       choice.kind === "revival"
       && activeSnapshot.pendingRevivalId
       && !activeSnapshot.excludedPlayerIds.includes(activeSnapshot.pendingRevivalId)
     ) {
-      players = { ...players, [playerId]: applyCoopRevivalCost(players[playerId]!) };
       pendingRevivalId = activeSnapshot.pendingRevivalId;
     }
     const prepared: CoopSnapshot = {
-      ...activeSnapshot,
+      ...upgraded,
       players,
       stage: "loading",
       pendingRevivalId,
@@ -537,6 +615,16 @@ export function CooperativeRoguelikeManager(props: {
     }
     if (!current || message.type === "coop_snapshot" || message.type === "coop_redraw" || message.payload.runId !== current.runId) return;
     if (
+      message.type === "coop_presentation_complete"
+      && isHost
+      && message.payload.playerId === remotePlayerId
+      && message.payload.floor === current.floor
+      && message.payload.turn === current.turn
+      && message.payload.stage === current.stage
+    ) {
+      presentationReadyRef.current.add(remotePlayerId);
+      finishPresentation();
+    } else if (
       message.type === "coop_action"
       && message.payload.playerId === remotePlayerId
       && message.payload.turn === current.turn
@@ -554,7 +642,7 @@ export function CooperativeRoguelikeManager(props: {
       snapshotRef.current = null;
       setSnapshot(null);
     }
-  }, [chooseUpgrade, incomingMessage, isHost, onRedraw, remotePlayerId, resolveAction]);
+  }, [chooseUpgrade, finishPresentation, incomingMessage, isHost, onRedraw, remotePlayerId, resolveAction]);
 
   useEffect(() => {
     if (!props.isHost || !props.peerDisconnected || !snapshot) return;
@@ -572,9 +660,9 @@ export function CooperativeRoguelikeManager(props: {
       ),
       status: "相手が切断しました。1人で攻略を続けます。",
     };
-    if (snapshot.stage === "battle" && snapshot.activePlayerId === disconnectedId) {
+    if ((snapshot.stage === "battle" || snapshot.stage === "vs" || snapshot.stage === "speech" || snapshot.stage === "switching") && snapshot.activePlayerId === disconnectedId) {
       update.activePlayerId = props.localPlayerId;
-      update.deadline = Date.now() + TURN_SECONDS * 1000;
+      if (snapshot.stage === "battle") update.deadline = Date.now() + getRoguelikeTurnSeconds(players[props.localPlayerId]!) * 1000;
     }
     if (snapshot.stage === "upgrading" && snapshot.rewardPlayerId === disconnectedId) {
       update.rewardPlayerId = props.localPlayerId;
@@ -587,9 +675,13 @@ export function CooperativeRoguelikeManager(props: {
       );
     }
     publish(update);
-  }, [props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
+    finishPresentation();
+  }, [finishPresentation, props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
 
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  useEffect(() => () => {
+    clearTimers();
+    soundManager.stopBgm();
+  }, [clearTimers]);
 
   const sendAction = (action: ActionType) => {
     if (!snapshot || snapshot.stage !== "battle" || snapshot.activePlayerId !== props.localPlayerId) return;
@@ -642,30 +734,6 @@ export function CooperativeRoguelikeManager(props: {
     );
   }
 
-  if (snapshot.stage === "upgrading") {
-    const isRewardPlayer = snapshot.rewardPlayerId === props.localPlayerId;
-    const isBossReward = isBossFloor(snapshot.floor);
-    return (
-      <section className="battle-manager-shell flex flex-col items-center justify-center gap-5 p-6 text-center text-amber-100">
-        <h2 className="text-2xl font-bold">第{snapshot.floor}層クリア！</h2>
-        {isRewardPlayer ? (
-          <>
-            <p>報酬を選択してください（残り {countdown} 秒）</p>
-            <div className="grid w-full max-w-3xl gap-3 sm:grid-cols-3">
-              {snapshot.upgradeChoices.map((choice, index) => (
-                <button key={`${choice.kind}-${index}`} className="title-menu-button" onClick={() => sendUpgrade(index)}>
-                  {choice.label}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p>{isBossReward ? "相手が報酬を選んでいます" : "相手が強化を選んでいます"}</p>
-        )}
-      </section>
-    );
-  }
-
   if (snapshot.stage === "result") {
     return (
       <section className="battle-manager-shell flex flex-col items-center justify-center gap-5 p-6 text-center text-amber-100">
@@ -680,85 +748,99 @@ export function CooperativeRoguelikeManager(props: {
             <button className="title-menu-button" onClick={props.onReturnToTitle}>タイトルへ戻る</button>
           </>
         ) : <p>ホストの再戦・終了操作を待っています</p>}
+        {snapshot.perfectVictoryFloor !== null && dismissedPerfectFloor !== snapshot.perfectVictoryFloor && (
+          <PerfectVictoryNotice floor={snapshot.perfectVictoryFloor} onDismiss={() => setDismissedPerfectFloor(snapshot.perfectVictoryFloor)} />
+        )}
       </section>
     );
   }
 
   if (!snapshot.enemy || !snapshot.activePlayerId) return null;
   const activePlayer = snapshot.players[snapshot.activePlayerId];
-  const partnerId = snapshot.playerIds.find((id) => id !== snapshot.activePlayerId);
-  const partner = partnerId ? snapshot.players[partnerId] : null;
   if (!activePlayer) return null;
+  if (snapshot.stage === "transition") {
+    return (
+      <RoguelikeBossTransition
+        kind={snapshot.floor === 19 ? "transform" : "limit-break"}
+        bossUrl={snapshot.enemy.imageDataUrl}
+        statusLines={getSinglePlayLimitBreakStatusLines(snapshot.enemy)}
+        visibleStatCount={visibleStatCount}
+      >
+        {snapshot.perfectVictoryFloor !== null && dismissedPerfectFloor !== snapshot.perfectVictoryFloor && (
+          <PerfectVictoryNotice floor={snapshot.perfectVictoryFloor} onDismiss={() => setDismissedPerfectFloor(snapshot.perfectVictoryFloor)} />
+        )}
+      </RoguelikeBossTransition>
+    );
+  }
+  if (snapshot.stage === "vs") {
+    return (
+      <>
+        <VsScreen me={activePlayer} enemy={snapshot.enemy} onComplete={handleVsComplete} />
+        {snapshot.perfectVictoryFloor !== null && dismissedPerfectFloor !== snapshot.perfectVictoryFloor && (
+          <PerfectVictoryNotice floor={snapshot.perfectVictoryFloor} onDismiss={() => setDismissedPerfectFloor(snapshot.perfectVictoryFloor)} />
+        )}
+      </>
+    );
+  }
   const isMyTurn = snapshot.activePlayerId === props.localPlayerId;
-  const isResolving = snapshot.stage === "resolving";
+  const isResolving = snapshot.stage !== "battle";
   const turnCountdown = snapshot.stage === "battle"
     ? countdown
     : 0;
   const activeActions = getCoopAvailableActions(activePlayer, snapshot.turn, activePlayer.lastActionCategory);
 
   return (
-    <div className="battle-manager-shell">
-      {partner && (
-        <div
-          key={partner.id}
-          style={{
-            position: "fixed",
-            top: 12,
-            left: 12,
-            zIndex: 90,
-            width: "min(32vw, 240px)",
-            padding: 10,
-            border: `2px solid ${partner.currentHp > 0 ? "#94a3b8" : "#6b7280"}`,
-            borderRadius: 12,
-            background: "rgba(2,6,23,0.9)",
-            color: "#f8fafc",
-            opacity: partner.currentHp > 0 ? 0.85 : 0.55,
-            filter: partner.currentHp > 0 ? "none" : "grayscale(1)",
-            transition: `transform ${PLAYER_SWITCH_MS}ms ease`,
-            animation: `slideInFromLeft ${PLAYER_SWITCH_MS}ms ease-out both`,
-          }}
-          aria-label={`${partner.nickname} 待機中`}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <CharacterImage
-              src={partner.imageDataUrl}
-              alt={`${partner.nickname}（待機中）`}
-              style={{ width: 62, height: 62, objectFit: "contain", flexShrink: 0 }}
-            />
-            <div style={{ minWidth: 0, fontSize: 12 }}>
-              <strong>{partner.nickname}（待機中）</strong>
-              <div>HP {partner.currentHp}/{partner.stats.maxHp}</div>
-              <div>PP {partner.currentPp}/{partner.stats.maxPp}</div>
-            </div>
-          </div>
-        </div>
-      )}
-      <div key={snapshot.activePlayerId} style={{ animation: `slideInFromLeft ${PLAYER_SWITCH_MS}ms ease-out both` }}>
-        <BattlePanel
+    <div className="battle-manager-shell" style={{ position: "relative" }}>
+      <BattlePanel
         me={activePlayer}
         enemy={snapshot.enemy}
-        role={props.isHost ? "host" : "guest"}
+        role="host"
         turn={snapshot.turn}
         turnResult={snapshot.turnResult}
         countdown={turnCountdown}
         onActionSelect={sendAction}
         isResolvingTurn={isResolving}
-        playerInputEnabled={isMyTurn || isResolving}
+        playerInputEnabled={isMyTurn && snapshot.stage === "battle"}
+        cooperativePlayers={snapshot.playerIds.map((id) => snapshot.players[id]!) as [PlayerBattleState, PlayerBattleState]}
+        cooperativeActivePlayerId={snapshot.activePlayerId}
+        cooperativeSwitching={snapshot.stage === "switching"}
+        cooperativeStatusLabel={`第${snapshot.floor}層 / 通しターン ${snapshot.turn} / チャージ ×${snapshot.chargeMultiplier}`}
+        onTurnAnimationComplete={handleTurnAnimationComplete}
+        roguelikeWeakMagicTooltipTitle={buildWeakMagicTooltip(snapshot.acquiredWeakMagicKinds[activePlayer.id] ?? [])}
+        roguelikeSkillLabels={buildRoguelikeSkillLabels(snapshot.acquiredSkills[activePlayer.id] ?? {}, activePlayer.roguelikeGutsUsed, snapshot.acquiredHealingSkills[activePlayer.id] ?? {})}
         availableActionsOverride={activeActions}
         onRematchSame={() => {}}
         onRematchRedraw={() => {}}
         showArenaBackground
           inactiveActionPrompt={`${activePlayer.nickname} が選んでいます`}
-        />
-      </div>
+      />
+      {snapshot.stage === "upgrading" && snapshot.rewardPlayerId && (
+       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+         <RoguelikeUpgradePanel
+           floor={snapshot.floor}
+           player={snapshot.players[snapshot.rewardPlayerId]!}
+           acquiredSkills={snapshot.acquiredSkills[snapshot.rewardPlayerId] ?? {}}
+           acquiredHealingSkills={snapshot.acquiredHealingSkills[snapshot.rewardPlayerId] ?? {}}
+           choices={snapshot.upgradeChoices}
+           onSelect={(_, index) => sendUpgrade(index)}
+           countdown={countdown}
+           waitingMessage={snapshot.rewardPlayerId === props.localPlayerId ? undefined : snapshot.status}
+         />
+       </div>
+      )}
+      {snapshot.stage === "speech" && (
+       <div style={{ position: "fixed", bottom: "25%", right: "8%", zIndex: 60 }}>
+         <BossSpeechBubble text="正々堂々闘おう" />
+       </div>
+      )}
+      {snapshot.perfectVictoryFloor !== null && dismissedPerfectFloor !== snapshot.perfectVictoryFloor && (
+       <PerfectVictoryNotice floor={snapshot.perfectVictoryFloor} onDismiss={() => setDismissedPerfectFloor(snapshot.perfectVictoryFloor)} />
+      )}
       {snapshot.stage === "battle" && !isMyTurn && (
         <div role="status" className="fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded bg-slate-950/90 px-4 py-2 text-amber-100">
           {activePlayer.nickname} が選んでいます
         </div>
       )}
-      <div className="fixed right-3 top-3 z-50 rounded bg-slate-950/80 px-3 py-1 text-sm text-amber-100">
-        第{snapshot.floor}層 / 通しターン {snapshot.turn} / チャージ ×{snapshot.chargeMultiplier}
-      </div>
     </div>
   );
 }

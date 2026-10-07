@@ -123,12 +123,40 @@ body {
   min-width: 0;
 }
 
+.battle-header-middle {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.battle-cooperative-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 14px;
+  font-size: clamp(10px, 0.9vw, 12px);
+  font-weight: 800;
+  color: #a5f3fc;
+}
+
 .battle-boss-badge-button {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   writing-mode: horizontal-tb;
+}
+
+.battle-header-middle:has(.battle-cooperative-status-label) .battle-boss-badge-button {
+  padding: 1px 8px !important;
+  line-height: 1.1;
+  font-size: clamp(9px, 0.8vw, 11px) !important;
 }
 
 .battle-matchup-button {
@@ -173,6 +201,108 @@ body {
 .battle-status-row {
   gap: 12px;
   padding-top: 6px !important;
+}
+
+.battle-cooperative-status-stack {
+  --cooperative-card-gap: 6px;
+  --cooperative-card-offset: clamp(4px, 0.8vw, 12px);
+  --cooperative-card-standby-scale: 0.88;
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--cooperative-card-gap);
+  width: clamp(140px, 24vw, 360px);
+  min-width: 0;
+}
+
+.battle-cooperative-status-stack .battle-status {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.battle-status-row:has(.battle-cooperative-status-stack) {
+  align-items: flex-start;
+}
+
+.battle-cooperative-status-card {
+  --cooperative-card-y: 0px;
+  min-width: 0;
+  transform: translate(0, var(--cooperative-card-y)) scale(var(--cooperative-card-standby-scale));
+  transform-origin: left center;
+  transition: transform 2s ease-in-out;
+  z-index: 1;
+}
+
+.battle-cooperative-status-card:nth-child(1)[data-active="false"] {
+  --cooperative-card-y: calc(100% + var(--cooperative-card-gap));
+}
+
+.battle-cooperative-status-card:nth-child(2)[data-active="true"] {
+  --cooperative-card-y: calc(-100% - var(--cooperative-card-gap));
+}
+
+.battle-cooperative-status-card[data-active="true"] {
+  transform: translate(var(--cooperative-card-offset), var(--cooperative-card-y)) scale(1);
+  z-index: 2;
+}
+
+.battle-cooperative-status-card[data-defeated="true"] {
+  transform: translate(0, var(--cooperative-card-y)) scale(var(--cooperative-card-standby-scale));
+  transition: none;
+  filter: grayscale(1);
+}
+
+.battle-cooperative-portraits {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  align-self: stretch;
+}
+
+/* Position/scale live outside the existing attack and hit motion frames. */
+.battle-cooperative-sprite {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  width: 100%;
+  transform: translate(-50%, -50%) scale(0.6);
+  transform-origin: center 80%;
+  transition: left 2s ease-in-out, transform 2s ease-in-out;
+  z-index: 1;
+}
+
+.battle-cooperative-sprite[data-active="true"] {
+  left: 65%;
+  transform: translate(-50%, -50%) scale(1);
+  z-index: 2;
+}
+
+.battle-cooperative-sprite[data-defeated="true"] {
+  left: 20%;
+  transform: translate(-50%, -50%) scale(0.6);
+  transition: none;
+  filter: grayscale(1);
+  z-index: 0;
+}
+
+@media (max-width: 600px) {
+  .battle-cooperative-status-stack {
+    --cooperative-card-gap: 4px;
+    --cooperative-card-offset: 0px;
+    --cooperative-card-standby-scale: 1;
+    flex: 1;
+  }
+
+  .battle-cooperative-sprite {
+    display: none;
+    transition: none;
+  }
+
+  .battle-cooperative-sprite[data-active="true"] {
+    display: block;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 /* 大きいボスでも技名とダメージ数字がステータス枠に重ならない余白。 */
@@ -1238,6 +1368,11 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .battle-cooperative-sprite,
+  .battle-cooperative-status-card {
+    transition: none;
+  }
+
   .final-boss-impact,
   .boss-portrait-idle,
   .battle-portrait[data-boss-kind="final"] .portrait-motion-frame,

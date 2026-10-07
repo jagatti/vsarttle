@@ -21,26 +21,25 @@ import {
   buildWeakEnemyStats,
   getEnemyWeakMagicKindsByType,
   isWeakFloor,
-  type UpgradeStatKey,
 } from "@/lib/roguelikeEnemyStats";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { applyPlayerStats, carryOverPlayerState, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
 import { BossSpeechBubble } from "@/components/RoguelikeMode/BossSpeechBubble";
+import { RoguelikeBossTransition } from "@/components/RoguelikeMode/RoguelikeBossTransition";
+import { PerfectVictoryNotice } from "@/components/RoguelikeMode/PerfectVictoryNotice";
+import { RoguelikeUpgradePanel, type RoguelikeUpgradeChoice } from "@/components/RoguelikeMode/RoguelikeUpgradePanel";
+import { TURN_SECONDS, POST_TURN_DELAY_MS, getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   buildWeakMagicTooltip,
   getRoguelikeBossUpgradeChoices,
   pickRoguelikeWeakFloorUpgradeSlots,
-  type RoguelikeBossUpgradeChoice,
-  type RoguelikeUpgradeRarity,
-  type RoguelikeSkillUpgradeSlot,
 } from "@/lib/roguelikeUpgrades";
 import {
   ROGUELIKE_SKILLS,
   applyRoguelikeSkillReward,
   buildRoguelikeSkillEffects,
   buildRoguelikeSkillLabels,
-  buildRoguelikeSkillsTooltip,
   type AcquiredSkills,
 } from "@/lib/roguelikeSkills";
 import {
@@ -61,18 +60,11 @@ import type {
 } from "@/types/game";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 
-const TURN_SECONDS = 30;
-const PARALYSIS_TURN_SECONDS = 3;
-const POST_TURN_DELAY_MS = 4200;
 const PLAYER_BATTLE_ID = "rl-player";
 
 type RlStage = "drawing" | "debug-setup" | "vs" | "battle" | "win" | "upgrade" | "result";
 
-type UpgradeChoice =
-  | { kind: "weak-stat"; rarity: 1 | 2; key: UpgradeStatKey; amount: number }
-  | { kind: "weak-magic"; rarity: 3; effectKind: WeakMagicEffectKind; effectName: string }
-  | RoguelikeSkillUpgradeSlot
-  | RoguelikeBossUpgradeChoice;
+type UpgradeChoice = Exclude<RoguelikeUpgradeChoice, { kind: "revival" }>;
 
 interface RunResultSummary {
   floorReached: number;
@@ -84,57 +76,9 @@ interface RunResultSummary {
   finalHpRatio: number;
 }
 
-const UPGRADE_LABELS: Record<UpgradeStatKey, string> = {
-  hp: "HP",
-  pp: "PP",
-  attack: "攻撃",
-  defense: "防御",
-  speed: "速度",
-  evasion: "回避",
-};
-
-function formatUpgradeAmount(key: UpgradeStatKey, amount: number): string {
-  if (key === "evasion") return `+${Math.round(amount * 100)}%`;
-  return `+${amount}`;
-}
-
 function applyPerfectVictoryToPlayer(player: PlayerBattleState): PlayerBattleState {
   const stats = applyPerfectVictoryBuff(player.stats);
   return applyPlayerStats(player, stats);
-}
-
-function PerfectVictoryNotice(props: { floor: number; onDismiss: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label="完全勝利ボーナスを閉じる"
-      onClick={props.onDismiss}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 2000,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-        border: 0,
-        background: "radial-gradient(ellipse, rgba(234,179,8,0.3), rgba(2,6,23,0.82) 70%)",
-        color: "#fef3c7",
-        cursor: "pointer",
-        animation: "perfectVictoryReveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both",
-      }}
-    >
-      <span style={{ fontSize: "clamp(18px, 3vw, 30px)" }}>✨ 第{props.floor}層 ✨</span>
-      <strong style={{ fontSize: "clamp(42px, 9vw, 92px)", fontWeight: 1000, color: "#fde047", textShadow: "0 0 18px #f59e0b, 0 0 42px #facc15", animation: "youWinPulse 1s ease-in-out infinite" }}>
-        完全勝利！
-      </strong>
-      <span style={{ fontSize: "clamp(20px, 4vw, 38px)", fontWeight: 900, color: "#bbf7d0", textShadow: "0 0 16px #22c55e" }}>
-        全ステータス +10%
-      </span>
-      <span style={{ fontSize: 14, color: "#e2e8f0" }}>タップして閉じる</span>
-    </button>
-  );
 }
 
 export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfile: { playerId: string; nickname: string } }) {
@@ -539,7 +483,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       const nextTurn = turnNumber + 1;
       setTurn(nextTurn);
       turnRef.current = nextTurn;
-      const nextSeconds = nextPlayer.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS;
+      const nextSeconds = getRoguelikeTurnSeconds(nextPlayer);
       startCountdown(nextSeconds);
       scheduleAutoAction(nextTurn, nextStates, playerId, enemyId);
     }, POST_TURN_DELAY_MS);
@@ -552,7 +496,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     enemyId: string,
   ) {
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-    const delaySeconds = battle[playerId]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS;
+    const delaySeconds = getRoguelikeTurnSeconds(battle[playerId]);
     turnTimerRef.current = window.setTimeout(() => {
       if (!battleStateRef.current[playerId] || !battleStateRef.current[enemyId]) return;
       finalizeTurn(turnNumber, pendingActionRef.current);
@@ -812,162 +756,27 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   // ── Boss transformation overlay (18→19) ────────────────────────────────────
   if (roguelikeBossTransforming) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "70vh",
-          gap: 24,
-        }}
-      >
-        <div
-          style={{
-            fontSize: "clamp(28px, 4vw, 48px)",
-            fontWeight: "900",
-            background:
-              "linear-gradient(90deg, #f00, #f80, #ff0, #0f0, #08f, #80f, #f00)",
-            backgroundSize: "300% 100%",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            animation: "rainbowShift 0.5s linear infinite",
-          }}
-        >
-          ✨ 変身 ✨
-        </div>
-        <div style={{ color: "#fde68a", fontSize: 18, fontWeight: "bold" }}>
-          ボスの姿が変化していく…
-        </div>
+      <RoguelikeBossTransition kind="transform" visibleStatCount={0}>
         {perfectVictoryFloor !== null && (
           <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
         )}
-      </div>
+      </RoguelikeBossTransition>
     );
   }
 
   // ── Limit break overlay (19→20) ─────────────────────────────────────────────
   if (roguelikeLimitBreaking) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "70vh",
-          gap: 24,
-          background: "rgba(80,0,0,0.5)",
-        }}
+      <RoguelikeBossTransition
+        kind="limit-break"
+        bossUrl={roguelikeTransitionBossUrl}
+        statusLines={roguelikeLimitBreakStatusLines}
+        visibleStatCount={visibleRoguelikeLimitBreakStatCount}
       >
-        <div
-          style={{
-            fontSize: "clamp(28px, 4vw, 48px)",
-            fontWeight: "900",
-            color: "#ff2222",
-            textShadow: "0 0 16px #ff0000, 0 0 32px #ff6600",
-            animation: "rainbowShift 0.3s linear infinite",
-            background:
-              "linear-gradient(90deg, #f00, #f80, #f00, #f80, #f00)",
-            backgroundSize: "300% 100%",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          💥 リミットブレイク 💥
-        </div>
-        <div style={{ color: "#fca5a5", fontSize: 18, fontWeight: "bold" }}>
-          ステータスが激変した
-        </div>
-        {roguelikeTransitionBossUrl && (
-          <div
-            style={{
-              position: "relative",
-              width: 240,
-              height: 240,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: -16,
-                borderRadius: "50%",
-                background:
-                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
-                backgroundSize: "300% 300%",
-                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
-                filter: "blur(18px)",
-                opacity: 0.95,
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: -4,
-                borderRadius: 28,
-                background:
-                  "linear-gradient(135deg, #ff0040, #ff8a00, #fff200, #1dff7a, #00d4ff, #6a5cff, #ff00c8, #ff0040)",
-                backgroundSize: "300% 300%",
-                animation: "rainbowShift 0.7s linear infinite, limitBreakAuraPulse 1.8s ease-in-out infinite",
-                boxShadow: "0 0 36px rgba(255,255,255,0.35)",
-              }}
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={roguelikeTransitionBossUrl}
-              alt="第20層のボス"
-              style={{
-                position: "relative",
-                width: 220,
-                height: 220,
-                objectFit: "contain",
-                borderRadius: 24,
-                background: "rgba(0,0,0,0.35)",
-                boxShadow: "0 0 30px rgba(255,255,255,0.25)",
-              }}
-            />
-          </div>
-        )}
-        <div
-          style={{
-            color: "#fca5a5",
-            fontSize: 15,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            textAlign: "center",
-            border: "2px solid #ef4444",
-            borderRadius: 10,
-            padding: "12px 24px",
-            background: "rgba(0,0,0,0.5)",
-          }}
-        >
-          {roguelikeLimitBreakStatusLines.map((line, index) => {
-            const isVisible = index < visibleRoguelikeLimitBreakStatCount;
-            return (
-              <div
-                key={line}
-                style={{
-                  opacity: isVisible ? 1 : 0,
-                  transform: isVisible ? "translateY(0)" : "translateY(8px)",
-                  transition: "opacity 500ms ease, transform 500ms ease",
-                  minHeight: 22,
-                }}
-              >
-                {isVisible ? line : "\u00a0"}
-              </div>
-            );
-          })}
-        </div>
         {perfectVictoryFloor !== null && (
           <PerfectVictoryNotice floor={perfectVictoryFloor} onDismiss={() => setPerfectVictoryFloor(null)} />
         )}
-      </div>
+      </RoguelikeBossTransition>
     );
   }
 
@@ -1246,25 +1055,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   if ((rlStage === "battle" || rlStage === "win" || rlStage === "upgrade") && currentPlayerState && currentEnemyState) {
     const weakMagicTooltip = buildWeakMagicTooltip(acquiredWeakMagicKinds);
-    const skillsTooltip = buildRoguelikeSkillsTooltip(acquiredSkills);
     const skillLabels = buildRoguelikeSkillLabels(acquiredSkills, currentPlayerState.roguelikeGutsUsed, acquiredHealingSkills);
-    const skillsSummary = skillLabels.join("、");
     const skillLogs = turnResult?.logs.filter((log) => log.startsWith("[スキル]")) ?? [];
     const isOverlayVisible = rlStage === "win" || rlStage === "upgrade";
-    const init = ROGUELIKE_PLAYER_INITIAL_STATS;
-    const statsDisplay: { label: string; value: string }[] = [
-      { label: "HP",   value: `${playerStats.maxHp}(+${playerStats.maxHp - init.maxHp})` },
-      { label: "PP",   value: `${playerStats.maxPp}(+${playerStats.maxPp - init.maxPp})` },
-      { label: "攻撃", value: `${playerStats.attack}(+${playerStats.attack - init.attack})` },
-      { label: "防御", value: `${playerStats.defense}(+${playerStats.defense - init.defense})` },
-      { label: "速度", value: `${playerStats.speed}(+${playerStats.speed - init.speed})` },
-      { label: "回避", value: `${Math.round(playerStats.evasion * 100)}%(+${Math.round((playerStats.evasion - init.evasion) * 100)}%)` },
-    ];
-    const rarityMeta: Record<RoguelikeUpgradeRarity, { stars: string; color: string; label: string }> = {
-      1: { stars: "★", color: "#2563eb", label: "★1" },
-      2: { stars: "★★", color: "#16a34a", label: "★2" },
-      3: { stars: "★★★", color: "#7c3aed", label: "★3" },
-    };
 
     return (
       <div className="battle-manager-shell">
@@ -1340,73 +1133,14 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
                 </div>
               </section>
             ) : (
-              <section className="max-h-[calc(100dvh-40px)] w-full max-w-4xl overflow-y-auto rounded-lg border border-amber-500/40 bg-slate-900/95 p-6 text-amber-50">
-                <div className="text-center">
-                  <div className="text-sm text-amber-200">第{floor}層クリア！</div>
-                  <h2 className="mt-2 text-2xl font-black">強化を選択</h2>
-                </div>
-                <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-300">
-                  {statsDisplay.map((s) => (
-                    <span key={s.label} className="rounded bg-slate-800/60 px-2 py-1">
-                      {s.label}{s.value}
-                    </span>
-                  ))}
-                </div>
-                <div title={skillsTooltip} className="mt-3 text-center text-xs text-cyan-200">
-                  スキル: {skillsSummary || "未習得"}
-                </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
-                  {upgradeChoices.map((choice, index) => {
-                    const rarity = choice.kind === "weak-stat" || choice.kind === "weak-magic" || choice.kind === "skill" ? choice.rarity : null;
-                    const rarityStyle = rarity ? rarityMeta[rarity] : null;
-                    return (
-                      <button
-                        key={`${choice.kind}-${index}`}
-                        onClick={() => handleUpgradeSelect(choice)}
-                        style={{
-                          borderRadius: 14,
-                          border: `2px solid ${rarityStyle?.color ?? "#f59e0b"}`,
-                          background:
-                            rarityStyle
-                              ? `linear-gradient(135deg, ${rarityStyle.color}66, rgba(15,23,42,0.95))`
-                              : "linear-gradient(135deg, rgba(120,53,15,0.85), rgba(217,119,6,0.25))",
-                          padding: "20px 18px",
-                          textAlign: "left",
-                          cursor: "pointer",
-                          boxShadow: `0 0 18px ${rarityStyle?.color ?? "#f59e0b"}55`,
-                        }}
-                      >
-                        <div style={{ color: "#fde68a", fontSize: 12, fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
-                          <span>
-                            {choice.kind === "skill" ? "✨ スキル報酬" : rarity ? "成長スロット" : floor === 17 ? "ボス撃破報酬(17層)" : "ボス撃破報酬"}
-                          </span>
-                          {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
-                        </div>
-                        <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                          {choice.kind === "boss-multiply" || choice.kind === "full-heal" || choice.kind === "skill"
-                            ? choice.label
-                            : choice.kind === "weak-magic"
-                            ? `🪄 ${choice.effectName}`
-                            : UPGRADE_LABELS[choice.key]}
-                        </div>
-                        <div style={{ color: "#fed7aa", fontSize: 14, marginTop: 8 }}>
-                          {choice.kind === "full-heal"
-                            ? "クリックしてHPとPPを最大値まで回復"
-                            : choice.kind === "skill"
-                            ? choice.description
-                            : choice.kind === "boss-multiply"
-                            ? choice.healRatio
-                              ? "強化を適用し、HPとPPを最大値の50%回復"
-                              : "クリックして強化を適用"
-                            : choice.kind === "weak-magic"
-                            ? `${rarityStyle?.label} 弱まほう効果を習得`
-                            : `${rarityStyle?.label} ${formatUpgradeAmount(choice.key, choice.amount)}`}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
+              <RoguelikeUpgradePanel
+                floor={floor}
+                player={currentPlayerState}
+                acquiredSkills={acquiredSkills}
+                acquiredHealingSkills={acquiredHealingSkills}
+                choices={upgradeChoices}
+                onSelect={handleUpgradeSelect}
+              />
             )}
           </div>
         )}

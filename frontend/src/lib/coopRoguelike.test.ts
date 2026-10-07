@@ -3,6 +3,8 @@ import test from "node:test";
 import type { PlayerBattleState } from "@/types/game";
 import {
   applyCoopRevivalCost,
+  applyCoopUpgrade,
+  buildCoopUpgradeChoices,
   getCoopAvailableActions,
   getCoopChargeMultiplierAfterAction,
   getCoopNextPlayerId,
@@ -11,7 +13,13 @@ import {
   getCoopTurnOutcome,
   resolveCoopTurn,
   reviveCoopPlayer,
+  startCoopBattle,
+  isCoopPresentationComplete,
+  type CoopSnapshot,
 } from "@/lib/coopRoguelike";
+import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots } from "@/lib/roguelikeUpgrades";
+import { TURN_SECONDS, PARALYSIS_TURN_SECONDS, POST_TURN_DELAY_MS, getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
+import { buildRoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 
 function player(id: string, currentHp = 100): PlayerBattleState {
   return {
@@ -154,3 +162,115 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
   assert.equal(revived.barrierBanTurns, 0);
   assert.equal(revived.chargedPreviousTurn, false);
 });
+
+  function snapshot(floor = 1): CoopSnapshot {
+    return {
+      runId: "run", floor, turn: 1, floorTurn: 1, playerIds: ["p1", "p2"], activePlayerId: "p1",
+      players: { p1: player("p1"), p2: player("p2") }, enemy: player("enemy"),
+      stage: "vs", turnResult: null, chargeMultiplier: 1, deadline: 0,
+      excludedPlayerIds: [], pendingRevivalId: null, rewardPlayerId: null, upgradeChoices: [],
+      outcome: null, status: "", acquiredWeakMagicKinds: {}, acquiredSkills: {},
+      acquiredHealingSkills: {}, floorDamageTaken: 0, perfectVictoryFloor: null,
+    };
+  }
+
+  test("co-op weak-floor choices reuse solo rarity/skill/weak-magic slots with slot one intact", () => {
+    const current = snapshot(2);
+    const expected = pickRoguelikeWeakFloorUpgradeSlots(2, [], 3, () => 0.8, {
+      currentHp: 100, maxHp: 100,
+    }).map((slot) => slot.kind === "stat" ? { ...slot, kind: "weak-stat" } : slot);
+    assert.deepEqual(buildCoopUpgradeChoices(current, "p1", false, () => 0.8), expected);
+    const revival = buildCoopUpgradeChoices(current, "p1", true, () => 0.8);
+    assert.deepEqual(revival[0], expected[0]);
+    assert.equal(revival.length, 3);
+    assert.equal(revival[2]?.kind, "revival");
+  });
+
+  test("co-op boss rewards replace only full heal with revival and never invent rewards on floors 18/19", () => {
+    for (const floor of [5, 10, 13, 16, 17]) {
+      const current = snapshot(floor);
+      const expected = getRoguelikeBossUpgradeChoices(floor);
+      assert.deepEqual(buildCoopUpgradeChoices(current, "p1", false), expected);
+      const revival = buildCoopUpgradeChoices(current, "p1", true);
+      assert.deepEqual(revival.slice(0, 2), expected.slice(0, 2));
+      assert.equal(revival[2]?.kind, "revival");
+    }
+    for (const floor of [18, 19, 20]) assert.deepEqual(buildCoopUpgradeChoices(snapshot(floor), "p1", true), []);
+  });
+
+  test("co-op revival charges current HP without healing the payer first", () => {
+    const current = snapshot();
+    current.players.p1 = player("p1", 30);
+    current.players.p2 = player("p2", 0);
+    current.pendingRevivalId = "p2";
+    const next = applyCoopUpgrade(current, "p1", { kind: "revival", label: "蘇生の儀式" });
+    assert.equal(next.players.p1?.currentHp, 20);
+    assert.equal(next.players.p2?.currentHp, 0);
+    assert.equal(current.players.p1.currentHp, 30);
+  });
+
+  test("co-op skills and weak magic are personal rewards and are supplied to battle resolution", () => {
+    let current = snapshot();
+    current = applyCoopUpgrade(current, "p1", { kind: "weak-magic", rarity: 3, effectKind: "paralysis", effectName: "まひ" });
+    assert.deepEqual(current.acquiredWeakMagicKinds.p1, ["paralysis"]);
+    assert.equal(current.acquiredWeakMagicKinds.p2, undefined);
+    current = applyCoopUpgrade(current, "p1", { kind: "skill", rarity: 3, skillId: "guts", label: "", description: "" });
+    assert.equal(current.acquiredSkills.p1?.guts, 1);
+    assert.equal(current.acquiredSkills.p2, undefined);
+    const result = resolveCoopTurn({
+      turn: 1, players: { ...current.players, p1: player("p1", 1) }, enemy: player("enemy"),
+      activePlayerId: "p1", playerAction: "charge", enemyAction: "attack",
+      chargeMultiplier: 1, playerIds: current.playerIds, rng: () => 0.99,
+      skillEffects: { p1: buildRoguelikeSkillEffects(current.acquiredSkills.p1 ?? {}) },
+    });
+    assert.equal(result.players.p1?.currentHp, 1);
+    assert.equal(result.players.p1?.roguelikeGutsUsed, true);
+    assert.equal(result.players.p2?.currentHp, 100);
+  });
+
+  test("VS/switch/speech completion starts the shared 30s or paralysis 3s deadline only in battle", () => {
+    assert.equal(TURN_SECONDS, 30);
+    assert.equal(PARALYSIS_TURN_SECONDS, 3);
+    assert.equal(POST_TURN_DELAY_MS, 4200);
+    for (const stage of ["vs", "switching", "speech"] as const) {
+      const current = { ...snapshot(), stage };
+      assert.equal(current.deadline, 0);
+      const next = startCoopBattle(current, 1000);
+      assert.equal(next.stage, "battle");
+      assert.equal(next.deadline, 31000);
+      assert.equal(current.stage, stage);
+      current.players.p1 = { ...current.players.p1!, paralyzedNextTurn: true };
+      assert.equal(getRoguelikeTurnSeconds(current.players.p1), 3);
+      assert.equal(startCoopBattle(current, 1000).deadline, 4000);
+    }
+    for (const stage of ["loading", "transition", "resolving", "upgrading", "result", "battle"] as const) {
+      const current = { ...snapshot(), stage };
+      assert.equal(startCoopBattle(current, 1000), current);
+    }
+    const current = { ...snapshot(), activePlayerId: null };
+    assert.equal(startCoopBattle(current, 1000), current);
+  });
+
+  test("host waits for both presentations, except disconnected peers, and cannot finish other stages", () => {
+    for (const stage of ["vs", "resolving"] as const) {
+      const current = { ...snapshot(), stage };
+      assert.equal(isCoopPresentationComplete(current, new Set()), false);
+      assert.equal(isCoopPresentationComplete(current, new Set(["p1"])), false);
+      assert.equal(isCoopPresentationComplete(current, new Set(["p1", "p2"])), true);
+      current.excludedPlayerIds = ["p2"];
+      assert.equal(isCoopPresentationComplete(current, new Set(["p1"])), true);
+    }
+    assert.equal(isCoopPresentationComplete({ ...snapshot(), stage: "battle" }, new Set(["p1", "p2"])), false);
+  });
+
+  test("filter uses the new floor's opening turn without resetting the global damage multiplier", () => {
+    const current = snapshot();
+    const run = (skillTurn: number) => resolveCoopTurn({
+      turn: 21, skillTurn, players: current.players, enemy: current.enemy!,
+      activePlayerId: "p1", playerAction: "charge", enemyAction: "attack",
+      chargeMultiplier: 1, playerIds: current.playerIds, rng: () => 0.99,
+      skillEffects: { p1: { filter: true } },
+    });
+    assert.equal(run(1).players.p1?.currentHp, 100);
+    assert.ok(run(2).turnResult.damageEvents.some((event) => event.to === "p1" && event.amount > 0));
+  });

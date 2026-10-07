@@ -84,6 +84,14 @@ export const IMPACT_EFFECT_DURATION_MS = 520;
 export const PORTRAIT_MIN_SIZE_PX = 64;
 const SCREEN_SHAKE_DURATION_MS = 220;
 const CHARGED_SCREEN_SHAKE_DURATION_MS = 360;
+export const TURN_PHASE_INTERVAL_MS = 850;
+// Includes the delayed HP ghost bar (350 + 900ms), floaters (1500ms),
+// and portrait filter settling (1800ms) after the final resource/status update.
+export const TURN_ANIMATION_SETTLE_MS = 1800;
+
+export function getTurnPhaseDurationMs(phaseCount: number) {
+  return Math.max(1, phaseCount) * TURN_PHASE_INTERVAL_MS;
+}
 
 export function getVoidminationCutInOverlayStyle() {
   return {
@@ -904,6 +912,12 @@ export function BattlePanel(props: {
    * the existing isAnimating / pendingAnimation render-time guards.
    */
   isResolvingTurn?: boolean;
+  cooperativePlayers?: readonly [PlayerBattleState, PlayerBattleState];
+  cooperativeActivePlayerId?: string;
+  cooperativeSwitching?: boolean;
+  cooperativeStatusLabel?: string;
+  /** Once per result, after reveal, phases, status effects and resource transitions. */
+  onTurnAnimationComplete?: () => void;
   /** Disable local action input while a co-op partner owns the active turn. */
   playerInputEnabled?: boolean;
   inactiveActionPrompt?: string;
@@ -942,7 +956,14 @@ export function BattlePanel(props: {
   const [hitIds, setHitIds] = useState<Set<string>>(new Set());
   const [strongHitIds, setStrongHitIds] = useState<Set<string>>(new Set());
   const [screenShake, setScreenShake] = useState<"normal" | "charged" | null>(null);
-  const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([props.me, props.enemy]));
+  const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([...(props.cooperativePlayers ?? [props.me]), props.enemy]));
+  const animationInputsRef = useRef({ me: props.me, enemy: props.enemy, cooperativePlayers: props.cooperativePlayers, turnResult: props.turnResult });
+  const animationCompleteRef = useRef(props.onTurnAnimationComplete);
+  useEffect(() => {
+    animationInputsRef.current = { me: props.me, enemy: props.enemy, cooperativePlayers: props.cooperativePlayers, turnResult: props.turnResult };
+    animationCompleteRef.current = props.onTurnAnimationComplete;
+  }, [props.me, props.enemy, props.cooperativePlayers, props.turnResult, props.onTurnAnimationComplete]);
+  const animationTurn = props.turnResult?.turn;
   const [voidminationActive, setVoidminationActive] = useState(
     () => !!(props.me.voidminationActive || props.enemy.voidminationActive),
   );
@@ -981,7 +1002,7 @@ export function BattlePanel(props: {
   //   3. pendingAnimation — a new turnResult arrived this render but the animation
   //      useEffect has not yet run (render-time guard to close the brief window
   //      between receiving turnResult and isAnimating flipping to true).
-  const resolvingPhase = !!(props.isResolvingTurn || isAnimating || pendingAnimation);
+  const resolvingPhase = !!(props.isResolvingTurn || props.cooperativeSwitching || isAnimating || pendingAnimation);
   const availableActions = useMemo(
     () => props.availableActionsOverride ?? getAvailableActions(props.me, props.turn),
     [props.availableActionsOverride, props.me, props.turn],
@@ -989,6 +1010,12 @@ export function BattlePanel(props: {
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
+  const cooperativeActiveId = props.cooperativeActivePlayerId ?? props.me.id;
+  const cooperativeDisplayPlayers = props.cooperativePlayers?.map((player) => ({
+    ...player,
+    ...(displayResources[player.id] ?? { currentHp: player.currentHp, currentPp: player.currentPp }),
+  }));
+  const playerNames = Object.fromEntries([...(props.cooperativePlayers ?? [props.me]), props.enemy].map((player) => [player.id, player.nickname]));
   const voidminationSpec = getRoguelikeVoidDominationSpec(props.enemy.voidminationSourceFloor ?? props.me.voidminationSourceFloor ?? 0);
   const voidminationTooltipText = (() => {
     if (!voidminationSpec) return "効果情報なし";
@@ -1016,7 +1043,7 @@ export function BattlePanel(props: {
 
   useEffect(() => {
     setSelectedAction(null);
-  }, [props.me.lastActionCategory, props.turn, battleEnded]);
+  }, [props.me.id, props.me.lastActionCategory, props.turn, battleEnded]);
 
   useEffect(() => {
     if (!shouldResetTransientState) return;
@@ -1031,7 +1058,7 @@ export function BattlePanel(props: {
     setShowMatchupModal(false);
     setHitIds(new Set());
     setScreenShake(null);
-    setDisplayResources(buildDisplayBattleResources([props.me, props.enemy]));
+    setDisplayResources(buildDisplayBattleResources([...(props.cooperativePlayers ?? [props.me]), props.enemy]));
     setVoidminationActive(false);
     setShowVoidminationCutIn(false);
     setShowTypeChangePulse(false);
@@ -1039,7 +1066,7 @@ export function BattlePanel(props: {
     setShowVoidminationBadgeTooltip(false);
     setIsAnimating(false);
     setActivePhaseMotions({ me: {}, enemy: {} });
-  }, [shouldResetTransientState, props.me, props.enemy]);
+  }, [shouldResetTransientState, props.me, props.enemy, props.cooperativePlayers]);
 
   useEffect(() => {
     if (!showVoidminationBadgeTooltip) return;
@@ -1062,16 +1089,14 @@ export function BattlePanel(props: {
   useEffect(() => {
     if (props.turnResult) return;
     prevTurnRef.current = null;
-    setDisplayResources({
-      [props.me.id]: { currentHp: props.me.currentHp, currentPp: props.me.currentPp },
-      [props.enemy.id]: { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp },
-    });
-  }, [props.turnResult, props.me.id, props.me.currentHp, props.me.currentPp, props.enemy.id, props.enemy.currentHp, props.enemy.currentPp]);
+    setDisplayResources(buildDisplayBattleResources([...(props.cooperativePlayers ?? [props.me]), props.enemy]));
+  }, [props.turnResult, props.me, props.enemy, props.cooperativePlayers]);
 
   useEffect(() => {
-    if (!props.turnResult) return;
-    if (prevTurnRef.current === props.turnResult.turn) return;
-    prevTurnRef.current = props.turnResult.turn;
+    const turnResult = animationInputsRef.current.turnResult;
+    if (!turnResult || animationTurn === undefined) return;
+    if (prevTurnRef.current === animationTurn) return;
+    prevTurnRef.current = animationTurn;
 
     // Lock action input for the whole reveal + damage animation sequence
     // (roughly 2000ms reveal + 1700ms of damage phases below), not just until
@@ -1080,9 +1105,13 @@ export function BattlePanel(props: {
     // displayResources (see the cleanup handling below).
     setIsAnimating(true);
 
-    const turnResult = props.turnResult;
-    const playersById = { [props.me.id]: props.me, [props.enemy.id]: props.enemy };
-    const phases = getTurnAnimationPhases(turnResult, props.me, props.enemy);
+    // Freeze the participants for this result. Parent updates or a switch must
+    // not tear down the in-flight animation or attach it to the next ally.
+    const { me, enemy, cooperativePlayers } = animationInputsRef.current;
+    const participants = [...(cooperativePlayers ?? [me]), enemy];
+    const playersById = Object.fromEntries(participants.map((player) => [player.id, player]));
+    const finalDisplayResources = buildDisplayBattleResources(participants.map((player) => turnResult.nextStates[player.id] ?? player));
+    const phases = getTurnAnimationPhases(turnResult, me, enemy);
     const statusText = turnResult.voidminationStatusText ?? "";
     const statusKind = statusText.includes("カラードレイン")
       ? "colorDrain"
@@ -1090,6 +1119,7 @@ export function BattlePanel(props: {
       ? "typeChange"
       : null;
     const timers: number[] = [];
+    const frames: number[] = [];
     const schedule = (callback: () => void, delayMs: number) => {
       timers.push(window.setTimeout(callback, delayMs));
     };
@@ -1125,7 +1155,7 @@ export function BattlePanel(props: {
         setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
 
         // わざモーションの状態を更新
-        const isActorMe = phase.actorId === props.me.id;
+        const isActorMe = phase.actorId === me.id;
         if (isActorMe) {
           // meがactor: meにmotionType、enemyにtargetMotionType（例：バリア割れ）
           setActivePhaseMotions({
@@ -1159,7 +1189,7 @@ export function BattlePanel(props: {
           amount: event.amount,
           pursuitDamage: event.pursuitDamage,
           avoided: event.avoided,
-          toMe: event.to === props.me.id,
+          toMe: event.to === me.id,
           type: "damage" as const,
           chargeMultiplier: event.chargeMultiplier,
         }));
@@ -1174,7 +1204,7 @@ export function BattlePanel(props: {
           charged: event.chargeMultiplier > 1,
         }));
         for (const chargeEvent of phase.chargeEvents) {
-          const isMe = chargeEvent.playerId === props.me.id;
+          const isMe = chargeEvent.playerId === me.id;
           if (chargeEvent.hpRecover > 0) {
             phaseFloaters.push({
               id: floaterIdRef.current++,
@@ -1240,15 +1270,13 @@ export function BattlePanel(props: {
         }
       };
 
-      const phaseIntervalMs = 850;
-      const phaseDurationMs = Math.max(1, phases.length) * phaseIntervalMs;
+      const phaseDurationMs = getTurnPhaseDurationMs(phases.length);
       phases.forEach((_, index) => {
-        schedule(() => runPhase(index), index * phaseIntervalMs);
+        schedule(() => runPhase(index), index * TURN_PHASE_INTERVAL_MS);
       });
       schedule(() => {
         setActingPlayerId(null);
         setActivePhaseMotions({ me: {}, enemy: {} });
-        const finalDisplayResources = buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]);
         const runStatusEffect = (onDone: () => void) => {
           if (statusKind === "typeChange") {
             if (!turnResult.voidminationTriggered) {
@@ -1274,10 +1302,21 @@ export function BattlePanel(props: {
         const finishAnimation = () => {
           finalized = true;
           setIsAnimating(false);
+          animationCompleteRef.current?.();
         };
         const applyResultAndFinish = () => {
           setDisplayResources(finalDisplayResources);
-          finishAnimation();
+          if (!animationCompleteRef.current) {
+            finishAnimation();
+            return;
+          }
+          // Start the settling clock after React's final update has painted,
+          // rather than before its CSS transitions have even started.
+          frames.push(window.requestAnimationFrame(() => {
+            frames.push(window.requestAnimationFrame(() => {
+              schedule(finishAnimation, TURN_ANIMATION_SETTLE_MS);
+            }));
+          }));
         };
 
         if (turnResult.voidminationTriggered) {
@@ -1300,6 +1339,7 @@ export function BattlePanel(props: {
     return () => {
       clearTimeout(revealTimer);
       for (const timer of timers) clearTimeout(timer);
+      for (const frame of frames) window.cancelAnimationFrame(frame);
 
       // If this effect is torn down before the animation naturally finished
       // (e.g. the next turn's result arrived early), immediately snap
@@ -1322,11 +1362,11 @@ export function BattlePanel(props: {
         if (turnResult.voidminationTriggered) {
           setVoidminationActive(true);
         }
-        setDisplayResources(buildDisplayBattleResources([turnResult.nextStates[props.me.id], turnResult.nextStates[props.enemy.id]]));
+        setDisplayResources(finalDisplayResources);
         setIsAnimating(false);
       }
     };
-  }, [props.turnResult, props.me, props.enemy]);
+  }, [animationTurn]);
 
   // Stop battle BGM and play win/lose SE when the battle ends
   const prevFinishedRef = useRef(false);
@@ -1827,6 +1867,12 @@ export function BattlePanel(props: {
             <span style={{ fontSize: "clamp(10px, 0.9vw, 13px)", color: "#cbd5e1" }}>ターン</span>
             <span style={{ fontSize: "clamp(20px, 2.1vw, 30px)", lineHeight: 1, textShadow: "0 3px 0 rgba(0,0,0,0.7)" }}>{props.limitBreakMode ? "？？？" : props.turn}</span>
           </span>
+          <div className="battle-header-middle">
+          {props.cooperativeStatusLabel && (
+            <div className="battle-cooperative-status-label" role="status" title={props.cooperativeStatusLabel}>
+              {props.cooperativeStatusLabel}
+            </div>
+          )}
           {voidminationActive && voidminationSpec && (
             <div ref={voidminationBadgeRef} className="battle-boss-badge">
               <button
@@ -1893,6 +1939,7 @@ export function BattlePanel(props: {
               )}
             </div>
           )}
+          </div>
           <button
             className="doodle-btn battle-matchup-button"
             onClick={() => setShowMatchupModal(true)}
@@ -1936,7 +1983,28 @@ export function BattlePanel(props: {
 
         {/* Name / HP / PP boxes, colored by character type */}
         <div className="battle-status-row" style={{ display: "flex", justifyContent: "space-between", padding: "clamp(8px, 1.1vw, 14px) clamp(12px, 1.6vw, 18px) 0" }}>
-          <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} skillLabels={props.roguelikeSkillLabels} />
+          {cooperativeDisplayPlayers ? (
+            <div className="battle-cooperative-status-stack" aria-label="味方のステータス">
+              {cooperativeDisplayPlayers.map((player) => (
+                <div
+                  key={player.id}
+                  className="battle-cooperative-status-card"
+                  data-player-id={player.id}
+                  data-active={player.id === cooperativeActiveId}
+                  data-defeated={player.currentHp <= 0 && (player.id !== cooperativeActiveId || (!isAnimating && !pendingAnimation))}
+                >
+                  <NameHpBox
+                    player={player}
+                    align="left"
+                    title={player.id === cooperativeActiveId ? props.roguelikeWeakMagicTooltipTitle : undefined}
+                    skillLabels={player.id === cooperativeActiveId ? props.roguelikeSkillLabels : undefined}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <NameHpBox player={{ ...props.me, ...displayMe }} align="left" title={props.roguelikeWeakMagicTooltipTitle} skillLabels={props.roguelikeSkillLabels} />
+          )}
           <NameHpBox
             player={{ ...props.enemy, ...displayEnemy }}
             align="right"
@@ -1956,6 +2024,47 @@ export function BattlePanel(props: {
             justifyContent: "center",
           }}
         >
+          {props.cooperativePlayers ? (
+            <div className="battle-cooperative-portraits" aria-label="味方のキャラクター">
+              {props.cooperativePlayers.map((player) => {
+                const active = player.id === cooperativeActiveId;
+                // A lethal hit must finish at the active position before the
+                // fallen ally is pinned left without a swap transition.
+                const defeated = (displayResources[player.id]?.currentHp ?? player.currentHp) <= 0
+                  && (!active || (!isAnimating && !pendingAnimation));
+                return (
+                  <div
+                    key={player.id}
+                    className="battle-cooperative-sprite"
+                    data-player-id={player.id}
+                    data-active={active}
+                    data-defeated={defeated}
+                  >
+                    <PortraitBlock
+                      player={player}
+                      floaters={active ? floaters.filter((f) => f.toMe) : []}
+                      impactEffects={impactEffects[player.id] ?? []}
+                      inevitableZoneActive={inevitableZoneActive}
+                      isActing={active && actingPlayerId === player.id}
+                      isLoser={defeated}
+                      isHit={hitIds.has(player.id)}
+                      isStrongHit={strongHitIds.has(player.id)}
+                      drainDesaturate={showColorDrainPulse}
+                      revealedAction={revealedActions?.[player.id]}
+                      suppressedByTieBan={props.turnResult?.suppressedByTieBanIds?.includes(player.id)}
+                      enhancementSlot={player.enhancementSlot}
+                      enhancementAlign="left"
+                      motionType={active ? activePhaseMotions.me.motionType : undefined}
+                      targetMotionType={active && activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
+                      sourceActionType={active ? activePhaseMotions.me.sourceActionType : undefined}
+                      motionChargeMultiplier={active ? activePhaseMotions.me.chargeMultiplier : undefined}
+                      side="left"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <PortraitBlock
             player={props.me}
             floaters={floaters.filter((f) => f.toMe)}
@@ -1976,6 +2085,7 @@ export function BattlePanel(props: {
             motionChargeMultiplier={activePhaseMotions.me.chargeMultiplier}
             side="left"
           />
+          )}
           <div
             style={{
               display: "flex",
@@ -2103,8 +2213,8 @@ export function BattlePanel(props: {
                   }}
                 >
                   {event.avoided
-                    ? `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} が回避！`
-                    : `${event.to === props.me.id ? props.me.nickname : props.enemy.nickname} に ${event.amount - (event.pursuitDamage ?? 0)} ダメージ（${event.reason}）`}
+                    ? `${playerNames[event.to] ?? props.enemy.nickname} が回避！`
+                    : `${playerNames[event.to] ?? props.enemy.nickname} に ${event.amount - (event.pursuitDamage ?? 0)} ダメージ（${event.reason}）`}
                   {!event.avoided && (event.pursuitDamage ?? 0) > 0 && (
                     <div>追撃！{event.pursuitDamage}ダメージ！</div>
                   )}

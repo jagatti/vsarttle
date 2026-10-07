@@ -622,6 +622,7 @@ export default function Home() {
       || message.type === "coop_upgrade"
       || message.type === "coop_restart"
       || message.type === "coop_redraw"
+      || message.type === "coop_presentation_complete"
     ) {
       setCoopWireMessage(message);
       return;
