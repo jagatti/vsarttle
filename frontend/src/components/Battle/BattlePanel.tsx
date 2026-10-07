@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { getAvailableActions, getDamageMultiplier, magicCost } from "@/lib/battleLogic";
+import { getAvailableActions, getDamageAnnouncement, magicCost } from "@/lib/battleLogic";
+import type { RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { CharacterImage } from "@/components/Battle/CharacterImage";
@@ -123,8 +124,8 @@ export function shouldResetBattlePanelTransientState(
   return turn === 1 && !turnResult && !meVoidminationActive && !enemyVoidminationActive;
 }
 
-function getActionLabel(action: ActionType, player: PlayerBattleState): string {
-  const cost = magicCost(action, player.stats);
+function getActionLabel(action: ActionType, player: PlayerBattleState, skillEffects?: RoguelikeSkillEffects): string {
+  const cost = magicCost(action, player.stats, { costMultiplier: skillEffects?.enhancedMagic ? 1.25 : 1 });
   if (cost > 0) return `${ACTION_LABELS[action]}（-${cost}PP）`;
   return ACTION_LABELS[action];
 }
@@ -873,6 +874,7 @@ function ActionButtonsRow({
   onSelect,
   readOnly,
   weakMagicButtonTitle,
+  roguelikeSkillEffects,
 }: {
   actions: ActionType[];
   player: PlayerBattleState;
@@ -880,6 +882,7 @@ function ActionButtonsRow({
   onSelect?: (action: ActionType) => void;
   readOnly?: boolean;
   weakMagicButtonTitle?: string;
+  roguelikeSkillEffects?: RoguelikeSkillEffects;
 }) {
   return (
     <div className={`battle-action-grid${readOnly ? " battle-action-grid-enemy" : ""}`}>
@@ -924,7 +927,7 @@ function ActionButtonsRow({
               pointerEvents: readOnly ? "none" : "auto",
             }}
           >
-            {readOnly ? ACTION_LABELS[action] : getActionLabel(action, player)}
+            {readOnly ? ACTION_LABELS[action] : getActionLabel(action, player, roguelikeSkillEffects)}
           </button>
         );
       })}
@@ -982,6 +985,7 @@ export function BattlePanel(props: {
   /** Optional tooltip shown for roguelike weak-magic pool info. */
   roguelikeWeakMagicTooltipTitle?: string;
   roguelikeSkillLabels?: string[];
+  roguelikeSkillEffects?: RoguelikeSkillEffects;
   /** When true, keep battle-finished state but hide the built-in finish overlay. */
   suppressFinishOverlay?: boolean;
 }) {
@@ -1044,8 +1048,8 @@ export function BattlePanel(props: {
   //      between receiving turnResult and isAnimating flipping to true).
   const resolvingPhase = !!(props.isResolvingTurn || props.cooperativeSwitching || isAnimating || pendingAnimation);
   const availableActions = useMemo(
-    () => props.availableActionsOverride ?? getAvailableActions(props.me, props.turn),
-    [props.availableActionsOverride, props.me, props.turn],
+    () => props.availableActionsOverride ?? getAvailableActions(props.me, props.turn, props.roguelikeSkillEffects),
+    [props.availableActionsOverride, props.me, props.turn, props.roguelikeSkillEffects],
   );
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
@@ -1454,22 +1458,11 @@ export function BattlePanel(props: {
         };
       })()
     : null;
-  const currentDamageMultiplier = props.limitBreakMode ? 3 : getDamageMultiplier(props.turn);
-  const upcomingDamageAnnouncement = (() => {
-    if (props.limitBreakMode) return null;
-    const milestones = [
-      { turn: 16, multiplier: 2 },
-      { turn: 21, multiplier: 3 },
-    ];
-    for (const milestone of milestones) {
-      const remain = milestone.turn - props.turn;
-      if (remain >= 1 && remain <= 3) return `あと${remain}ターンで常時ダメージ${milestone.multiplier}倍`;
-    }
-    return null;
-  })();
-  const damageAnnouncement = upcomingDamageAnnouncement
-    ? `${upcomingDamageAnnouncement}${currentDamageMultiplier > 1 ? `（現在${currentDamageMultiplier}倍）` : ""}`
-    : currentDamageMultiplier > 1 ? `現在ダメージ${currentDamageMultiplier}倍中` : "";
+  const damageAnnouncement = getDamageAnnouncement(
+    props.turn,
+    props.roguelikeSkillEffects?.shortBattle,
+    props.limitBreakMode,
+  );
   const finalBossStageEffects = [props.me, props.enemy].flatMap((player) => {
     if (getBossPortraitKind(player.imageDataUrl) !== "final") return [];
     const motion = player.id === props.me.id ? activePhaseMotions.me : activePhaseMotions.enemy;
@@ -2317,6 +2310,7 @@ export function BattlePanel(props: {
                   actions={availableActions}
                   player={props.me}
                   weakMagicButtonTitle={props.roguelikeWeakMagicTooltipTitle}
+                  roguelikeSkillEffects={props.roguelikeSkillEffects}
                   selectedAction={selectedAction}
                   onSelect={(action) => {
                     setSelectedAction(action);

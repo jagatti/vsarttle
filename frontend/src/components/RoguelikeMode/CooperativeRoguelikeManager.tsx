@@ -19,13 +19,14 @@ import {
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { applyPlayerStats, carryOverPlayerState } from "@/lib/roguelikeTransition";
 import { buildWeakMagicTooltip } from "@/lib/roguelikeUpgrades";
-import { buildRoguelikeSkillEffects, buildRoguelikeSkillLabels } from "@/lib/roguelikeSkills";
+import { buildRoguelikeSkillLabels } from "@/lib/roguelikeSkills";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import {
   COOP_ROGUELIKE_DAMAGE_SCALING,
   advanceCoopTurnCounters,
   applyCoopUpgrade,
   buildCoopUpgradeChoices,
+  buildCoopSkillEffects,
   getCoopAvailableActions,
   getCoopAlivePlayerIds,
   getCoopNextPlayerId,
@@ -474,7 +475,8 @@ export function CooperativeRoguelikeManager(props: {
     const active = current.players[activeId];
     if (!active) return;
     resolvingRef.current = true;
-    const available = getCoopAvailableActions(active, current.floorTurn, active.lastActionCategory);
+    const skillEffects = buildCoopSkillEffects(current.acquiredSkills, activeId);
+    const available = getCoopAvailableActions(active, current.floorTurn, active.lastActionCategory, skillEffects);
     const playerAction: ActionType = active.paralyzedNextTurn
       ? "paralysis"
       : requestedAction && available.includes(requestedAction)
@@ -500,7 +502,7 @@ export function CooperativeRoguelikeManager(props: {
         [activeId]: { kinds: current.acquiredWeakMagicKinds[activeId] ?? [] },
         [current.enemy.id]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
-      skillEffects: { [activeId]: buildRoguelikeSkillEffects(current.acquiredSkills[activeId] ?? {}) },
+      skillEffects: { [activeId]: skillEffects },
       skillTurn: getCoopSkillTurn(current, activeId),
       disableVoidmination: true,
       ...(isWeakFloor(current.floor) ? {} : {
@@ -795,7 +797,8 @@ export function CooperativeRoguelikeManager(props: {
   const turnCountdown = snapshot.stage === "battle"
     ? countdown
     : 0;
-  const activeActions = getCoopAvailableActions(activePlayer, snapshot.floorTurn, activePlayer.lastActionCategory);
+  const skillEffects = buildCoopSkillEffects(snapshot.acquiredSkills, activePlayer.id);
+  const activeActions = getCoopAvailableActions(activePlayer, snapshot.floorTurn, activePlayer.lastActionCategory, skillEffects);
 
   return (
     <div className="battle-manager-shell" style={{ position: "relative" }}>
@@ -817,6 +820,7 @@ export function CooperativeRoguelikeManager(props: {
         onTurnAnimationComplete={handleTurnAnimationComplete}
         roguelikeWeakMagicTooltipTitle={buildWeakMagicTooltip(snapshot.acquiredWeakMagicKinds[activePlayer.id] ?? [])}
         roguelikeSkillLabels={buildRoguelikeSkillLabels(snapshot.acquiredSkills[activePlayer.id] ?? {}, activePlayer.roguelikeGutsUsed, snapshot.acquiredHealingSkills[activePlayer.id] ?? {})}
+        roguelikeSkillEffects={skillEffects}
         availableActionsOverride={activeActions}
         onRematchSame={() => {}}
         onRematchRedraw={() => {}}

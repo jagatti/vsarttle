@@ -4,7 +4,8 @@ export type SkillId =
   | "smallHeal" | "mediumHeal" | "largeHeal"
   | "attackResistance" | "magicResistance" | "barrierResistance"
   | "tieBoost" | "ppRegen" | "statusResistance" | "filter" | "ppAbsorb" | "hpRegen"
-  | "pursuit" | "fightSpirit" | "guts";
+  | "pursuit" | "fightSpirit" | "guts"
+  | "shortBattle" | "enhancedMagic" | "extraStatus" | "underdog";
 
 export type AcquiredSkills = Partial<Record<SkillId, number>>;
 
@@ -21,6 +22,10 @@ export interface RoguelikeSkillEffects {
   pursuit?: boolean;
   fightSpirit?: boolean;
   guts?: boolean;
+  shortBattle?: boolean;
+  enhancedMagic?: boolean;
+  extraStatus?: boolean;
+  underdog?: boolean;
 }
 
 export const ROGUELIKE_SKILL_BALANCE = {
@@ -62,6 +67,10 @@ export const ROGUELIKE_SKILLS: Record<SkillId, RoguelikeSkill> = {
   pursuit: { id: "pursuit", label: "追撃", description: "相手がまひ、またはチャージ状態のとき、追加で50ダメージを与える。", rarity: 1, maxStacks: 1, consumable: false },
   fightSpirit: { id: "fightSpirit", label: "闘争心", description: "バランス型が相手の時、与えるダメージと受けるダメージが20%アップする。", rarity: 2, maxStacks: 1, consumable: false },
   guts: { id: "guts", label: "根性", description: "HPが0になるダメージを受けたとき、一度だけHP1で耐える（1ランにつき1回）。", rarity: 3, maxStacks: 1, consumable: false },
+  shortBattle: { id: "shortBattle", label: "短期決戦", description: "層内ターン11以降、与ダメージ・被ダメージが常時2倍。21以降は常時3倍。（協力では2人に適用）", rarity: 1, maxStacks: 1, consumable: false },
+  enhancedMagic: { id: "enhancedMagic", label: "強化魔法", description: "まほうの消費PP+25%（その分まほうの威力も上がる）。", rarity: 2, maxStacks: 1, consumable: false },
+  extraStatus: { id: "extraStatus", label: "異常追加", description: "弱まほうで付与する状態異常が+1。（習得効果が2個以上必要）", rarity: 2, maxStacks: 1, consumable: false },
+  underdog: { id: "underdog", label: "下克上", description: "自分の最大HPが敵より低いとき、与ダメージ+50%。", rarity: 3, maxStacks: 1, consumable: false },
 };
 
 function skillStacks(acquired: AcquiredSkills, skill: RoguelikeSkill): number {
@@ -89,6 +98,10 @@ export function buildRoguelikeSkillEffects(acquired: AcquiredSkills): RoguelikeS
       case "pursuit":
       case "fightSpirit":
       case "guts":
+      case "shortBattle":
+      case "enhancedMagic":
+      case "extraStatus":
+      case "underdog":
         effects[skill.id] = true;
     }
   }

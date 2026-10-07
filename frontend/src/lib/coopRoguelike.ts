@@ -3,7 +3,7 @@ import type { ActionCategory, ActionType, PlayerBattleState, TurnResult, WeakMag
 import { applyBossMultiplyUpgrade, applyUpgrade, isWeakFloor } from "@/lib/roguelikeEnemyStats";
 import { applyPlayerStats, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
 import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots, type RoguelikeBossUpgradeChoice, type RoguelikeSkillUpgradeSlot } from "@/lib/roguelikeUpgrades";
-import { applyRoguelikeSkillReward, ROGUELIKE_SKILLS, type AcquiredSkills } from "@/lib/roguelikeSkills";
+import { applyRoguelikeSkillReward, buildRoguelikeSkillEffects, ROGUELIKE_SKILLS, type AcquiredSkills, type RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import { getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
 import type { UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
 
@@ -78,6 +78,17 @@ export function getCoopResultData(snapshot: Pick<CoopSnapshot, "floor" | "totalT
   return { floorReached: snapshot.floor, totalTurn: snapshot.totalTurn };
 }
 
+export function buildCoopSkillEffects(
+  acquiredSkills: Record<CoopPlayerId, AcquiredSkills>,
+  playerId: CoopPlayerId,
+): RoguelikeSkillEffects {
+  const effects = buildRoguelikeSkillEffects(acquiredSkills[playerId] ?? {});
+  if (Object.values(acquiredSkills).some((skills) => buildRoguelikeSkillEffects(skills).shortBattle)) {
+    effects.shortBattle = true;
+  }
+  return effects;
+}
+
 export function buildCoopUpgradeChoices(
   snapshot: CoopSnapshot,
   playerId: CoopPlayerId,
@@ -88,7 +99,13 @@ export function buildCoopUpgradeChoices(
   const choices: CoopUpgradeChoice[] = isWeakFloor(snapshot.floor)
     ? pickRoguelikeWeakFloorUpgradeSlots(
         snapshot.floor, snapshot.acquiredWeakMagicKinds[playerId] ?? [], 3, random,
-        { acquiredSkills: snapshot.acquiredSkills[playerId], currentHp: player.currentHp, maxHp: player.stats.maxHp },
+        {
+          acquiredSkills: {
+            ...snapshot.acquiredSkills[playerId],
+            ...(buildCoopSkillEffects(snapshot.acquiredSkills, playerId).shortBattle ? { shortBattle: 1 } : {}),
+          },
+          currentHp: player.currentHp, maxHp: player.stats.maxHp,
+        },
       ).map((slot) => slot.kind === "stat" ? { ...slot, kind: "weak-stat" } : slot)
     : getRoguelikeBossUpgradeChoices(snapshot.floor);
   if (!needsRevival || !choices.length) return choices;
@@ -186,8 +203,9 @@ export function getCoopAvailableActions(
   player: PlayerBattleState,
   turn: number,
   lastActionCategory: ActionCategory | null,
+  skillEffects?: RoguelikeSkillEffects,
 ): ActionType[] {
-  return getAvailableActions({ ...player, lastActionCategory }, turn === 1 ? 2 : turn);
+  return getAvailableActions({ ...player, lastActionCategory }, turn === 1 ? 2 : turn, skillEffects);
 }
 
 export function getCoopChargeMultiplierAfterAction(

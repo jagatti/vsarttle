@@ -27,12 +27,12 @@ test("registry contains stable IDs with complete metadata and rarity pools", () 
   assert.deepEqual(Object.keys(ROGUELIKE_SKILLS), [
     "smallHeal", "mediumHeal", "largeHeal", "attackResistance", "magicResistance",
     "barrierResistance", "tieBoost", "ppRegen", "statusResistance", "filter", "ppAbsorb", "hpRegen",
-    "pursuit", "fightSpirit", "guts",
+    "pursuit", "fightSpirit", "guts", "shortBattle", "enhancedMagic", "extraStatus", "underdog",
   ]);
   const expectedPools = {
-    1: ["smallHeal", "attackResistance", "magicResistance", "barrierResistance", "tieBoost", "pursuit"],
-    2: ["mediumHeal", "ppRegen", "statusResistance", "filter", "ppAbsorb", "fightSpirit"],
-    3: ["largeHeal", "hpRegen", "guts"],
+    1: ["smallHeal", "attackResistance", "magicResistance", "barrierResistance", "tieBoost", "pursuit", "shortBattle"],
+    2: ["mediumHeal", "ppRegen", "statusResistance", "filter", "ppAbsorb", "fightSpirit", "enhancedMagic", "extraStatus"],
+    3: ["largeHeal", "hpRegen", "guts", "underdog"],
   };
   for (const rarity of [1, 2, 3] as const) {
     assert.deepEqual(Object.values(ROGUELIKE_SKILLS).filter((skill) => skill.rarity === rarity).map((skill) => skill.id), expectedPools[rarity]);

@@ -338,7 +338,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
     const me = currentBattle[playerId];
     const enemy = currentBattle[enemyId];
-    const availableActions = getAvailableActions(me, turnNumber);
+    const skillEffects = buildRoguelikeSkillEffects(acquiredSkillsRef.current);
+    const availableActions = getAvailableActions(me, turnNumber, skillEffects);
     const playerAction: ActionType = me.paralyzedNextTurn
       ? "paralysis"
       : selectedAction ?? availableActions[Math.floor(Math.random() * availableActions.length)] ?? "attack";
@@ -363,7 +364,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
         [playerId]: { kinds: weakMagicPool },
         [enemyId]: (caster) => ({ kinds: getEnemyWeakMagicKindsByType(caster.characterType) }),
       },
-      skillEffects: { [playerId]: buildRoguelikeSkillEffects(acquiredSkillsRef.current) },
+      skillEffects: { [playerId]: skillEffects },
       disableVoidmination: true,
       ...(floorRef.current === 20 ? { damageCaps: { [playerId]: 999, [enemyId]: 499 } } : {}),
       roguelikeBossBattle: !isWeakFloor(floorRef.current)
@@ -1076,6 +1077,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           suppressFinishOverlay={isOverlayVisible}
           roguelikeWeakMagicTooltipTitle={weakMagicTooltip}
           roguelikeSkillLabels={skillLabels}
+          roguelikeSkillEffects={buildRoguelikeSkillEffects(acquiredSkills)}
         />
         {skillLogs.length > 0 && rlStage === "battle" && (
           <div role="status" className="fixed bottom-2 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded bg-slate-950/90 px-3 py-1 text-xs text-cyan-200 pointer-events-none">
