@@ -5,6 +5,7 @@ import type PeerType from "peerjs";
 import type { DataConnection } from "peerjs";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { CooperativeRoguelikeManager } from "@/components/RoguelikeMode/CooperativeRoguelikeManager";
 import { ProfileScreen } from "@/components/Profile/ProfileScreen";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSelectPanel";
@@ -22,6 +23,8 @@ import { analyzeDrawing } from "@/lib/statCalculator";
 import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { soundManager } from "@/lib/soundManager";
 import { getMultiplayerStageBgm, isTitleBgmPath } from "@/lib/vsTransition";
+import { ROGUELIKE_PLAYER_INITIAL_STATS } from "@/lib/roguelikeEnemyStats";
+import type { CoopWireMessage } from "@/lib/coopRoguelike";
 import type {
   ActionType,
   BattleMode,
@@ -68,7 +71,8 @@ type WireMessage =
   | { type: "turn_result"; payload: TurnResult }
   | { type: "forfeit"; payload: { winnerId: string; reason: string } }
   | { type: "rematch"; payload: { mode: RematchMode } }
-  | { type: "return_to_title"; payload: Record<string, never> };
+  | { type: "return_to_title"; payload: Record<string, never> }
+  | CoopWireMessage;
 
 export default function Home() {
   const bgmPath = useSyncExternalStore(soundManager.subscribeBgm, soundManager.getBgmPath, () => null);
@@ -140,6 +144,9 @@ export default function Home() {
   const [matchRecord, setMatchRecord] = useState({ wins: 0, losses: 0 });
   /** When non-empty, shows an overlay informing this player that the peer returned to title. */
   const [peerReturnMsg, setPeerReturnMsg] = useState("");
+  const [coopInitialPlayers, setCoopInitialPlayers] = useState<[PlayerBattleState, PlayerBattleState] | null>(null);
+  const [coopWireMessage, setCoopWireMessage] = useState<CoopWireMessage | null>(null);
+  const [coopPeerDisconnected, setCoopPeerDisconnected] = useState(false);
 
   const myState = useMemo(() => battleState[myIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[peerIdRef.current], [battleState]);
@@ -293,6 +300,25 @@ export default function Home() {
     setBattleFinish(null);
     setTurnResult(null);
     setTurn(1);
+    if (battleModeRef.current === "coop-roguelike") {
+      const fixedPlayer = (player: PlayerBattleState): PlayerBattleState => ({
+        ...player,
+        stats: { ...ROGUELIKE_PLAYER_INITIAL_STATS },
+        characterType: "balanced",
+        currentHp: ROGUELIKE_PLAYER_INITIAL_STATS.maxHp,
+        currentPp: ROGUELIKE_PLAYER_INITIAL_STATS.maxPp,
+        chargeMultiplier: 1,
+        lastActionCategory: null,
+      });
+      setCoopInitialPlayers(
+        roleRef.current === "host"
+          ? [fixedPlayer(me), fixedPlayer(enemy)]
+          : [fixedPlayer(enemy), fixedPlayer(me)],
+      );
+      setStage("coop-roguelike");
+      setStatus("協力ローグライク開始！");
+      return;
+    }
     setStatus("対戦開始！");
     matchIdRef.current = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
     turnHistoryRef.current = [];
@@ -405,6 +431,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!battleFinish || roleRef.current !== "host") return;
+    const matchBattleMode = battleModeRef.current;
+    if (matchBattleMode === "coop-roguelike") return;
     if (!matchIdRef.current || submittedMatchIdsRef.current.has(matchIdRef.current)) return;
     const local = localCharacterRef.current;
     const remote = remoteCharacterRef.current;
@@ -445,7 +473,7 @@ export default function Home() {
           match: {
             matchId: matchIdRef.current,
             playedAt: new Date().toISOString(),
-            battleMode: battleModeRef.current,
+            battleMode: matchBattleMode,
             source: "multiplayer",
             players,
             winnerId: winnerPersistentId,
@@ -570,6 +598,9 @@ export default function Home() {
     pendingBattleStartRef.current = null;
     setPendingCharacterBase(null);
     setPendingReadyCharacter(null);
+    setCoopInitialPlayers(null);
+    setCoopWireMessage(null);
+    setCoopPeerDisconnected(false);
     battleModeRef.current = "simple";
     setBattleMode("simple");
     setMatchRecord({ wins: 0, losses: 0 });
@@ -585,6 +616,16 @@ export default function Home() {
   };
 
   const handleWire = (message: WireMessage) => {
+    if (
+      message.type === "coop_snapshot"
+      || message.type === "coop_action"
+      || message.type === "coop_upgrade"
+      || message.type === "coop_restart"
+      || message.type === "coop_redraw"
+    ) {
+      setCoopWireMessage(message);
+      return;
+    }
     if (message.type === "room_config") {
       battleModeRef.current = message.payload.battleMode;
       setBattleMode(message.payload.battleMode);
@@ -680,6 +721,19 @@ export default function Home() {
         // We (or the peer) deliberately closed the connection — skip forfeit flow.
         return;
       }
+      if (battleModeRef.current === "coop-roguelike") {
+        if (roleRef.current === "host") {
+          setCoopPeerDisconnected(true);
+          setStatus("相手が切断しました。1人で攻略を続けます。");
+        } else {
+          setPeerReturnMsg("ホストが切断しました。ゲームを終了します");
+          window.setTimeout(() => {
+            goToTitle();
+            setPeerReturnMsg("");
+          }, 1800);
+        }
+        return;
+      }
       setStatus(`接続切断。${RECONNECT_SECONDS}秒以内に復帰できなければ敗北`);
       reconnectTimerRef.current = window.setTimeout(() => {
         setStage("result");
@@ -694,6 +748,8 @@ export default function Home() {
 
   const startHostSession = async (name: string, selectedBattleMode: BattleMode) => {
     destroyPeer();
+    setCoopPeerDisconnected(false);
+    setCoopWireMessage(null);
     const identity = await ensureSyncedIdentity(name);
     setNickname(identity.nickname);
     battleModeRef.current = selectedBattleMode;
@@ -743,6 +799,8 @@ export default function Home() {
 
   const startGuestSession = async (code: string, name: string) => {
     destroyPeer();
+    setCoopPeerDisconnected(false);
+    setCoopWireMessage(null);
     const identity = await ensureSyncedIdentity(name);
     setNickname(identity.nickname);
     battleModeRef.current = "simple";
@@ -826,6 +884,20 @@ export default function Home() {
 
   const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
     const analysis = analyzeDrawing(payload.drawing, payload.imageData);
+    if (battleModeRef.current === "coop-roguelike") {
+      const identity = playerIdentity ?? ensurePlayerIdentity(nickname);
+      finalizeReadyCharacter({
+        persistentPlayerId: identity.playerId,
+        nickname,
+        drawing: prepareDrawingForWire(payload.drawing),
+        stats: { ...ROGUELIKE_PLAYER_INITIAL_STATS },
+        characterType: "balanced",
+        drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+        enhancementSlot: null,
+        battleMode: "coop-roguelike",
+      });
+      return;
+    }
     setPendingCharacterBase({
       drawing: prepareDrawingForWire(payload.drawing),
       stats: analysis.stats,
@@ -880,6 +952,21 @@ export default function Home() {
     pendingBattleStartRef.current?.();
   }, []);
 
+  const startCoopRedraw = () => {
+    previousDrawingRef.current = localCharacterRef.current?.drawing ?? null;
+    localCharacterRef.current = null;
+    remoteCharacterRef.current = null;
+    pendingBattleStartRef.current = null;
+    setCoopInitialPlayers(null);
+    setCoopWireMessage(null);
+    setBattleState({});
+    setTurnResult(null);
+    setBattleFinish(null);
+    setDrawSeconds(DRAW_SECONDS);
+    setStage("drawing");
+    setStatus("描きなおして再戦！絵を編集できます。");
+  };
+
   const onBackToRoom = () => {
     destroyPeer();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
@@ -908,7 +995,7 @@ export default function Home() {
     setStatus("ルームを作成するか入室してください");
   };
 
-  const useViewportBattleLayout = stage === "battle";
+  const useViewportBattleLayout = stage === "battle" || stage === "coop-roguelike";
   const useViewportGameLayout = stage === "singleplay" || stage === "ghostmatch";
   const containerMaxWidthClass = useViewportBattleLayout || useViewportGameLayout || stage === "title" ? "" : "max-w-5xl";
 
@@ -1023,7 +1110,21 @@ export default function Home() {
 
       {stage === "drawing" && (
         <>
-          <DrawPanel seconds={drawSeconds} onComplete={onDrawingComplete} initialDrawing={previousDrawingRef.current ?? undefined} />
+          <div className={battleMode === "coop-roguelike" ? "grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]" : ""}>
+            <DrawPanel
+              seconds={drawSeconds}
+              onComplete={onDrawingComplete}
+              initialDrawing={previousDrawingRef.current ?? undefined}
+              completeLabel={battleMode === "coop-roguelike" ? "バトル開始" : undefined}
+            />
+            {battleMode === "coop-roguelike" && (
+              <aside className="flex flex-col gap-3 rounded-lg border border-amber-500/50 bg-slate-900/80 p-4 text-amber-100">
+                <h2 className="text-center font-bold">協力ローグライク</h2>
+                <p className="text-sm leading-6">ステータスは固定で開始し、各階層クリア時の強化だけで成長します。</p>
+                <p className="text-xs text-amber-200">タイプはバランス型固定です。登録できるラクガキは1体です。</p>
+              </aside>
+            )}
+          </div>
           {/* Enhancement slot selection — shown as a modal overlay after drawing is complete */}
           {pendingCharacterBase && (
             <div
@@ -1132,6 +1233,20 @@ export default function Home() {
           matchRecord={matchRecord}
           onReturnToTitle={onReturnToTitle}
           showArenaBackground={true}
+        />
+      )}
+
+      {stage === "coop-roguelike" && coopInitialPlayers && (
+        <CooperativeRoguelikeManager
+          initialPlayers={coopInitialPlayers}
+          localPlayerId={myIdRef.current}
+          remotePlayerId={peerIdRef.current}
+          isHost={roleRef.current === "host"}
+          incomingMessage={coopWireMessage}
+          sendMessage={sendWire}
+          peerDisconnected={coopPeerDisconnected}
+          onReturnToTitle={onReturnToTitle}
+          onRedraw={startCoopRedraw}
         />
       )}
 

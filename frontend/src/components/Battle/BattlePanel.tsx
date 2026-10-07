@@ -904,6 +904,10 @@ export function BattlePanel(props: {
    * the existing isAnimating / pendingAnimation render-time guards.
    */
   isResolvingTurn?: boolean;
+  /** Disable local action input while a co-op partner owns the active turn. */
+  playerInputEnabled?: boolean;
+  inactiveActionPrompt?: string;
+  availableActionsOverride?: ActionType[];
   finishResult?: { winnerId: string } | null;
   onRematchSame: () => void;
   onRematchRedraw: () => void;
@@ -978,7 +982,10 @@ export function BattlePanel(props: {
   //      useEffect has not yet run (render-time guard to close the brief window
   //      between receiving turnResult and isAnimating flipping to true).
   const resolvingPhase = !!(props.isResolvingTurn || isAnimating || pendingAnimation);
-  const availableActions = useMemo(() => getAvailableActions(props.me, props.turn), [props.me, props.turn]);
+  const availableActions = useMemo(
+    () => props.availableActionsOverride ?? getAvailableActions(props.me, props.turn),
+    [props.availableActionsOverride, props.me, props.turn],
+  );
   const enemyAvailableActions = useMemo(() => getAvailableActions(props.enemy, props.turn), [props.enemy, props.turn]);
   const displayMe = displayResources[props.me.id] ?? { currentHp: props.me.currentHp, currentPp: props.me.currentPp };
   const displayEnemy = displayResources[props.enemy.id] ?? { currentHp: props.enemy.currentHp, currentPp: props.enemy.currentPp };
@@ -2126,7 +2133,11 @@ export function BattlePanel(props: {
               >
                 ▼ {props.me.nickname} の手をえらぶ
               </div>
-              {resolvingPhase ? (
+              {props.playerInputEnabled === false ? (
+                <div className="battle-action-placeholder">
+                  {props.inactiveActionPrompt ?? "相手が選んでいます"}
+                </div>
+              ) : resolvingPhase ? (
                 /* Placeholder shown while the action is being resolved (animation playing,
                    turn being finalized, or next-turn countdown not yet reset). Structurally
                    removing the buttons here ensures no click can slip through even if the

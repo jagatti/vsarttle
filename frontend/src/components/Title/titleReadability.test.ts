@@ -78,5 +78,6 @@ test("room mode selection retains a pressed state and disabled join/create actio
   assert.match(html, /aria-pressed="true"/);
   assert.match(html, /aria-pressed="false"/);
   assert.equal((html.match(/disabled=""/g) ?? []).length, 2);
-  assert.equal((html.match(/class="title-menu-button/g) ?? []).length, 5);
+  assert.equal((html.match(/class="title-menu-button/g) ?? []).length, 6);
+  assert.match(html, /協力ローグライク/);
 });

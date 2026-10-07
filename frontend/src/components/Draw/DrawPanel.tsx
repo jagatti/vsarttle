@@ -160,6 +160,8 @@ export function DrawPanel(props: {
   onComplete: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
   /** When true, hides the countdown timer display and disables auto-submit on timer expiry. */
   noTimer?: boolean;
+  /** Optional submit label for specialized drawing flows. */
+  completeLabel?: string;
   /**
    * When provided, a "セット" button is shown (instead of the normal "完成" button) that
    * captures the current drawing without marking it as submitted, allowing the user to keep
@@ -592,7 +594,7 @@ export function DrawPanel(props: {
       ) : submitted ? (
         <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
       ) : (
-        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>完成</button>
+        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>{props.completeLabel ?? "完成"}</button>
       )}
     </section>
   );

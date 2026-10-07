@@ -1,9 +1,44 @@
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import type { ActionCategory, ActionType, PlayerBattleState, TurnResult, WeakMagicEffectSelection } from "@/types/game";
+import type { BossMultiplyKey, UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
 
 export const COOP_ROGUELIKE_DAMAGE_SCALING = { enemyHp: 1, enemyAttack: 1 } as const;
 
 export type CoopPlayerId = string;
+
+export type CoopUpgradeChoice =
+  | { kind: "stat"; key: UpgradeStatKey; amount: number; label: string }
+  | { kind: "boss-multiply"; key: BossMultiplyKey; multiplier: number; healRatio?: number; label: string }
+  | { kind: "full-heal"; label: string }
+  | { kind: "revival"; label: string };
+
+export interface CoopSnapshot {
+  runId: string;
+  floor: number;
+  turn: number;
+  playerIds: readonly [CoopPlayerId, CoopPlayerId];
+  activePlayerId: CoopPlayerId | null;
+  players: Record<CoopPlayerId, PlayerBattleState>;
+  enemy: PlayerBattleState | null;
+  stage: "loading" | "battle" | "resolving" | "upgrading" | "result";
+  turnResult: TurnResult | null;
+  chargeMultiplier: number;
+  deadline: number;
+  excludedPlayerIds: CoopPlayerId[];
+  pendingRevivalId: CoopPlayerId | null;
+  rewardPlayerId: CoopPlayerId | null;
+  upgradeChoices: CoopUpgradeChoice[];
+  lastAttackerId?: CoopPlayerId | null;
+  outcome: "cleared" | "game-over" | null;
+  status: string;
+}
+
+export type CoopWireMessage =
+  | { type: "coop_snapshot"; payload: CoopSnapshot }
+  | { type: "coop_action"; payload: { runId: string; turn: number; playerId: CoopPlayerId; action: ActionType } }
+  | { type: "coop_upgrade"; payload: { runId: string; floor: number; playerId: CoopPlayerId; choiceIndex: number } }
+  | { type: "coop_restart"; payload: { runId: string } }
+  | { type: "coop_redraw"; payload: { runId: string } };
 
 export function getCoopAlivePlayerIds(
   players: Record<CoopPlayerId, PlayerBattleState>,
@@ -125,6 +160,9 @@ export function resolveCoopTurn(params: {
   playerIds: readonly [CoopPlayerId, CoopPlayerId];
   rng?: () => number;
   weakMagicSelections?: Partial<Record<string, WeakMagicEffectSelection | ((caster: PlayerBattleState) => WeakMagicEffectSelection)>>;
+  disableVoidmination?: boolean;
+  damageCaps?: Record<string, number>;
+  roguelikeBossBattle?: { floor: number; bossId: string; playerId: string };
 }): CoopTurnResolution {
   const originalPlayer = params.players[params.activePlayerId];
   if (!originalPlayer) throw new Error(`Unknown co-op player: ${params.activePlayerId}`);
@@ -142,6 +180,9 @@ export function resolveCoopTurn(params: {
     actions: { [originalPlayer.id]: playerAction, [enemyId]: params.enemyAction },
     rng: params.rng,
     weakMagicSelections: params.weakMagicSelections,
+    disableVoidmination: params.disableVoidmination,
+    damageCaps: params.damageCaps,
+    roguelikeBossBattle: params.roguelikeBossBattle,
   });
   const nextPlayer = {
     ...turnResult.nextStates[originalPlayer.id]!,
@@ -152,7 +193,12 @@ export function resolveCoopTurn(params: {
   const nextEnemy = turnResult.nextStates[enemyId]!;
   const players = { ...params.players, [originalPlayer.id]: nextPlayer };
   const chargeMultiplier = getCoopChargeMultiplierAfterAction(params.chargeMultiplier, playerAction);
-  const nextPlayerId = getCoopNextPlayerId(players, originalPlayer.id, wasParalyzed, params.excludedIds);
+  const nextPlayerId = getCoopNextPlayerId(
+    players,
+    originalPlayer.id,
+    !!nextPlayer.paralyzedNextTurn,
+    params.excludedIds,
+  );
   return {
     turnResult: { ...turnResult, nextStates: { ...players, [enemyId]: nextEnemy } },
     players,

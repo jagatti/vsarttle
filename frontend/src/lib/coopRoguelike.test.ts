@@ -41,8 +41,26 @@ test("co-op paralysis consumes the active player's turn before handoff", () => {
   assert.equal(getCoopNextPlayerId(players, "p1", false), "p2");
 });
 
+test("an active player afflicted with paralysis keeps the next hand until their forced turn is spent", () => {
+  const result = resolveCoopTurn({
+    turn: 1,
+    players: { p1: player("p1"), p2: player("p2") },
+    enemy: player("enemy"),
+    activePlayerId: "p1",
+    playerAction: "attack",
+    enemyAction: "magicWeak",
+    chargeMultiplier: 1,
+    playerIds: ["p1", "p2"],
+    weakMagicSelections: { enemy: { kinds: ["paralysis"] } },
+    rng: () => 0.99,
+  });
+  assert.equal(result.players.p1?.paralyzedNextTurn, true);
+  assert.equal(result.nextPlayerId, "p1");
+});
+
 test("co-op consecutive-action restriction is tracked per player", () => {
   const p1 = player("p1");
+  assert.deepEqual(getCoopAvailableActions(p1, 1, null), ["attack", "magicWeak", "magicStrong", "barrier", "charge"]);
   assert.deepEqual(getCoopAvailableActions(p1, 3, "attack"), ["magicWeak", "magicStrong", "barrier", "charge"]);
   assert.deepEqual(getCoopAvailableActions(p1, 3, null), ["attack", "magicWeak", "magicStrong", "barrier", "charge"]);
 });
@@ -91,6 +109,7 @@ test("co-op turn resolution passes shared charge into the next player's damage",
     rng: () => 0.99,
   });
   assert.equal(first.chargeMultiplier, 1.5);
+  assert.equal(first.players.p2?.currentHp, 100);
   assert.equal(second.chargeMultiplier, 2.25);
   assert.equal(third.turnResult.damageEvents.find((event) => event.from === "p1")?.chargeMultiplier, 2.25);
   assert.equal(third.chargeMultiplier, 1);
@@ -111,6 +130,12 @@ test("co-op rewards follow layer parity except for surviving boss last attackers
     2,
     ["p1", "p2"],
     { bossFloor: true, lastAttackerId: "p2" },
+  ), "p1");
+  assert.equal(getCoopRewardPlayerId(
+    players,
+    2,
+    ["p1", "p2"],
+    { bossFloor: true, lastAttackerId: "p2", excludedIds: ["p2"] },
   ), "p1");
 });
 
