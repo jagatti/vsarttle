@@ -52,6 +52,7 @@ export function RoomPanel(props: {
           {([
             { mode: "simple", label: "シンプル対戦", description: "従来どおりの対戦です" },
             { mode: "custom", label: "カスタム対戦", description: "強化スロット後に弱まほう効果を選択します" },
+            { mode: "coop-roguelike", label: "協力ローグライク", description: "2人で協力して最深部を目指す" },
           ] as const).map(({ mode, label, description }) => {
             const selected = battleMode === mode;
             return (
