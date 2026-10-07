@@ -1,5 +1,5 @@
-export type Stage = "room" | "drawing" | "vs" | "battle" | "result" | "title" | "singleplay" | "profile" | "ghostmatch";
-export type BattleMode = "simple" | "custom";
+export type Stage = "room" | "drawing" | "vs" | "battle" | "coop-roguelike" | "result" | "title" | "singleplay" | "profile" | "ghostmatch";
+export type BattleMode = "simple" | "custom" | "coop-roguelike";
 
 export interface Point {
   x: number;
