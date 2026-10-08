@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>バトルエフェクト強化案プレビュー（Before / After）</title>
+  <!-- BEFORE: 本番の CSS をそのまま読み込む（keyframes / クラスは現行と同一）。
+       先頭の @import "tailwindcss" はブラウザでは解決されず無視される。 -->
+  <link rel="stylesheet" href="../../frontend/src/app/globals.css">
+  <!-- AFTER: 提案エフェクト（fx- 接頭辞） -->
+  <link rel="stylesheet" href="after.css">
+  <link rel="stylesheet" href="preview.css">
+</head>
+<body>
+  <header class="fx-page-header">
+    <h1>バトルエフェクト強化案プレビュー</h1>
+    <p>左が現行（BEFORE：本番の globals.css と MoveMotionOverlay.tsx のスタイルをそのまま再現）、右が強化案（AFTER：after.css）。</p>
+    <p>ビルド不要です。リポジトリのルートで <code>npx serve .</code> などを実行し <code>/docs/effects-preview/</code> を開いてください。<code>?reduced=1</code> で prefers-reduced-motion 時の見え方を確認できます。</p>
+    <div class="fx-controls">
+      <button type="button" id="replay-all">▶ ぜんぶ再生</button>
+      <label><input type="checkbox" id="loop" checked> くりかえし再生</label>
+    </div>
+  </header>
+  <main id="scenes"></main>
+  <script src="preview.js"></script>
+</body>
+</html>
