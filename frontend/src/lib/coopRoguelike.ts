@@ -3,7 +3,7 @@ import type { ActionCategory, ActionType, PlayerBattleState, TurnResult, WeakMag
 import { applyBossMultiplyUpgrade, applyUpgrade, isWeakFloor } from "@/lib/roguelikeEnemyStats";
 import { applyPlayerStats, healPlayerByRatio, healPlayerFully } from "@/lib/roguelikeTransition";
 import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots, type RoguelikeBossUpgradeChoice, type RoguelikeSkillUpgradeSlot } from "@/lib/roguelikeUpgrades";
-import { applyRoguelikeSkillReward, buildRoguelikeSkillEffects, ROGUELIKE_SKILLS, type AcquiredSkills, type RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
+import { applyRoguelikeSkillReward, buildRoguelikeSkillEffects, getRoguelikeSkillDisabledReason, ROGUELIKE_SKILLS, type AcquiredSkills, type RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import { getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
 import type { UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
 
@@ -36,6 +36,8 @@ export interface CoopSnapshot {
   excludedPlayerIds: CoopPlayerId[];
   pendingRevivalId: CoopPlayerId | null;
   rewardPlayerId: CoopPlayerId | null;
+  rewardPhase: 1 | 2;
+  pickedChoiceIndex: number | null;
   upgradeChoices: CoopUpgradeChoice[];
   lastAttackerId?: CoopPlayerId | null;
   outcome: "cleared" | "game-over" | null;
@@ -94,11 +96,12 @@ export function buildCoopUpgradeChoices(
   playerId: CoopPlayerId,
   needsRevival: boolean,
   random: () => number = Math.random,
+  count = 3,
 ): CoopUpgradeChoice[] {
   const player = snapshot.players[playerId]!;
   const choices: CoopUpgradeChoice[] = isWeakFloor(snapshot.floor)
     ? pickRoguelikeWeakFloorUpgradeSlots(
-        snapshot.floor, snapshot.acquiredWeakMagicKinds[playerId] ?? [], 3, random,
+        snapshot.floor, snapshot.acquiredWeakMagicKinds[playerId] ?? [], count, random,
         {
           acquiredSkills: {
             ...snapshot.acquiredSkills[playerId],
@@ -114,6 +117,57 @@ export function buildCoopUpgradeChoices(
     kind: "revival", label: "蘇生の儀式",
   };
   return choices;
+}
+
+export function getCoopChoiceDisabledReason(snapshot: CoopSnapshot, playerId: CoopPlayerId, index: number): string | null {
+  if (!Number.isInteger(index) || !snapshot.upgradeChoices[index]) return "無効な枠";
+  if (index === snapshot.pickedChoiceIndex) return "相手が選んだ枠";
+  if (snapshot.stage !== "upgrading" || snapshot.rewardPlayerId !== playerId
+    || !getCoopAlivePlayerIds(snapshot.players, snapshot.excludedPlayerIds).includes(playerId)) {
+    return "選択する順番ではありません";
+  }
+  const choice = snapshot.upgradeChoices[index]!;
+  if (choice.kind === "weak-magic" && (snapshot.acquiredWeakMagicKinds[playerId] ?? []).includes(choice.effectKind)) {
+    return "取得済み";
+  }
+  if (choice.kind === "skill") {
+    const skills = {
+      ...snapshot.acquiredSkills[playerId],
+      ...(buildCoopSkillEffects(snapshot.acquiredSkills, playerId).shortBattle ? { shortBattle: 1 } : {}),
+    };
+    return getRoguelikeSkillDisabledReason(skills, choice.skillId);
+  }
+  return null;
+}
+
+export function isCoopChoiceDisabled(snapshot: CoopSnapshot, playerId: CoopPlayerId, index: number): boolean {
+  return getCoopChoiceDisabledReason(snapshot, playerId, index) !== null;
+}
+
+export function getCoopFirstSelectableChoiceIndex(snapshot: CoopSnapshot): number {
+  return snapshot.upgradeChoices.findIndex((_, index) =>
+    snapshot.rewardPlayerId !== null && !isCoopChoiceDisabled(snapshot, snapshot.rewardPlayerId, index),
+  );
+}
+
+export function advanceCoopRewardPhase(
+  upgraded: CoopSnapshot,
+  pickedChoiceIndex: number,
+  random: () => number = Math.random,
+): CoopSnapshot | null {
+  if (upgraded.stage !== "upgrading" || upgraded.rewardPhase !== 1 || !isWeakFloor(upgraded.floor)
+    || upgraded.pendingRevivalId || !upgraded.upgradeChoices[pickedChoiceIndex]
+    || getCoopAlivePlayerIds(upgraded.players, upgraded.excludedPlayerIds).length !== 2) return null;
+  const rewardPlayerId = upgraded.playerIds.find((id) => id !== upgraded.rewardPlayerId)!;
+  const next: CoopSnapshot = { ...upgraded, rewardPlayerId, rewardPhase: 2, pickedChoiceIndex };
+  const remainingIndices = next.upgradeChoices.map((_, index) => index).filter((index) => index !== pickedChoiceIndex);
+  if (remainingIndices.every((index) => isCoopChoiceDisabled(next, rewardPlayerId, index))) {
+    const replacements = buildCoopUpgradeChoices(next, rewardPlayerId, false, random, remainingIndices.length);
+    next.upgradeChoices = next.upgradeChoices.map((choice, index) =>
+      index === pickedChoiceIndex ? choice : replacements[remainingIndices.indexOf(index)]!,
+    );
+  }
+  return next;
 }
 
 export function applyCoopUpgrade(snapshot: CoopSnapshot, playerId: CoopPlayerId, choice: CoopUpgradeChoice): CoopSnapshot {

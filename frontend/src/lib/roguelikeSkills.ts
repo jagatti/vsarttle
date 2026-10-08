@@ -78,6 +78,12 @@ function skillStacks(acquired: AcquiredSkills, skill: RoguelikeSkill): number {
   return Number.isFinite(count) ? Math.min(skill.maxStacks, Math.max(0, Math.floor(count))) : 0;
 }
 
+export function getRoguelikeSkillDisabledReason(acquired: AcquiredSkills, skillId: SkillId): string | null {
+  const skill = ROGUELIKE_SKILLS[skillId];
+  if (skill.consumable || skillStacks(acquired, skill) < skill.maxStacks) return null;
+  return skill.maxStacks === 1 ? "取得済み" : "取得上限";
+}
+
 export function buildRoguelikeSkillEffects(acquired: AcquiredSkills): RoguelikeSkillEffects {
   const effects: RoguelikeSkillEffects = {};
   for (const skill of Object.values(ROGUELIKE_SKILLS)) {

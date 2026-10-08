@@ -307,6 +307,7 @@ function snapshot(): CoopSnapshot {
     players: { a: player("a"), b: player("b") }, enemy: player("enemy"),
     stage: "battle", turnResult: null, chargeMultiplier: 1, deadline: 0,
     excludedPlayerIds: [], pendingRevivalId: null, rewardPlayerId: null, upgradeChoices: [],
+    rewardPhase: 1, pickedChoiceIndex: null,
     outcome: null, status: "", acquiredWeakMagicKinds: {}, acquiredSkills: {},
     acquiredHealingSkills: {}, floorDamageTaken: 0, perfectVictoryFloor: null,
   };
