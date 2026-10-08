@@ -695,6 +695,11 @@ export function CooperativeRoguelikeManager(props: {
       ),
       status: "相手が切断しました。1人で攻略を続けます。",
     };
+    if (snapshot.stage === "upgrading" && getCoopAlivePlayerIds(players, excludedPlayerIds).length === 0) {
+      clearTimers();
+      publish({ ...update, stage: "result", outcome: "game-over", status: "全員が戦闘不能になりました。" });
+      return;
+    }
     if ((snapshot.stage === "battle" || snapshot.stage === "vs" || snapshot.stage === "speech" || snapshot.stage === "switching") && snapshot.activePlayerId === disconnectedId) {
       update.activePlayerId = props.localPlayerId;
       if (snapshot.stage === "battle") update.deadline = Date.now() + getRoguelikeTurnSeconds(players[props.localPlayerId]!) * 1000;
@@ -711,7 +716,7 @@ export function CooperativeRoguelikeManager(props: {
     }
     publish(update);
     finishPresentation();
-  }, [finishPresentation, prepareFloor, props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
+  }, [clearTimers, finishPresentation, prepareFloor, props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
 
   useEffect(() => () => {
     clearTimers();

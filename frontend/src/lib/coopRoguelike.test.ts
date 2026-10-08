@@ -8,6 +8,7 @@ import {
   advanceCoopTurnCounters,
   buildCoopUpgradeChoices,
   getCoopAvailableActions,
+  getCoopAlivePlayerIds,
   getCoopChargeMultiplierAfterAction,
   getCoopChargeAuraStage,
   getCoopNextPlayerId,
@@ -348,6 +349,18 @@ test("boss rewards, revival offers, and a single survivor never open a second re
   const excluded = rewardSnapshot();
   excluded.excludedPlayerIds = ["p2"];
   assert.equal(advanceCoopRewardPhase(excluded, 0), null);
+});
+
+test("the sole survivor disconnecting during rewards leaves no valid picker and requires game over", () => {
+  const current = rewardSnapshot();
+  current.players.p1 = player("p1", 0);
+  current.rewardPlayerId = "p2";
+  current.pendingRevivalId = "p1";
+  current.excludedPlayerIds = ["p2"];
+  assert.deepEqual(getCoopAlivePlayerIds(current.players, current.excludedPlayerIds), []);
+  assert.equal(getCoopTurnOutcome(current.players, 0, current.excludedPlayerIds), "game-over");
+  assert.equal(getCoopFirstSelectableChoiceIndex(current), -1);
+  assert.equal(advanceCoopRewardPhase(current, 0), null);
 });
 
   test("co-op weak-floor choices reuse solo rarity/skill/weak-magic slots with slot one intact", () => {
