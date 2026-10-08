@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6edda">
+    <title>バトルエフェクト提案 | arttle</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <p class="eyebrow">ARTTLE · BATTLE EFFECTS CONCEPT</p>
+        <h1>ラクガキが、<span>ぶつかる瞬間。</span></h1>
+        <p class="intro">絵の主役はそのままに、クレヨンの線とマンガの勢いで、読みやすく熱いバトルへ。</p>
+        <p class="note">これは方向性確認用のスタンドアロン・モックです。左は現行のCSS演出を参考に再現、右は強化案。ゲーム本体のコードは変更していません。</p>
+        <nav class="preview-links" aria-label="プレビュー画像">
+          <a href="./before-after.png">比較スクリーンショット</a>
+          <a href="./storyboard.svg">強化案の連続フレーム（各アクション3コマ）</a>
+        </nav>
+      </header>
+
+      <div class="column-headings" aria-hidden="true">
+        <span>BEFORE <small>現行の演出を参考に再現</small></span>
+        <span>AFTER <small>手描き・ポップな強化案</small></span>
+      </div>
+
+      <section class="comparisons" aria-label="エフェクト比較">
+        <article class="comparison attack" aria-labelledby="attack-title">
+          <div class="action-heading">
+            <span class="action-number">01</span>
+            <div><h2 id="attack-title">こうげき</h2><p>ためる → 踏み込む → ぶつかる</p></div>
+            <span class="duration">約 0.8 秒</span>
+          </div>
+          <div class="panels">
+            <div class="panel before-panel">
+              <div class="arena" aria-label="現行のこうげき演出イメージ">
+                <span class="action-tag">こうげき</span>
+                <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <div class="old-trail"></div>
+                <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+              </div>
+              <p class="panel-caption">小さな光跡と短い踏み込み</p>
+            </div>
+            <div class="panel after-panel">
+              <div class="arena" aria-label="強化案のこうげき演出イメージ">
+                <span class="action-tag">こうげき</span>
+                <div class="motion-lines"><i></i><i></i><i></i></div>
+                <div class="fighter blue-fighter attacker"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <svg class="slash" viewBox="0 0 210 110" aria-hidden="true"><path d="M15 83Q81 52 190 20"/><path d="M28 96Q102 70 201 31"/></svg>
+                <div class="impact-burst"><span>ドンッ!</span></div>
+                <div class="fighter red-fighter target-recoil"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+                <strong class="damage-pop">−24</strong>
+              </div>
+              <p class="panel-caption">大きな斬線・集中線・短いヒットストップ</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="comparison barrier" aria-labelledby="barrier-title">
+          <div class="action-heading">
+            <span class="action-number">02</span>
+            <div><h2 id="barrier-title">バリア</h2><p>広がる壁 → 波紋 → 破片 / 反射</p></div>
+            <span class="duration">約 0.7 秒</span>
+          </div>
+          <div class="panels">
+            <div class="panel before-panel">
+              <div class="arena" aria-label="現行のバリア演出イメージ">
+                <span class="action-tag">バリア</span>
+                <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <div class="old-wall"></div>
+                <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+              </div>
+              <p class="panel-caption">細い光の壁が出現して消える</p>
+            </div>
+            <div class="panel after-panel">
+              <div class="arena" aria-label="強化案のバリア演出イメージ">
+                <span class="action-tag">バリア</span>
+                <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <div class="shield"><svg viewBox="0 0 120 180" aria-hidden="true"><path d="M60 8Q84 28 111 24L105 102Q93 145 60 169 27 145 15 102L9 24Q36 28 60 8Z"/><path d="M60 28Q79 43 96 40L91 98Q81 126 60 143 39 126 29 98L24 40Q42 43 60 28Z"/></svg></div>
+                <div class="ripple"></div><div class="shard shard-a"></div><div class="shard shard-b"></div><div class="shard shard-c"></div>
+                <div class="spark-word">バチッ!</div>
+                <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+              </div>
+              <p class="panel-caption">手描きの壁・被弾の波紋・飛び散るカケラ</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="comparison magic" aria-labelledby="magic-title">
+          <div class="action-heading">
+            <span class="action-number">03</span>
+            <div><h2 id="magic-title">まほう</h2><p>弱＝素早く / 強＝ためて大きく</p></div>
+            <span class="duration">約 0.7〜1.0 秒</span>
+          </div>
+          <div class="panels">
+            <div class="panel before-panel">
+              <div class="arena" aria-label="現行のまほう演出イメージ">
+                <span class="action-tag">まほう</span>
+                <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <div class="old-rune"></div><div class="old-orb"></div>
+                <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+              </div>
+              <p class="panel-caption">紫の弾と円形の魔法陣</p>
+            </div>
+            <div class="panel after-panel">
+              <div class="arena" aria-label="強化案のまほう演出イメージ">
+                <span class="action-tag">まほう</span>
+                <div class="spell-circle"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="46"/><circle cx="60" cy="60" r="32"/><path d="M60 8 72 43 108 60 72 77 60 112 48 77 12 60 48 43Z"/></svg></div>
+                <div class="fighter blue-fighter caster"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <svg class="spell-trail" viewBox="0 0 250 80" aria-hidden="true"><path d="M8 42Q77 10 154 40"/><path d="M8 48Q85 22 154 46"/></svg>
+                <div class="spell-orb"></div><div class="spell-impact">ボンッ!</div>
+                <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+                <span class="magic-grade weak-grade">弱 · 青</span><span class="magic-grade strong-grade">強 · 紫</span>
+              </div>
+              <p class="panel-caption">強まほうは収束粒子・大きな弾・着弾の余波</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="comparison charge" aria-labelledby="charge-title">
+          <div class="action-heading">
+            <span class="action-number">04</span>
+            <div><h2 id="charge-title">チャージ</h2><p>足元から集まり、段階で強くなる</p></div>
+            <span class="duration">約 0.8 秒</span>
+          </div>
+          <div class="panels">
+            <div class="panel before-panel">
+              <div class="arena" aria-label="現行のチャージ演出イメージ">
+                <span class="action-tag">チャージ</span>
+                <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                <div class="old-aura"></div><span class="old-glow"></span>
+              </div>
+              <p class="panel-caption">足元の光輪がふわっと立ち上る</p>
+            </div>
+            <div class="panel after-panel">
+              <div class="arena charge-arena" aria-label="強化案のチャージ段階イメージ">
+                <span class="action-tag">チャージ</span>
+                <div class="charge-stage charged-stage">
+                  <span class="stage-label">CHARGED</span><div class="charge-ring"></div>
+                  <div class="fighter blue-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M28 77 Q14 60 28 44 L40 30 53 35 66 21 83 36 Q101 38 96 58 L91 81 78 96 51 94 40 82Z"/><path d="M28 56 14 45M82 43l8 8M48 60l3 2m22-4 4 1M50 78q15 9 28-1"/></svg></div>
+                  <span class="charge-spark spark-one"></span><span class="charge-spark spark-two"></span>
+                </div>
+                <div class="charge-stage over-stage">
+                  <span class="stage-label">OVERCHARGED</span><div class="charge-ring"></div>
+                  <div class="fighter red-fighter"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M25 78Q15 55 32 41L43 27 58 35 69 22 87 39Q103 45 94 65L88 82 70 98 49 91 37 83Z"/><path d="M31 50 19 40m63 6 8 7M47 61l4 2m19-3 4 1M49 77q13 8 25-1"/></svg></div>
+                  <span class="charge-spark spark-one"></span><span class="charge-spark spark-two"></span><span class="charge-spark spark-three"></span>
+                </div>
+                <span class="gather-word">グググ…</span>
+              </div>
+              <p class="panel-caption">チャージ段階に合わせて輪・光・粒子を強化</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="proposal" aria-labelledby="proposal-title">
+        <p class="eyebrow">IMPLEMENTATION NOTES</p>
+        <h2 id="proposal-title">実装するなら、この順番で。</h2>
+        <ol class="stages">
+          <li><b>1 · こうげき</b><span>短い溜め／突進／ヒットストップ。斬線・集中線・小さなダメージ数字。</span></li>
+          <li><b>2 · バリア</b><span>展開の広がり、被弾の波紋、破片、バリア同士の火花と反射軌道。</span></li>
+          <li><b>3 · まほう</b><span>弱・強のサイズと溜めを差別化。魔法陣、尾を引く弾、着弾の余波。</span></li>
+          <li><b>4 · チャージ</b><span>収束粒子と緑の脈動を追加し、charged / overcharged の段階を見せる。</span></li>
+          <li><b>5 · 共通の仕上げ</b><span>画面揺れ・勝ち/まひ/回避とのトーン統一。演出時間と重なりを調整。</span></li>
+        </ol>
+        <div class="implementation">
+          <p><b>実装候補:</b> <code>MoveMotionOverlay.tsx</code> に斬線・火花・衝撃波などの小さな overlay を追加し、<code>globals.css</code> に各 keyframes を定義。組み合わせや順序は <code>battleAnimationPhases.ts</code>、描画とヒット表示は <code>BattlePanel.tsx</code> で調整。</p>
+          <p><b>テンポ / 軽さ:</b> 1アクションは約0.5〜1.0秒を目安にし、ターンの読みやすさを優先。アニメーションは主に <code>transform</code> と <code>opacity</code>、少数の要素に限定。低スペック向けに粒子・揺れを控え、<code>prefers-reduced-motion</code> では移動を抑えて結果を残す。</p>
+          <p class="approval">方向性が決まったら、画面の揺れや擬音の量も含めて本実装の仕様を詰めます。</p>
+        </div>
+      </section>
+      <footer>ARTTLE · EFFECT CONCEPT · CSS / SVG ONLY · NO GAME SOURCE CHANGED</footer>
+    </main>
+  </body>
+</html>
