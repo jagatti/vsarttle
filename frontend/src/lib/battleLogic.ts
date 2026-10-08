@@ -380,7 +380,8 @@ export function resolveTurn(params: {
     const fightSpiritBonus = effectsFor(from)?.fightSpirit && to.characterType === "balanced"
       ? Math.ceil(scaledAmount / 5)
       : 0;
-    const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || to.chargeMultiplier > 1) ? 50 : 0;
+    const targetAction = to.id === left.id ? leftAction : rightAction;
+    const pursuitBonus = effectsFor(from)?.pursuit && (wasParalyzed(to) || targetAction === "charge") ? 50 : 0;
     const normalAmount = Math.round((scaledAmount + fightSpiritBonus) * underdogMultiplier);
     const outgoingAmount = Math.round((scaledAmount + fightSpiritBonus + pursuitBonus) * underdogMultiplier);
     const incomingFightSpirit = effectsFor(to)?.fightSpirit && from.characterType === "balanced";

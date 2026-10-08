@@ -72,6 +72,28 @@ test("pursuit adds 50 damage against a paralyzed or charging target only", () =>
   assert.ok(!inactive.logs.some((log) => log.includes("追撃")));
 });
 
+test("pursuit does not trigger against a target that charged last turn but takes another action this turn", () => {
+  for (const [targetAction, winningAction, expected] of [
+    ["attack", "magicWeak", 75],
+    ["barrier", "attack", 75],
+    ["magicWeak", "barrier", 113],
+    ["magicStrong", "magicWeak", 75],
+  ] as const) {
+    const charged = player("b");
+    charged.chargeMultiplier = 1.5;
+    charged.chargedPreviousTurn = true;
+    const actions = { a: winningAction, b: targetAction } satisfies Record<string, ActionType>;
+    const run = (skills?: Partial<Record<string, RoguelikeSkillEffects>>) =>
+      battle(actions, skills, { players: { a: player("a"), b: structuredClone(charged) } });
+    const result = run({ a: { pursuit: true } });
+    const hit = result.damageEvents.find((event) => event.to === "b");
+    assert.equal(hit?.amount, expected);
+    assert.equal(hit?.amount, run().damageEvents.find((event) => event.to === "b")?.amount);
+    assert.equal(hit?.pursuitDamage, undefined);
+    assert.ok(!result.logs.some((log) => log.includes("追撃")));
+  }
+});
+
 test("pursuit preserves barrier hits and does not display on avoided, filtered or absent hits", () => {
   const b = player("b");
   b.paralyzedNextTurn = true;
