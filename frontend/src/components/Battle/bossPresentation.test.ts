@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getBossPortraitKind, getBossPortraitSize, getCooperativePortraitSize, getFinalBossEffect } from "./bossPresentation";
-import { FinalBossAuraEffect, MagicBullet } from "./MoveMotionOverlay";
+import { FinalBossAuraEffect, MagicCastEffect } from "./MoveMotionOverlay";
 import { buildRoguelikeBossState } from "@/lib/roguelikeBoss";
 import { BattlePanel } from "./BattlePanel";
 
@@ -72,23 +72,28 @@ test("auras are decorative, bounded in particle count, and persist only while ch
   assert.equal((render("magicWeak").match(/<i /g) ?? []).length, 4);
 });
 
-test("final boss magic projectiles scale with the portrait and strong magic is larger", () => {
-  const render = (sourceActionType: "magicWeak" | "magicStrong", finalBoss: boolean) =>
-    renderToStaticMarkup(createElement(MagicBullet, { side: "right", motionType: "magicBlast", active: true, sourceActionType, finalBoss }));
-  assert.ok(render("magicWeak", true).includes("width:22%;height:22%"));
-  assert.ok(render("magicStrong", true).includes("width:32%;height:32%"));
-  assert.ok(render("magicStrong", true).includes("calc(-1 * min(28cqw, 32dvw))"));
-  assert.ok(render("magicWeak", false).includes("width:24px;height:24px"));
+test("magic projectiles share the common effect, scale with the portrait and strong magic is larger", () => {
+  const render = (strong: boolean) => renderToStaticMarkup(createElement(MagicCastEffect, { strong }));
+  assert.ok(render(false).includes("fx-orb-weak"));
+  assert.ok(render(true).includes("fx-orb-strong"));
+  assert.ok(render(true).includes("fx-rune-strong"));
+  const css = readFileSync(new URL("../../app/battle-effects.css", import.meta.url), "utf8");
+  const orbSize = (selector: string) => css.split(`${selector} {`)[1]?.split("}")[0] ?? "";
+  assert.match(orbSize(".fx-orb"), /width: calc\(24 \* var\(--u\)\)/);
+  assert.match(orbSize(".fx-orb-strong"), /var\(--u\)/);
+  const panel = readFileSync(new URL("./BattlePanel.tsx", import.meta.url), "utf8");
+  assert.equal(panel.includes("finalBossLunge"), false);
+  assert.ok(panel.includes('"--fx-size": portraitSize'));
 });
 
 test("reduced motion disables final boss shake, movement, screen wash and particles", () => {
   const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
   const reducedMotion = css.split("@media (prefers-reduced-motion: reduce)")[1];
-  for (const selector of [".final-boss-impact", ".boss-portrait-idle", '.battle-portrait[data-boss-kind="final"] .portrait-motion-frame', ".final-boss-ring"]) {
+  for (const selector of [".boss-portrait-idle", '.battle-portrait[data-boss-kind="final"] .portrait-motion-frame', ".final-boss-ring"]) {
     assert.ok(reducedMotion.includes(selector));
   }
   assert.ok(reducedMotion.includes("animation: none !important;"));
-  assert.match(reducedMotion, /\.final-boss-stage-wash,\s*\.final-boss-aura i,\s*\.final-boss-magic-bullet\s*\{\s*display: none;/);
+  assert.match(reducedMotion, /\.final-boss-stage-wash,\s*\.final-boss-aura i\s*\{\s*display: none;/);
 });
 
 test("boss battles reserve label clearance and damage pop stays in that clearance", () => {

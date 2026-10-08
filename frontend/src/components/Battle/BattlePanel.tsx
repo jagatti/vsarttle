@@ -19,18 +19,28 @@ import type { MoveMotionType } from "./battleAnimationPhases";
 import {
   applyAnimationPhaseToDisplayResources,
   buildDisplayBattleResources,
+  getPhaseImpactDelayMs,
+  getPhaseSeDelayMs,
   getTurnAnimationPhases,
 } from "./battleAnimationPhases";
 import {
-  AttackTrailEffect,
-  BarrierWallEffect,
-  ChargeAuraEffect,
+  AttackRushEffect,
+  BarrierEffect,
+  ChargeIdleAura,
+  ChargeOverEffect,
+  ChargeUnderEffect,
   FinalBossAuraEffect,
-  MagicBullet,
-  MagicRuneEffect,
+  ImpactEffect as ImpactEffectView,
+  MagicCastEffect,
+  OVERCHARGE_MULTIPLIER,
+  ParalysisBolts,
+  ParalysisText,
   getHitPortraitStyle,
+  getImpactKind,
   getPortraitMotionStyle,
+  isHeavyImpactKind,
 } from "./MoveMotionOverlay";
+import type { BarrierEffectMode, ImpactKind } from "./MoveMotionOverlay";
 import { MATCHUP_TONE_COLORS, getMatchupCommentary } from "./matchupCommentary";
 import { getBossPortraitKind, getBossPortraitSize, getCooperativePortraitSize, getFinalBossEffect } from "./bossPresentation";
 
@@ -83,7 +93,7 @@ const TYPE_LABELS: Record<CharacterType, string> = {
 export const VOIDMINATION_CUT_IN_DURATION_MS = 3900;
 export const HEAVY_DAMAGE_HP_RATIO = 0.33;
 export const HIT_FLASH_DURATION_MS = 720;
-export const IMPACT_EFFECT_DURATION_MS = 520;
+export const IMPACT_EFFECT_DURATION_MS = 760;
 export const PORTRAIT_MIN_SIZE_PX = 64;
 const SCREEN_SHAKE_DURATION_MS = 220;
 const CHARGED_SCREEN_SHAKE_DURATION_MS = 360;
@@ -220,7 +230,38 @@ interface DamageFloater {
 
 interface ImpactEffect {
   id: number;
-  charged: boolean;
+  kind: ImpactKind;
+}
+
+interface PhaseMotionState {
+  motionType?: MoveMotionType;
+  targetMotionType?: MoveMotionType;
+  sourceActionType?: ActionType;
+  /** ターゲット側として受けているわざ */
+  incomingActionType?: ActionType;
+  chargeMultiplier?: number;
+}
+
+/** バリア側に出す壁の演出を決める（アクター側 / 受ける側） */
+function getBarrierEffectMode(
+  isActing: boolean,
+  motionType: MoveMotionType | undefined,
+  targetMotionType: MoveMotionType | undefined,
+  incomingActionType: ActionType | undefined,
+  isHit: boolean,
+): BarrierEffectMode | null {
+  if (isActing) {
+    if (motionType === "barrierWall") return "deploy";
+    if (motionType === "barrierClash") return "clash";
+    if (motionType === "barrierBash") return "bash";
+    return null;
+  }
+  if (targetMotionType === "barrierWall") {
+    return incomingActionType === "magicWeak" || incomingActionType === "magicStrong" ? "reflect" : "hold";
+  }
+  if (targetMotionType === "barrierClash") return "clashTarget";
+  if (targetMotionType === "barrierBreak" && isHit) return "break";
+  return null;
 }
 
 function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; title?: string; typeLabelOverride?: string; skillLabels?: string[] }) {
@@ -372,8 +413,11 @@ function PortraitBlock({
   motionType,
   targetMotionType,
   sourceActionType,
+  incomingActionType,
   isHit,
   isStrongHit,
+  isStunned,
+  showStunText,
   side,
   transformPulse,
   drainDesaturate,
@@ -394,8 +438,14 @@ function PortraitBlock({
   motionType?: MoveMotionType;
   targetMotionType?: MoveMotionType;
   sourceActionType?: ActionType;
+  /** ターゲット側として受けているわざ（バリアで受け止める / 跳ね返す の出し分け） */
+  incomingActionType?: ActionType;
   isHit?: boolean;
   isStrongHit?: boolean;
+  /** まひで動けない（このターンの演出中ずっと） */
+  isStunned?: boolean;
+  /** まひのフェーズ中に「ビリビリッ」を出す */
+  showStunText?: boolean;
   side: "left" | "right";
   transformPulse?: boolean;
   drainDesaturate?: boolean;
@@ -407,9 +457,9 @@ function PortraitBlock({
   const isCharged = cooperativeChargeAuraStage === undefined
     ? player.chargeMultiplier > 1
     : cooperativeChargeAuraStage !== "none" && player.currentHp > 0;
-  const chargeGlowAnimation = cooperativeChargeAuraStage === "overcharged"
-    ? "cooperativeChargeGlowPortrait 1.2s ease-in-out infinite"
-    : isCharged ? "chargeGlowPortrait 1.2s ease-in-out infinite" : "none";
+  const isOvercharged = isCharged && (cooperativeChargeAuraStage === undefined
+    ? player.chargeMultiplier >= OVERCHARGE_MULTIPLIER
+    : cooperativeChargeAuraStage === "overcharged");
   const activeEffects: string[] = [];
   if (player.paralyzedNextTurn) activeEffects.push("まひ");
   if (player.tieBanActive) activeEffects.push("あいこ禁止");
@@ -418,37 +468,74 @@ function PortraitBlock({
   if ((player.magicBanTurns ?? 0) > 0) activeEffects.push("まほう禁止");
   if ((player.chargeBanTurns ?? 0) > 0) activeEffects.push("チャージ禁止");
 
+  const motionMultiplier = motionChargeMultiplier ?? player.chargeMultiplier;
   const portraitMotionStyle = getPortraitMotionStyle(
     motionType ?? "none",
     side,
     !!isActing,
-    motionChargeMultiplier ?? player.chargeMultiplier,
+    motionMultiplier,
+    sourceActionType,
   );
   const portraitKind = getBossPortraitKind(player.imageDataUrl);
   const finalBossEffect = portraitKind === "final"
     ? getFinalBossEffect(motionType ?? "none", !!isActing, sourceActionType)
     : null;
-  if (finalBossEffect) {
-    portraitMotionStyle.animation = `finalBoss${finalBossEffect === "attack" ? "Lunge" : "Cast"} 0.82s ease-out forwards`;
-  }
   const portraitHitStyle = getHitPortraitStyle(side, !!isHit, !!isStrongHit);
   if (portraitKind !== "normal") {
     portraitHitStyle["--hit-distance"] = isStrongHit ? "min(32px, 4cqw)" : "min(24px, 3cqw)";
   }
-  const magicMotionActive = !!isActing && (motionType === "magicBlast" || motionType === "magicReflect");
-  const magicGlowAnimation = magicMotionActive ? "magicPortraitGlow 0.82s ease-out forwards" : "";
+  const acting = !!isActing;
+  const attackActive = acting && motionType === "attackLunge";
+  const attackCharged = attackActive && motionMultiplier > 1;
+  const magicActive = acting && (motionType === "magicBlast" || motionType === "magicReflect");
+  const strongMagic = magicActive && sourceActionType === "magicStrong";
+  const chargeActive = acting && motionType === "chargeConcentration";
+  const chargeOver = chargeActive && motionMultiplier >= OVERCHARGE_MULTIPLIER;
   // Size against the available stage, leaving room for labels and damage above.
   // The px floor keeps fighters visible even if the stage container collapses.
   const getPortraitSize = cooperativePortrait ? getCooperativePortraitSize : getBossPortraitSize;
   const baseSize = getPortraitSize(portraitKind, false, PORTRAIT_MIN_SIZE_PX);
   const chargedSize = getPortraitSize(portraitKind, true, PORTRAIT_MIN_SIZE_PX);
 
-  // バリアの「割れ」演出はactingではなくターゲットとして受ける側に適用
-  const activeBarrierMotion = isActing ? motionType : (targetMotionType === "barrierWall" || (isHit && targetMotionType === "barrierBreak") ? targetMotionType : undefined);
+  const portraitSize = isCharged ? chargedSize : baseSize;
+  // バリアの壁: アクター側（展開・衝突・ぶつける）とターゲット側（受け止め・反射・割れ）
+  const barrierMode = getBarrierEffectMode(acting, motionType, targetMotionType, incomingActionType, !!isHit);
+  const imageFilter = [
+    isLoser ? "grayscale(100%)" : "",
+    drainDesaturate ? "saturate(0.28) brightness(0.92)" : "",
+    "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
+    "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
+    transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
+    isCharged
+      ? isOvercharged
+        ? "drop-shadow(0 0 8px #fef9c3) drop-shadow(0 0 18px #facc15) drop-shadow(0 0 26px #16a34aaa)"
+        : "drop-shadow(0 0 6px #4ade80cc) drop-shadow(0 0 12px #16a34a77)"
+      : "",
+  ].filter(Boolean).join(" ");
+  const imageBoxStyle: CSSProperties = {
+    display: "block",
+    width: portraitSize,
+    height: portraitSize,
+    objectFit: "contain",
+  };
+  // 静的 filter のシルエット（ヒットの白フラッシュ・チャージの脈動など）。opacity だけをアニメーションする。
+  const silhouette = (className: string) => (
+    <CharacterImage
+      src={player.imageDataUrl}
+      alt=""
+      aria-hidden="true"
+      className={`fx-silhouette ${className}`}
+      style={{ ...imageBoxStyle, position: "absolute", inset: 0 }}
+    />
+  );
 
   return (
     <div className="battle-portrait" data-boss-kind={portraitKind} style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ position: "relative" }}>
+      <div
+        className="fx-stage"
+        data-fighter-id={player.id}
+        style={{ position: "relative", "--fx-size": portraitSize, "--dir": side === "left" ? 1 : -1 } as CSSProperties}
+      >
         {portraitKind === "final" && (
           <FinalBossAuraEffect effect={finalBossEffect} charged={isCharged} />
         )}
@@ -510,19 +597,6 @@ function PortraitBlock({
             </div>
           );
         })}
-        {impactEffects.map((effect) => (
-          <div key={effect.id}>
-            {/* コミック風のヒットバースト（ラクガキらしいポップな当たり感） */}
-            <div className={`comic-burst${effect.charged ? " comic-burst-charged" : ""}`} aria-hidden="true">
-              <span>{effect.charged ? "ドカンッ!" : "バシッ!"}</span>
-            </div>
-            <div className={`impactParticles${effect.charged ? " impactParticlesCharged" : ""}`} aria-hidden="true">
-              {Array.from({ length: effect.charged ? 8 : 6 }, (_, index) => (
-                <i key={index} style={{ "--particle-angle": `${index * (360 / (effect.charged ? 8 : 6))}deg` } as CSSProperties} />
-              ))}
-            </div>
-          </div>
-        ))}
         {revealedAction && (
           <div
             className="doodle-frame"
@@ -561,6 +635,24 @@ function PortraitBlock({
             pointerEvents: "none",
           }}
         />
+        {/* チャージ: 足元の光・炎・地面の輪（キャラの後ろ） */}
+        {chargeActive && (
+          <div className="fx-layer" aria-hidden="true">
+            <ChargeUnderEffect overcharged={chargeOver} />
+          </div>
+        )}
+        {isCharged && !isLoser && !chargeActive && <ChargeIdleAura overcharged={isOvercharged} />}
+        {/* こうげき: 突進の残像（赤いシルエット） */}
+        {attackActive && Array.from({ length: attackCharged ? 3 : 2 }, (_, index) => (
+          <div
+            key={index}
+            className={`fx-ghost${attackCharged ? " fx-ghost-charged" : ""}`}
+            aria-hidden="true"
+            style={{ animationDelay: `${(index + 1) * 28}ms` }}
+          >
+            <CharacterImage src={player.imageDataUrl} alt="" style={{ ...imageBoxStyle, opacity: 0.75 - index * 0.2 }} />
+          </div>
+        ))}
         {/* 待機モーション。四角い画像ではなく、ふわふわ生きているラクガキに見せる。 */}
         <div
           className={`portrait-idle${portraitKind !== "normal" ? " boss-portrait-idle" : ""}`}
@@ -574,17 +666,14 @@ function PortraitBlock({
             <div className="portrait-hit-frame" style={portraitHitStyle as CSSProperties}>
               <div
                 className="portrait-hit-filter"
-                style={{ animation: isHit ? `hitFlash ${HIT_FLASH_DURATION_MS}ms ease-out forwards` : "none" }}
+                style={{ animation: isStunned && !isLoser ? "paralysisJitter 400ms steps(1) infinite" : "none" }}
               >
-                <div
-                  className="portrait-charge-glow"
-                  style={{ animation: chargeGlowAnimation }}
-                >
+                <div className="portrait-charge-glow">
                   <div
                     className="portrait-void-pulse"
                     style={{ animation: transformPulse ? "voidTypeShift 1.05s ease-in-out" : "none" }}
                   >
-                    <div className="portrait-magic-glow" style={{ animation: magicGlowAnimation }}>
+                    <div className="portrait-magic-glow" style={{ position: "relative" }}>
                       <CharacterImage
                         src={player.imageDataUrl}
                         alt={`${player.nickname} のキャラクター`}
@@ -592,48 +681,39 @@ function PortraitBlock({
                         onMouseLeave={() => setTooltipVisible(false)}
                         onClick={() => setTooltipVisible((v) => !v)}
                         style={{
-                          display: "block",
-                          width: isCharged ? chargedSize : baseSize,
-                          height: isCharged ? chargedSize : baseSize,
-                          objectFit: "contain",
+                          ...imageBoxStyle,
                           // 白いふちどり + 地面側の影。透過ラクガキが背景から独立して見えるようにする。
-                          filter: [
-                            isLoser ? "grayscale(100%)" : "",
-                            drainDesaturate ? "saturate(0.28) brightness(0.92)" : "",
-                            "drop-shadow(2px 0 0 rgba(248,250,252,0.95)) drop-shadow(-2px 0 0 rgba(248,250,252,0.95)) drop-shadow(0 2px 0 rgba(248,250,252,0.95)) drop-shadow(0 -2px 0 rgba(248,250,252,0.95))",
-                            "drop-shadow(0 8px 10px rgba(0,0,0,0.55))",
-                            transformPulse ? "drop-shadow(0 0 10px #c4b5fd) drop-shadow(0 0 22px #8b5cf6)" : "",
-                            isCharged
-                              ? cooperativeChargeAuraStage === "overcharged"
-                                ? "drop-shadow(0 0 8px #e0f2fe) drop-shadow(0 0 18px #60a5fa) drop-shadow(0 0 26px #38bdf8aa)"
-                                : "drop-shadow(0 0 6px #facc15cc) drop-shadow(0 0 12px #facc1577)"
-                              : "",
-                          ].filter(Boolean).join(" "),
+                          filter: imageFilter,
                           transition: "filter 1.8s ease-in-out, transform 0.3s, width 0.3s ease, height 0.3s ease",
                           transform: isActing && portraitKind === "normal" ? "scale(1.08)" : "scale(1)",
                           cursor: "pointer",
                         }}
                       />
+                      {isHit && silhouette("fx-hit-sil")}
+                      {chargeActive && silhouette(`fx-charge-pulse${chargeOver ? " fx-charge-pulse-over" : ""}`)}
+                      {strongMagic && silhouette("fx-cast-glow")}
+                      {isStunned && !isLoser && (
+                        <>
+                          {silhouette("fx-stun-flash")}
+                          <ParalysisBolts />
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>        {/* まほう弾エフェクト */}
-        <AttackTrailEffect side={side} active={!!isActing && motionType === "attackLunge"} charged={(motionChargeMultiplier ?? player.chargeMultiplier) > 1} />
-        <ChargeAuraEffect active={!!isActing && motionType === "chargeConcentration"} />
-        <MagicBullet side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} finalBoss={portraitKind === "final"} />
-        <MagicRuneEffect side={side} motionType={motionType ?? "none"} sourceActionType={sourceActionType} active={!!isActing} />
-        {/* バリアの壁エフェクト（actor側: 通常バリア / バリアClash） */}
-        <BarrierWallEffect side={side} motionType={motionType ?? "none"} active={!!isActing} />
-        {activeBarrierMotion === "barrierWall" && !isActing && (
-          <BarrierWallEffect side={side} motionType="barrierWall" active={true} />
-        )}
-        {/* バリアの割れエフェクト（target側: こうげきを受けたとき） */}
-        {activeBarrierMotion === "barrierBreak" && (
-          <BarrierWallEffect side={side} motionType="barrierBreak" active={true} />
-        )}
+        </div>
+        {/* わざのエフェクト（向きは --dir、大きさは --fx-size に合わせて伸縮する） */}
+        <div className="fx-layer" aria-hidden="true">
+          {attackActive && <AttackRushEffect charged={attackCharged} />}
+          {magicActive && <MagicCastEffect strong={sourceActionType === "magicStrong"} reflect={motionType === "magicReflect"} />}
+          {chargeActive && <ChargeOverEffect overcharged={chargeOver} />}
+          {barrierMode && <BarrierEffect mode={barrierMode} />}
+          {showStunText && !isLoser && <ParalysisText />}
+          {impactEffects.map((effect) => <ImpactEffectView key={effect.id} kind={effect.kind} />)}
+        </div>
         {tooltipVisible && (() => {
           const s = getEffectiveStats(player);
           const evasionDisplay = getVoidminationTooltipEvasionDisplay(s.evasion, !!inevitableZoneActive);
@@ -999,6 +1079,9 @@ export function BattlePanel(props: {
   const [showMatchupModal, setShowMatchupModal] = useState(false);
   const [hitIds, setHitIds] = useState<Set<string>>(new Set());
   const [strongHitIds, setStrongHitIds] = useState<Set<string>>(new Set());
+  // まひで動けないプレイヤー（行動公開後〜演出の終わりまで）
+  const [stunnedIds, setStunnedIds] = useState<Set<string>>(new Set());
+  const portraitRowRef = useRef<HTMLDivElement | null>(null);
   const [screenShake, setScreenShake] = useState<"normal" | "charged" | null>(null);
   const [displayResources, setDisplayResources] = useState(() => buildDisplayBattleResources([...(props.cooperativePlayers ?? [props.me]), props.enemy]));
   const animationInputsRef = useRef({ me: props.me, enemy: props.enemy, cooperativePlayers: props.cooperativePlayers, turnResult: props.turnResult });
@@ -1019,8 +1102,8 @@ export function BattlePanel(props: {
   const voidminationBadgeRef = useRef<HTMLDivElement | null>(null);
   // わざモーション: actingPhaseIndex が示す TurnAnimationPhase の motionType を保持
   const [activePhaseMotions, setActivePhaseMotions] = useState<{
-    me: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType; chargeMultiplier?: number };
-    enemy: { motionType?: MoveMotionType; targetMotionType?: MoveMotionType; sourceActionType?: ActionType; chargeMultiplier?: number };
+    me: PhaseMotionState;
+    enemy: PhaseMotionState;
   }>({ me: {}, enemy: {} });
   // True while the turn-result reveal/damage animation is playing. Used to keep
   // the action buttons locked for the whole animation, not just until the
@@ -1102,6 +1185,8 @@ export function BattlePanel(props: {
     setRevealedActions(null);
     setShowMatchupModal(false);
     setHitIds(new Set());
+    setStrongHitIds(new Set());
+    setStunnedIds(new Set());
     setScreenShake(null);
     setDisplayResources(buildDisplayBattleResources([...(props.cooperativePlayers ?? [props.me]), props.enemy]));
     setVoidminationActive(false);
@@ -1184,11 +1269,34 @@ export function BattlePanel(props: {
       setShowFlash(true);
       schedule(() => setShowFlash(false), 600);
 
+      // まひで動けないプレイヤーは、演出のあいだ体の上を稲妻が走る
+      const stunned = new Set(participants.filter((player) => turnResult.actions[player.id] === "paralysis").map((player) => player.id));
+      if (stunned.size > 0) setStunnedIds(stunned);
+
       // わざが実際に発動するタイミングでSEを再生する。
       const playActionSe = (playerId: string) => {
         const action = turnResult.actions[playerId];
         const sePath = action ? ACTION_SE[action] : "";
         if (sePath) soundManager.playSe(sePath);
+      };
+      const scheduleAt = (callback: () => void, delayMs: number) => {
+        if (delayMs > 0) schedule(callback, delayMs);
+        else callback();
+      };
+
+      // 2 人の中心の距離を測り、突進・弾・バリアの届く距離（--fx-gap）にする
+      const measureFighterGap = (actorId: string) => {
+        const row = portraitRowRef.current;
+        if (!row) return;
+        const stages = Array.from(row.querySelectorAll<HTMLElement>(".fx-stage[data-fighter-id]"));
+        const actorStage = stages.find((stage) => stage.dataset.fighterId === actorId);
+        const opponentId = actorId === enemy.id ? me.id : enemy.id;
+        const opponentStage = stages.find((stage) => stage.dataset.fighterId === opponentId);
+        if (!actorStage || !opponentStage) return;
+        const a = actorStage.getBoundingClientRect();
+        const b = opponentStage.getBoundingClientRect();
+        const gap = Math.abs((a.left + a.width / 2) - (b.left + b.width / 2));
+        if (gap > 0) row.style.setProperty("--fx-gap", `${Math.round(gap)}px`);
       };
 
       const runPhase = (phaseIndex: number) => {
@@ -1196,123 +1304,109 @@ export function BattlePanel(props: {
         if (!phase) return;
 
         setActingPlayerId(phase.actorId);
-        if (phase.sourceActionType) playActionSe(phase.actorId);
-        setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
+        measureFighterGap(phase.actorId);
+        if (phase.sourceActionType) scheduleAt(() => playActionSe(phase.actorId), getPhaseSeDelayMs(phase));
 
-        // わざモーションの状態を更新
-        const isActorMe = phase.actorId === me.id;
-        if (isActorMe) {
-          // meがactor: meにmotionType、enemyにtargetMotionType（例：バリア割れ）
-          setActivePhaseMotions({
-            me: {
-              motionType: phase.motionType,
-              sourceActionType: phase.sourceActionType,
-              chargeMultiplier: Math.max(
-                playersById[phase.actorId]?.chargeMultiplier ?? 1,
-                ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
-              ),
-            },
-            enemy: { targetMotionType: phase.targetMotionType },
-          });
-        } else {
-          // enemyがactor: enemyにmotionType、meにtargetMotionType
-          setActivePhaseMotions({
-            me: { targetMotionType: phase.targetMotionType },
-            enemy: {
-              motionType: phase.motionType,
-              sourceActionType: phase.sourceActionType,
-              chargeMultiplier: Math.max(
-                playersById[phase.actorId]?.chargeMultiplier ?? 1,
-                ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
-              ),
-            },
-          });
-        }
-
-        const phaseFloaters: DamageFloater[] = phase.damageEvents.map((event) => ({
-          id: floaterIdRef.current++,
-          amount: event.amount,
-          pursuitDamage: event.pursuitDamage,
-          avoided: event.avoided,
-          toMe: event.to === me.id,
-          type: "damage" as const,
-          chargeMultiplier: event.chargeMultiplier,
-        }));
-        const successfulHits = phase.damageEvents.filter((event) => !event.avoided && event.amount > 0);
-        const heavyHits = successfulHits.filter((event) => {
-          const target = playersById[event.to];
-          return target && event.amount / target.stats.maxHp >= HEAVY_DAMAGE_HP_RATIO;
-        });
-        const chargedHit = successfulHits.some((event) => event.chargeMultiplier > 1);
-        const phaseImpacts = successfulHits.map((event) => ({
-          id: floaterIdRef.current++,
-          charged: event.chargeMultiplier > 1,
-        }));
-        for (const chargeEvent of phase.chargeEvents) {
-          const isMe = chargeEvent.playerId === me.id;
-          if (chargeEvent.hpRecover > 0) {
-            phaseFloaters.push({
-              id: floaterIdRef.current++,
-              amount: chargeEvent.hpRecover,
-              avoided: false,
-              toMe: isMe,
-              type: "hpRecover",
-            });
-          }
-          if (chargeEvent.ppRecover > 0) {
-            phaseFloaters.push({
-              id: floaterIdRef.current++,
-              amount: chargeEvent.ppRecover,
-              avoided: false,
-              toMe: isMe,
-              type: "ppRecover",
-            });
-          }
-        }
-
-        if (phaseFloaters.length > 0) {
-          setFloaters((prev) => [...prev, ...phaseFloaters]);
-          schedule(() => {
-            const ids = new Set(phaseFloaters.map((floater) => floater.id));
-            setFloaters((prev) => prev.filter((floater) => !ids.has(floater.id)));
-          }, 1500);
-        }
-
-        if (successfulHits.length > 0) {
-          const phaseHitIds = new Set(successfulHits.map((event) => event.to));
-          const phaseStrongHitIds = new Set(
-            successfulHits
-              .filter((event) => event.chargeMultiplier > 1 || heavyHits.includes(event))
-              .map((event) => event.to),
+        // わざモーションの状態を更新（me が actor なら enemy は受ける側、逆も同じ）
+        const actorMultiplier = phase.motionType === "chargeConcentration"
+          ? turnResult.nextStates[phase.actorId]?.chargeMultiplier ?? playersById[phase.actorId]?.chargeMultiplier ?? 1
+          : Math.max(
+            playersById[phase.actorId]?.chargeMultiplier ?? 1,
+            ...phase.damageEvents.filter((event) => event.from === phase.actorId).map((event) => event.chargeMultiplier),
           );
-          setHitIds(phaseHitIds);
-          setStrongHitIds(phaseStrongHitIds);
+        const actorMotion: PhaseMotionState = {
+          motionType: phase.motionType,
+          sourceActionType: phase.sourceActionType,
+          chargeMultiplier: actorMultiplier,
+        };
+        const targetMotion: PhaseMotionState = {
+          targetMotionType: phase.targetMotionType,
+          incomingActionType: turnResult.actions[phase.actorId],
+        };
+        const isActorMe = phase.actorId === me.id;
+        setActivePhaseMotions(isActorMe ? { me: actorMotion, enemy: targetMotion } : { me: targetMotion, enemy: actorMotion });
+
+        // 当たった瞬間に HP・数字・ヒット演出・画面の揺れをまとめて出す
+        const applyImpact = () => {
+          setDisplayResources((prev) => applyAnimationPhaseToDisplayResources(prev, playersById, phase));
+
+          const phaseFloaters: DamageFloater[] = phase.damageEvents.map((event) => ({
+            id: floaterIdRef.current++,
+            amount: event.amount,
+            pursuitDamage: event.pursuitDamage,
+            avoided: event.avoided,
+            toMe: event.to === me.id,
+            type: "damage" as const,
+            chargeMultiplier: event.chargeMultiplier,
+          }));
+          const successfulHits = phase.damageEvents.filter((event) => !event.avoided && event.amount > 0);
+          const heavyHits = successfulHits.filter((event) => {
+            const target = playersById[event.to];
+            return target && event.amount / target.stats.maxHp >= HEAVY_DAMAGE_HP_RATIO;
+          });
+          const phaseImpacts = successfulHits.map((event) => ({
+            id: floaterIdRef.current++,
+            kind: getImpactKind(event, phase),
+          }));
+          for (const chargeEvent of phase.chargeEvents) {
+            const isMe = chargeEvent.playerId === me.id;
+            if (chargeEvent.hpRecover > 0) {
+              phaseFloaters.push({
+                id: floaterIdRef.current++,
+                amount: chargeEvent.hpRecover,
+                avoided: false,
+                toMe: isMe,
+                type: "hpRecover",
+              });
+            }
+            if (chargeEvent.ppRecover > 0) {
+              phaseFloaters.push({
+                id: floaterIdRef.current++,
+                amount: chargeEvent.ppRecover,
+                avoided: false,
+                toMe: isMe,
+                type: "ppRecover",
+              });
+            }
+          }
+
+          if (phaseFloaters.length > 0) {
+            setFloaters((prev) => [...prev, ...phaseFloaters]);
+            schedule(() => {
+              const ids = new Set(phaseFloaters.map((floater) => floater.id));
+              setFloaters((prev) => prev.filter((floater) => !ids.has(floater.id)));
+            }, 1500);
+          }
+
+          if (successfulHits.length === 0) return;
+          const strongHits = successfulHits.filter((event, index) =>
+            event.chargeMultiplier > 1 || heavyHits.includes(event) || isHeavyImpactKind(phaseImpacts[index].kind));
+          setHitIds(new Set(successfulHits.map((event) => event.to)));
+          setStrongHitIds(new Set(strongHits.map((event) => event.to)));
           schedule(() => setHitIds(new Set()), HIT_FLASH_DURATION_MS);
           schedule(() => setStrongHitIds(new Set()), HIT_FLASH_DURATION_MS);
-          setImpactEffects((prev) => ({
-            ...prev,
-            ...Object.fromEntries(
-              successfulHits.map((event, index) => [
-                event.to,
-                [...(prev[event.to] ?? []), phaseImpacts[index]],
-              ]),
-            ),
-          }));
-          schedule(() => {
-            setImpactEffects((prev) => {
-              const next = { ...prev };
-              for (const event of successfulHits) next[event.to] = (next[event.to] ?? []).slice(1);
-              return next;
+          setImpactEffects((prev) => {
+            const next = { ...prev };
+            successfulHits.forEach((event, index) => {
+              next[event.to] = [...(next[event.to] ?? []), phaseImpacts[index]];
             });
+            return next;
+          });
+          schedule(() => {
+            const ids = new Set(phaseImpacts.map((impact) => impact.id));
+            setImpactEffects((prev) => Object.fromEntries(
+              Object.entries(prev).map(([playerId, effects]) => [playerId, effects.filter((effect) => !ids.has(effect.id))]),
+            ));
           }, IMPACT_EFFECT_DURATION_MS);
-        }
-        if (chargedHit) {
-          setScreenShake("charged");
-          schedule(() => setScreenShake(null), CHARGED_SCREEN_SHAKE_DURATION_MS);
-        } else if (heavyHits.length > 0) {
-          setScreenShake("normal");
-          schedule(() => setScreenShake(null), SCREEN_SHAKE_DURATION_MS);
-        }
+          if (strongHits.length > 0) {
+            setScreenShake("charged");
+            schedule(() => setScreenShake(null), CHARGED_SCREEN_SHAKE_DURATION_MS);
+          } else {
+            setScreenShake("normal");
+            schedule(() => setScreenShake(null), SCREEN_SHAKE_DURATION_MS);
+          }
+        };
+        scheduleAt(applyImpact, getPhaseImpactDelayMs(phase));
       };
 
       const phaseDurationMs = getTurnPhaseDurationMs(phases.length);
@@ -1322,6 +1416,7 @@ export function BattlePanel(props: {
       schedule(() => {
         setActingPlayerId(null);
         setActivePhaseMotions({ me: {}, enemy: {} });
+        setStunnedIds(new Set());
         const runStatusEffect = (onDone: () => void) => {
           if (statusKind === "typeChange") {
             if (!turnResult.voidminationTriggered) {
@@ -1399,6 +1494,8 @@ export function BattlePanel(props: {
         setRevealedActions(null);
         setShowFlash(false);
         setHitIds(new Set());
+        setStrongHitIds(new Set());
+        setStunnedIds(new Set());
         setImpactEffects({});
         setScreenShake(null);
         setShowVoidminationCutIn(false);
@@ -1841,7 +1938,7 @@ export function BattlePanel(props: {
       )}
 
       <section
-        className={`battle-panel-card${props.cooperativePlayers ? " battle-panel-card-cooperative" : ""}${finalBossStageEffects.some(({ effect }) => effect === "attack") ? " final-boss-impact" : ""}`}
+        className={`battle-panel-card${props.cooperativePlayers ? " battle-panel-card-cooperative" : ""}`}
         style={{
           // 木目調のRPG枠から、スケッチブックのページを切り取ったような
           // 「インクの枠」に変更。主役であるラクガキが枠に負けないようにする。
@@ -2052,6 +2149,7 @@ export function BattlePanel(props: {
 
         {/* Portraits + timer */}
         <div
+          ref={portraitRowRef}
           className="battle-portrait-row"
           style={{
             display: "flex",
@@ -2096,7 +2194,10 @@ export function BattlePanel(props: {
                       motionType={active ? activePhaseMotions.me.motionType : undefined}
                       targetMotionType={active && activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
                       sourceActionType={active ? activePhaseMotions.me.sourceActionType : undefined}
+                      incomingActionType={active ? activePhaseMotions.me.incomingActionType : undefined}
                       motionChargeMultiplier={active ? activePhaseMotions.me.chargeMultiplier : undefined}
+                      isStunned={active && stunnedIds.has(player.id)}
+                      showStunText={active && actingPlayerId === player.id && activePhaseMotions.me.motionType === "paralysisStun"}
                       side="left"
                       cooperativePortrait
                       cooperativeChargeAuraStage={defeated ? "none" : cooperativeChargeAuraStage}
@@ -2123,7 +2224,10 @@ export function BattlePanel(props: {
             motionType={activePhaseMotions.me.motionType}
             targetMotionType={activePhaseMotions.me.motionType === undefined ? activePhaseMotions.me.targetMotionType : undefined}
             sourceActionType={activePhaseMotions.me.sourceActionType}
+            incomingActionType={activePhaseMotions.me.incomingActionType}
             motionChargeMultiplier={activePhaseMotions.me.chargeMultiplier}
+            isStunned={stunnedIds.has(props.me.id)}
+            showStunText={actingPlayerId === props.me.id && activePhaseMotions.me.motionType === "paralysisStun"}
             side="left"
           />
           )}
@@ -2199,7 +2303,10 @@ export function BattlePanel(props: {
             motionType={activePhaseMotions.enemy.motionType}
             targetMotionType={activePhaseMotions.enemy.motionType === undefined ? activePhaseMotions.enemy.targetMotionType : undefined}
             sourceActionType={activePhaseMotions.enemy.sourceActionType}
+            incomingActionType={activePhaseMotions.enemy.incomingActionType}
             motionChargeMultiplier={activePhaseMotions.enemy.chargeMultiplier}
+            isStunned={stunnedIds.has(props.enemy.id)}
+            showStunText={actingPlayerId === props.enemy.id && activePhaseMotions.enemy.motionType === "paralysisStun"}
             side="right"
             cooperativePortrait={!!props.cooperativePlayers}
           />

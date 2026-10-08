@@ -1,0 +1,1139 @@
+/* =====================================================================
+ * バトルエフェクト（ラクガキ風）
+ * ---------------------------------------------------------------------
+ * docs/effects-preview/after.css の見本を、本番のポートレートサイズに合わせて移植したもの。
+ * - 大きさ・距離は `--u`（ポートレート 1/120）で表し、どの画面サイズでも見本と同じ比率になる。
+ * - `--fx-gap` は BattlePanel が測った「2 人の中心間の距離」。突進距離や弾の飛距離に使う。
+ * - `.fx-mirror` の中は「右を向いている側」で描き、`--dir` で左右反転する。
+ * - アニメーションは transform / opacity が中心。filter は静的に指定してアニメーションしない
+ *   （SVG の線を描く stroke-dashoffset のみ例外。小さく短い）。
+ * - ヒットの瞬間（HP・効果音・被弾演出）は BattlePanel 側で battleAnimationPhases.ts の
+ *   MOTION_IMPACT_DELAY_MS に合わせて発火する。keyframes のヒット位置もこの値に揃える。
+ * - 色は BattlePanel.tsx の ACTION_COLORS に合わせる:
+ *   こうげき=赤 / 弱まほう=青 / 強まほう=紫 / バリア=橙 / チャージ=緑（2.25 倍以上は金）。
+ * ===================================================================== */
+
+.fx-stage {
+  position: relative;
+  --u: calc(var(--fx-size, 120px) / 120);
+  --gap: var(--fx-gap, calc(var(--fx-size, 120px) * 1.9));
+  --reach: clamp(calc(30 * var(--u)), calc(var(--gap) - 108 * var(--u)), calc(180 * var(--u)));
+  --reach-charged: clamp(calc(40 * var(--u)), calc(var(--gap) - 96 * var(--u)), calc(192 * var(--u)));
+  --clash: max(0px, calc(var(--gap) / 2 - 78 * var(--u)));
+  --bash: max(calc(20 * var(--u)), calc(var(--gap) - 122 * var(--u)));
+}
+
+/* 右向きで描いたパーツを、向きに合わせて反転させる 0x0 の原点（ポートレート中心） */
+.fx-mirror,
+.fx-origin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 14;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.fx-mirror { scale: var(--dir) 1; }
+.fx-under { z-index: 0; }
+.fx-at { position: absolute; width: 0; height: 0; }
+/* PortraitBlock のエフェクト層（ポートレートと同じ箱。中心が .fx-mirror / .fx-origin の原点） */
+.fx-layer { position: absolute; inset: 0; pointer-events: none; }
+
+/* 画像と同じ大きさで重ねる、静的 filter のシルエット（opacity だけをアニメーションする） */
+.fx-silhouette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  filter: brightness(0) invert(1);
+}
+
+.fx-hit-sil { animation: fxFlash 320ms linear both; }
+
+@keyframes fxFlash {
+  0% { opacity: 0; }
+  1%, 30% { opacity: 1; }
+  40% { opacity: 0; }
+  55% { opacity: 0.7; }
+  70%, 100% { opacity: 0; }
+}
+
+@keyframes fxDraw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fxFadeIn { from { opacity: 0; } }
+
+/* ---------------------------------------------------------------------
+ * ポーズ（.portrait-motion-frame / .portrait-hit-frame に付与）
+ * ------------------------------------------------------------------- */
+
+/* こうげき: ため(0-22%) → 突進(22-30%) → ヒットストップ(30-40%) → 戻り。ヒット = 255ms */
+@keyframes attackLunge {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  18%, 22% {
+    translate: calc(var(--dir) * -16 * var(--u)) calc(6 * var(--u)); rotate: calc(var(--dir) * -9deg); scale: 0.84 0.8;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5);
+  }
+  30%, 40% { translate: calc(var(--dir) * var(--reach)) calc(-4 * var(--u)); rotate: calc(var(--dir) * 9deg); scale: 1.18 0.92; }
+  56% { translate: calc(var(--dir) * var(--reach) * 0.8) 0; rotate: calc(var(--dir) * 3deg); scale: 1 1.04; }
+  80% { translate: calc(var(--dir) * -5 * var(--u)) 0; rotate: calc(var(--dir) * -2deg); scale: 0.98 1.02; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* チャージ中のこうげき: ためが深く、ヒットストップが長い(30-46%) */
+@keyframes attackLungeCharged {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  16% { translate: calc(var(--dir) * -20 * var(--u)) calc(8 * var(--u)); rotate: calc(var(--dir) * -12deg); scale: 0.8 0.74; }
+  20% { translate: calc(var(--dir) * -22 * var(--u)) calc(8 * var(--u)); rotate: calc(var(--dir) * -10deg); scale: 0.78 0.76; }
+  22% {
+    translate: calc(var(--dir) * -20 * var(--u)) calc(8 * var(--u)); rotate: calc(var(--dir) * -12deg); scale: 0.8 0.74;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5);
+  }
+  30%, 46% { translate: calc(var(--dir) * var(--reach-charged)) calc(-6 * var(--u)); rotate: calc(var(--dir) * 12deg); scale: 1.26 0.88; }
+  60% { translate: calc(var(--dir) * var(--reach-charged) * 0.8) 0; rotate: calc(var(--dir) * 4deg); scale: 1 1.04; }
+  82% { translate: calc(var(--dir) * -6 * var(--u)) 0; rotate: calc(var(--dir) * -2deg); scale: 0.98 1.02; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* 弱まほう: 振りかぶって前へ突き出す */
+@keyframes magicCast {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  12%, 18% { translate: calc(var(--dir) * -8 * var(--u)) calc(-6 * var(--u)); rotate: calc(var(--dir) * -8deg); scale: 0.96 1.06; }
+  24%, 60% { translate: calc(var(--dir) * 10 * var(--u)) calc(-10 * var(--u)); rotate: calc(var(--dir) * 6deg); scale: 1.08 1.04; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* 強まほう: 浮き上がって溜める時間（10-36%）がある */
+@keyframes magicCastStrong {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  10% { translate: 0 calc(-12 * var(--u)); rotate: 0deg; scale: 0.94 1.1; }
+  22% { translate: calc(var(--dir) * -2 * var(--u)) calc(-16 * var(--u)); rotate: calc(var(--dir) * -2deg); scale: 0.95 1.1; }
+  34% { translate: calc(var(--dir) * -4 * var(--u)) calc(-14 * var(--u)); rotate: calc(var(--dir) * -4deg); scale: 0.93 1.12; }
+  40%, 64% { translate: calc(var(--dir) * 14 * var(--u)) calc(-8 * var(--u)); rotate: calc(var(--dir) * 8deg); scale: 1.12 1.02; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* バリア: 腰を落として構え、壁を押し出す */
+@keyframes barrierBrace {
+  0%, 20% { translate: 0 calc(5 * var(--u)); scale: 0.92 0.84; rotate: 0deg; }
+  32%, 58% { translate: 0 calc(1 * var(--u)); scale: 1 1; rotate: calc(var(--dir) * -3deg); }
+  70%, 88% { translate: 0 0; scale: 1.06 1.04; rotate: 0deg; }
+  100% { translate: 0 0; scale: 1 1; rotate: 0deg; }
+}
+
+/* バリアをぶつける: 少し引いてため → 押し出す（ヒット = 300ms） */
+@keyframes barrierBash {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  22% { translate: calc(var(--dir) * -12 * var(--u)) 0; rotate: calc(var(--dir) * -6deg); scale: 0.97 1.03; }
+  33%, 50% { translate: calc(var(--dir) * 30 * var(--u)) 0; rotate: calc(var(--dir) * 8deg); scale: 1.06 0.95; }
+  70% { translate: calc(var(--dir) * 8 * var(--u)) 0; rotate: calc(var(--dir) * 2deg); scale: 1 1; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* チャージ: 沈み込み → 2 拍の脈動 */
+@keyframes chargeConcentration {
+  0% { translate: 0 0; scale: 1 1; rotate: 0deg; }
+  14%, 22% { translate: 0 calc(8 * var(--u)); scale: 1.06 0.8; }
+  34% { translate: 0 calc(-10 * var(--u)); scale: 0.96 1.12; }
+  44% { translate: 0 calc(-4 * var(--u)); scale: 1.04 1.02; }
+  58% { translate: 0 calc(-10 * var(--u)); scale: 1.1 1.1; }
+  70% { translate: 0 calc(-6 * var(--u)); scale: 1.02 1.02; }
+  100% { translate: 0 0; scale: 1 1; rotate: 0deg; }
+}
+
+/* オーバーチャージ（2.25 倍以上）: 震えが加わる */
+@keyframes chargeConcentrationOver {
+  0% { translate: 0 0; scale: 1 1; rotate: 0deg; }
+  14%, 22% { translate: 0 calc(10 * var(--u)); scale: 1.08 0.76; rotate: 0deg; }
+  30% { translate: 0 calc(-12 * var(--u)); scale: 0.94 1.14; rotate: -2deg; }
+  36% { rotate: 2deg; }
+  42% { translate: 0 calc(-6 * var(--u)); scale: 1.06 1.04; rotate: -2deg; }
+  50% { rotate: 2deg; }
+  58% { translate: 0 calc(-14 * var(--u)); scale: 1.14 1.14; rotate: -1deg; }
+  70% { translate: 0 calc(-8 * var(--u)); scale: 1.04 1.04; rotate: 0deg; }
+  100% { translate: 0 0; scale: 1 1; rotate: 0deg; }
+}
+
+/* 被弾: 「くの字」で静止 → ふっとぶ → 戻る。--dir は相手と逆向き */
+@keyframes hitRecoil {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  3%, 18% { translate: calc(var(--dir) * 6px) 0; rotate: calc(var(--dir) * 4deg); scale: 0.9 1.06; }
+  38% { translate: calc(var(--dir) * var(--hit-distance)) -6px; rotate: calc(var(--dir) * var(--hit-angle)); scale: 1.04 0.94; }
+  62% { translate: calc(var(--dir) * -5px) 0; rotate: calc(var(--dir) * -4deg); scale: 0.98 1.02; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+@keyframes hitRecoilHeavy {
+  0% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+  3%, 26% { translate: calc(var(--dir) * 8px) 2px; rotate: calc(var(--dir) * 6deg); scale: 0.86 1.08; }
+  44% { translate: calc(var(--dir) * var(--hit-distance)) -12px; rotate: calc(var(--dir) * var(--hit-angle)); scale: 1.06 0.9; }
+  66% { translate: calc(var(--dir) * -6px) 0; rotate: calc(var(--dir) * -5deg); scale: 0.98 1.02; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1 1; }
+}
+
+/* まひ: その場で細かくガタガタ（大きくは動かない＝動けない感じ） */
+@keyframes paralysisJitter {
+  0% { transform: translate(0, 0) rotate(0); }
+  12.5% { transform: translate(-3px, 1px) rotate(-1.5deg); }
+  25% { transform: translate(3px, -1px) rotate(1deg); }
+  37.5% { transform: translate(-2px, -1px) rotate(1.5deg); }
+  50% { transform: translate(2px, 1px) rotate(-1deg); }
+  62.5% { transform: translate(-3px, 0) rotate(1deg); }
+  75% { transform: translate(3px, 1px) rotate(-1.5deg); }
+  87.5% { transform: translate(-1px, -1px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+
+/* ---------------------------------------------------------------------
+ * 共通パーツ: ギザギザバースト、火花、描き文字、衝撃波、集中線
+ * ------------------------------------------------------------------- */
+
+@keyframes fxBurst {
+  0% { transform: scale(0.2) rotate(-20deg); opacity: 0; }
+  8% { opacity: 1; }
+  25% { transform: scale(1.2) rotate(6deg); }
+  45% { transform: scale(1) rotate(0deg); }
+  75% { opacity: 1; }
+  100% { transform: scale(1.25) rotate(4deg); opacity: 0; }
+}
+
+.fx-burst {
+  position: absolute;
+  left: calc(-46 * var(--u));
+  top: calc(-46 * var(--u));
+  width: calc(92 * var(--u));
+  height: calc(92 * var(--u));
+  animation: fxBurst 420ms ease-out both;
+}
+
+.fx-burst-ink,
+.fx-burst-core {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(
+    50% 0%, 59% 24%, 80% 8%, 76% 33%, 100% 36%, 80% 52%,
+    97% 72%, 70% 70%, 68% 98%, 50% 78%, 30% 96%, 31% 70%,
+    3% 74%, 21% 53%, 0% 34%, 25% 32%, 20% 7%, 41% 23%
+  );
+}
+
+.fx-burst-ink { background: #14161f; }
+
+/* クレヨンの塗りムラ風の斜線テクスチャ（静的） */
+.fx-burst-core {
+  inset: calc(7 * var(--u));
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #fff 0 20%, #ffd23f 42%, #ff5a5a 80%);
+}
+
+.fx-burst-charged { left: calc(-78 * var(--u)); top: calc(-78 * var(--u)); width: calc(156 * var(--u)); height: calc(156 * var(--u)); }
+.fx-burst-charged .fx-burst-core {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #fff 0 18%, #ffd23f 36%, #f97316 60%, #dc2626 86%);
+}
+
+.fx-burst-small { left: calc(-30 * var(--u)); top: calc(-30 * var(--u)); width: calc(60 * var(--u)); height: calc(60 * var(--u)); }
+
+.fx-burst-magic-weak { left: calc(-40 * var(--u)); top: calc(-40 * var(--u)); width: calc(80 * var(--u)); height: calc(80 * var(--u)); }
+.fx-burst-magic-weak .fx-burst-core {
+  inset: calc(6 * var(--u));
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 6px),
+    radial-gradient(circle, #fff 0 20%, #bfdbfe 40%, #4aa8ff 66%, #2563eb 90%);
+}
+
+.fx-burst-magic-strong { left: calc(-84 * var(--u)); top: calc(-84 * var(--u)); width: calc(168 * var(--u)); height: calc(168 * var(--u)); animation-duration: 520ms; }
+.fx-burst-magic-strong .fx-burst-core {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.2) 0 2px, transparent 2px 6px),
+    radial-gradient(circle, #fff 0 16%, #f5d0fe 30%, #a78bfa 56%, #7c3aed 86%);
+}
+
+.fx-burst-bash { left: calc(-64 * var(--u)); top: calc(-64 * var(--u)); width: calc(128 * var(--u)); height: calc(128 * var(--u)); }
+.fx-burst-bash .fx-burst-core {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.25) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #fff 0 18%, #fdba74 40%, #ea580c 82%);
+}
+
+@keyframes fxSpark {
+  0% { transform: rotate(var(--a)) translateX(calc(8 * var(--u))) scaleX(0.2); opacity: 0; }
+  10% { opacity: 1; }
+  35% { transform: rotate(var(--a)) translateX(calc(var(--dist) * 0.45)) scaleX(1.3); }
+  100% { transform: rotate(var(--a)) translateX(var(--dist)) scaleX(0.1); opacity: 0; }
+}
+
+.fx-sparks { --dist: calc(70 * var(--u)); position: absolute; left: 0; top: 0; }
+
+.fx-sparks i {
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: calc(26 * var(--u) * var(--len));
+  height: 6px;
+  border-radius: 4px;
+  background: #fff7ed;
+  box-shadow: 0 0 0 2px #14161f;
+  transform-origin: 0 50%;
+  opacity: 0;
+  animation: fxSpark 380ms ease-out both;
+}
+
+.fx-sparks-attack i { background: #ffd23f; }
+.fx-sparks-charged { --dist: calc(104 * var(--u)); }
+.fx-sparks-charged i { height: 8px; background: #fff7ed; }
+.fx-sparks-small { --dist: calc(48 * var(--u)); }
+.fx-sparks-weak { --dist: calc(52 * var(--u)); }
+.fx-sparks-weak i { background: #93c5fd; }
+.fx-sparks-strong { --dist: calc(110 * var(--u)); }
+.fx-sparks-strong i { background: #e9d5ff; height: 7px; }
+.fx-sparks-clash { --dist: calc(84 * var(--u)); }
+.fx-sparks-clash i { background: #fde047; }
+.fx-sparks-barrier i { background: #fdba74; }
+
+/* 描き文字（擬音）。太いインクの縁取り + ずらした影で「ステッカー」感を出す */
+@keyframes fxSfx {
+  0% { transform: scale(0.2) rotate(-24deg); opacity: 0; }
+  12% { opacity: 1; }
+  30% { transform: scale(1.3) rotate(-6deg); }
+  50% { transform: scale(1) rotate(-10deg); }
+  80% { transform: scale(1) rotate(-10deg) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1.05) rotate(-10deg) translateY(-12px); opacity: 0; }
+}
+
+.fx-sfx {
+  position: absolute;
+  z-index: 15;
+  translate: -50% -50%;
+  white-space: nowrap;
+  font-family: var(--font-doodle), sans-serif;
+  font-weight: 900;
+  font-size: clamp(18px, calc(34 * var(--u)), 52px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #ffd23f;
+  -webkit-text-stroke: 6px #14161f;
+  paint-order: stroke fill;
+  text-shadow: 3px 4px 0 #14161f;
+  pointer-events: none;
+  animation: fxSfx 620ms ease-out both;
+}
+
+.fx-sfx-small { font-size: clamp(15px, calc(24 * var(--u)), 38px); -webkit-text-stroke-width: 5px; }
+.fx-sfx-charged { font-size: clamp(22px, calc(44 * var(--u)), 64px); color: #fff; text-shadow: 4px 5px 0 #dc2626; }
+.fx-sfx-barrier { color: #fed7aa; text-shadow: 3px 4px 0 #ea580c; }
+.fx-sfx-deploy { animation-delay: 180ms; }
+.fx-sfx-break { font-size: clamp(17px, calc(30 * var(--u)), 46px); animation-delay: 100ms; }
+.fx-sfx-reflect { font-size: clamp(16px, calc(26 * var(--u)), 40px); animation-delay: 340ms; }
+.fx-sfx-clash { color: #fde047; text-shadow: 3px 4px 0 #ea580c; font-size: clamp(18px, calc(32 * var(--u)), 50px); animation-delay: 230ms; }
+.fx-sfx-weak { color: #bfdbfe; text-shadow: 3px 4px 0 #2563eb; }
+.fx-sfx-strong { font-size: clamp(22px, calc(44 * var(--u)), 64px); color: #f5f3ff; text-shadow: 4px 5px 0 #7c3aed; }
+.fx-sfx-charge { color: #bbf7d0; text-shadow: 3px 4px 0 #16a34a; animation-delay: 140ms; animation-duration: 700ms; }
+.fx-sfx-over { font-size: clamp(17px, calc(28 * var(--u)), 44px); color: #fde047; text-shadow: 3px 4px 0 #16a34a; animation-delay: 120ms; animation-duration: 720ms; }
+.fx-sfx-bash { font-size: clamp(20px, calc(40 * var(--u)), 60px); color: #fff7ed; text-shadow: 4px 5px 0 #ea580c; }
+
+@keyframes fxShock {
+  0% { transform: scale(0.2); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+.fx-shockwave {
+  position: absolute;
+  left: calc(-40 * var(--u));
+  top: calc(-40 * var(--u));
+  width: calc(80 * var(--u));
+  height: calc(80 * var(--u));
+  border-radius: 50%;
+  border: 5px solid #fff7ed;
+  box-shadow: 0 0 0 3px #f97316, inset 0 0 0 3px #f97316;
+  animation: fxShock 420ms ease-out both;
+}
+
+.fx-shockwave-magic { border-color: #f5f3ff; box-shadow: 0 0 0 3px #7c3aed, inset 0 0 0 3px #7c3aed; animation-duration: 520ms; }
+
+/* 集中線: 静的な conic-gradient を opacity / scale だけで出し入れする */
+@keyframes fxFocus {
+  0% { opacity: 0; transform: scale(1.15); }
+  15% { opacity: 1; transform: scale(1); }
+  60% { opacity: 0.8; }
+  100% { opacity: 0; transform: scale(1.03); }
+}
+
+.fx-focus {
+  position: absolute;
+  left: calc(-220 * var(--u));
+  top: calc(-160 * var(--u));
+  width: calc(440 * var(--u));
+  height: calc(320 * var(--u));
+  opacity: 0;
+  background: repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(255, 255, 255, 0) 0deg 3deg, rgba(255, 255, 255, 0.5) 3deg 4deg, rgba(255, 255, 255, 0) 4deg 7deg);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 calc(70 * var(--u)), #000 calc(170 * var(--u)));
+  mask: radial-gradient(circle at 50% 50%, transparent 0 calc(70 * var(--u)), #000 calc(170 * var(--u)));
+  animation: fxFocus 400ms ease-out both;
+}
+
+.fx-focus-cast {
+  animation: fxFocus 420ms ease-out 110ms both;
+  background: repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(196, 181, 253, 0) 0deg 3deg, rgba(196, 181, 253, 0.45) 3deg 4deg, rgba(196, 181, 253, 0) 4deg 8deg);
+}
+
+.fx-focus-charge {
+  animation: fxFocus 560ms ease-out 140ms both;
+  background: repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(187, 247, 208, 0) 0deg 4deg, rgba(187, 247, 208, 0.4) 4deg 5deg, rgba(187, 247, 208, 0) 5deg 9deg);
+}
+
+.fx-focus-over {
+  background: repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(253, 224, 71, 0) 0deg 3deg, rgba(253, 224, 71, 0.55) 3deg 4deg, rgba(253, 224, 71, 0) 4deg 7deg);
+}
+
+/* ---------------------------------------------------------------------
+ * こうげき: 残像・スピード線・斬撃の軌跡
+ * ------------------------------------------------------------------- */
+
+/* 残像: 突進中だけ現れる、行動色に染めたシルエット */
+@keyframes fxGhost {
+  0%, 22% { opacity: 0; translate: calc(var(--dir) * -16 * var(--u)) calc(6 * var(--u)); scale: 0.84 0.8; }
+  25% { opacity: 1; translate: calc(var(--dir) * var(--reach) * 0.3) 0; scale: 1.1 0.94; }
+  31% { opacity: 0.8; translate: calc(var(--dir) * var(--reach) * 0.8) calc(-2 * var(--u)); scale: 1.14 0.92; }
+  40%, 100% { opacity: 0; translate: calc(var(--dir) * var(--reach) * 0.85) calc(-2 * var(--u)); scale: 1.14 0.92; }
+}
+
+.fx-ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: fxGhost 850ms linear both;
+}
+
+.fx-ghost-charged { --reach: var(--reach-charged); }
+
+/* 静的 filter（アニメーションしない）で赤いシルエットにする */
+.fx-ghost img { filter: brightness(0) invert(42%) sepia(93%) saturate(4000%) hue-rotate(350deg); }
+
+@keyframes fxSpeed {
+  0%, 20% { opacity: 0; transform: translateX(0) scaleX(0); }
+  25% { opacity: 1; transform: translateX(calc(40 * var(--u))) scaleX(1); }
+  34% { opacity: 0.9; transform: translateX(calc(88 * var(--u))) scaleX(0.8); }
+  44%, 100% { opacity: 0; transform: translateX(calc(104 * var(--u))) scaleX(0); }
+}
+
+.fx-speed {
+  position: absolute;
+  right: 0;
+  top: -2px;
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #f8fafc;
+  box-shadow: 0 0 0 2px #14161f;
+  transform-origin: 100% 50%;
+  opacity: 0;
+  animation: fxSpeed 850ms ease-out both;
+}
+
+.fx-speed-charged { height: 7px; background: #fed7aa; }
+.fx-speed-bash { background: #fed7aa; animation-delay: 200ms; }
+
+@keyframes fxSlashLife {
+  0% { opacity: 0; transform: rotate(var(--r)) scale(1); }
+  1% { opacity: 1; }
+  60% { opacity: 1; transform: rotate(var(--r)) scale(1.04); }
+  100% { opacity: 0; transform: rotate(var(--r)) scale(1.14); }
+}
+
+.fx-slash {
+  position: absolute;
+  left: calc(-70 * var(--u));
+  top: calc(-70 * var(--u));
+  width: calc(140 * var(--u));
+  height: calc(140 * var(--u));
+  overflow: visible;
+  animation: fxSlashLife 440ms ease-out both;
+}
+
+.fx-slash path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 100 120;
+  animation: fxDraw 90ms cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+.fx-slash-ink { stroke: #14161f; stroke-width: 22; }
+.fx-slash-color { stroke: #ff5a5a; stroke-width: 15; }
+.fx-slash-core { stroke: #fff7ed; stroke-width: 5; }
+.fx-slash-charged { left: calc(-95 * var(--u)); top: calc(-95 * var(--u)); width: calc(190 * var(--u)); height: calc(190 * var(--u)); }
+.fx-slash-charged .fx-slash-ink { stroke-width: 26; }
+.fx-slash-charged .fx-slash-color { stroke: #f97316; stroke-width: 19; }
+.fx-slash-charged .fx-slash-core { stroke-width: 7; }
+.fx-slash-x,
+.fx-slash-x path { animation-delay: 50ms; }
+
+/* ---------------------------------------------------------------------
+ * バリア: 展開 / 波紋 / ヒビ / 破片 / 衝突 / 反射 / ぶつける
+ * ------------------------------------------------------------------- */
+
+.fx-wall {
+  position: absolute;
+  left: calc(-30 * var(--u));
+  top: calc(-85 * var(--u));
+  width: calc(60 * var(--u));
+  height: calc(170 * var(--u));
+  overflow: visible;
+  transform-origin: 50% 100%;
+}
+
+.fx-wall path { stroke-linecap: round; }
+.fx-wall-fill { opacity: 0.6; }
+.fx-wall-ink { fill: none; stroke: #14161f; stroke-width: 11; }
+.fx-wall-line { fill: none; stroke: #ea580c; stroke-width: 7; }
+.fx-wall-hi { fill: none; stroke: #fed7aa; stroke-width: 3; }
+
+@keyframes fxWallDeploy {
+  0%, 8% { transform: scaleY(0); opacity: 0; }
+  12% { opacity: 1; }
+  30% { transform: scale(1.12, 1.1); }
+  40% { transform: scale(0.96, 0.97); }
+  48%, 86% { transform: scale(1, 1); opacity: 1; }
+  100% { transform: scale(1, 1); opacity: 0; }
+}
+
+.fx-wall-deploy { animation: fxWallDeploy 750ms ease-out both; }
+.fx-wall-deploy path[pathLength] { stroke-dasharray: 100 120; animation: fxDraw 220ms ease-out 60ms both; }
+.fx-wall-deploy .fx-wall-fill { animation: fxFadeIn 220ms ease-out 180ms both; }
+
+/* こうげきを受ける側: 壁を張ったまま、当たった瞬間（255ms）に揺れる */
+@keyframes fxWallHold {
+  0% { opacity: 0; transform: scaleY(0.6); }
+  8% { opacity: 1; transform: none; }
+  30% { transform: none; }
+  32% { transform: translateX(-4px) scaleY(1.03); }
+  35% { transform: translateX(3px); }
+  38% { transform: translateX(-2px); }
+  41%, 100% { opacity: 1; transform: none; }
+}
+
+.fx-wall-hold { animation: fxWallHold 850ms linear both; }
+
+@keyframes fxTwinkle {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  40% { transform: scale(1.3) rotate(10deg); opacity: 1; }
+  100% { transform: scale(0.6) rotate(30deg); opacity: 0; }
+}
+
+.fx-twinkle {
+  position: absolute;
+  translate: -50% -50%;
+  font-size: clamp(14px, calc(24 * var(--u)), 36px);
+  line-height: 1;
+  color: #fff7ed;
+  -webkit-text-stroke: 2px #14161f;
+  paint-order: stroke fill;
+  opacity: 0;
+  animation: fxTwinkle 420ms ease-out both;
+}
+
+@keyframes fxGroundRing {
+  0% { transform: scale(0.2); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.fx-ground-ring {
+  position: absolute;
+  left: calc(-60 * var(--u));
+  top: calc(-15 * var(--u));
+  width: calc(120 * var(--u));
+  height: calc(30 * var(--u));
+  border-radius: 50%;
+  border: 4px solid #ea580c;
+  box-shadow: 0 0 0 2px #14161f;
+  opacity: 0;
+  animation: fxGroundRing 500ms ease-out 80ms both;
+}
+
+.fx-ground-ring-charge { border-color: #4ade80; animation-delay: 120ms; }
+.fx-ground-ring-over { border-color: #fde047; border-width: 5px; animation-delay: 100ms; }
+
+/* 割れる: すでに当たったフェーズなので、すぐにヒビ → 100ms で破片に切り替わる */
+@keyframes fxWallBreak {
+  0% { opacity: 1; transform: none; }
+  4% { transform: translateX(-4px) scaleY(1.03); }
+  12% { transform: translateX(3px); }
+  20% { transform: translateX(-2px); }
+  27% { opacity: 1; transform: none; }
+  28%, 100% { opacity: 0; }
+}
+
+.fx-wall-break { animation: fxWallBreak 360ms linear both; }
+
+@keyframes fxRipple {
+  0% { transform: scale(0.2); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: scale(1.9, 1.4); opacity: 0; }
+}
+
+.fx-ripple {
+  position: absolute;
+  left: calc(-15 * var(--u));
+  top: calc(-35 * var(--u));
+  width: calc(30 * var(--u));
+  height: calc(70 * var(--u));
+  border-radius: 50%;
+  border: 4px solid #fdba74;
+  box-shadow: 0 0 0 2px #14161f;
+  opacity: 0;
+  animation: fxRipple 360ms ease-out both;
+}
+
+@keyframes fxCrackLife {
+  0%, 27% { opacity: 1; }
+  28%, 100% { opacity: 0; }
+}
+
+.fx-crack {
+  position: absolute;
+  left: calc(-20 * var(--u));
+  top: calc(-70 * var(--u));
+  width: calc(40 * var(--u));
+  height: calc(140 * var(--u));
+  overflow: visible;
+  animation: fxCrackLife 360ms linear both;
+}
+
+.fx-crack polyline {
+  fill: none;
+  stroke: #14161f;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 100 120;
+  animation: fxDraw 90ms ease-out 10ms both;
+}
+
+@keyframes fxShard {
+  0% { opacity: 0; transform: translate(0, var(--y0)) rotate(0deg); }
+  1% { opacity: 1; }
+  55% { opacity: 1; transform: translate(var(--sx), calc(var(--y0) + var(--sy))) rotate(var(--sr)); }
+  100% { opacity: 0; transform: translate(calc(var(--sx) * 1.3), calc(var(--y0) + var(--sy) + 70 * var(--u))) rotate(calc(var(--sr) * 1.6)); }
+}
+
+.fx-shard {
+  position: absolute;
+  left: calc(-10 * var(--u));
+  top: calc(-12 * var(--u));
+  width: calc(20 * var(--u));
+  height: calc(24 * var(--u));
+  overflow: visible;
+  opacity: 0;
+  animation: fxShard 520ms cubic-bezier(0.2, 0.6, 0.4, 1) 100ms both;
+}
+
+.fx-shard polygon { fill: #fdba74; stroke: #14161f; stroke-width: 2.5; stroke-linejoin: round; }
+
+/* バリア同士: 互いに押し出して中央でぶつかり（230ms）、ヒットストップ → 押し戻される */
+@keyframes fxWallClash {
+  0% { transform: translateX(0) scaleY(0); opacity: 0; }
+  10% { transform: translateX(0) scaleY(1.05); opacity: 1; }
+  22% { transform: translateX(calc(-6 * var(--u))) scaleY(1); }
+  27%, 40% { transform: translateX(var(--clash)) scale(0.9, 1.08); }
+  50% { transform: translateX(calc(var(--clash) * 0.3)) scale(1, 1); }
+  85% { opacity: 1; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+
+.fx-wall-clash { animation: fxWallClash 750ms cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+
+@keyframes fxClashFlash {
+  0% { transform: scale(0.2); opacity: 0; }
+  15% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.fx-clash-flash {
+  position: absolute;
+  left: calc(-35 * var(--u));
+  top: calc(-60 * var(--u));
+  width: calc(70 * var(--u));
+  height: calc(120 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #fff 0 30%, rgba(253, 224, 71, 0.8) 50%, rgba(234, 88, 12, 0) 72%);
+  opacity: 0;
+  animation: fxClashFlash 300ms ease-out 230ms both;
+}
+
+.fx-clash-point > .fx-sparks i { animation-delay: 230ms; }
+
+/* 反射: 弾を受けた瞬間（340ms）に壁がたわむ */
+@keyframes fxWallReflect {
+  0% { opacity: 0; transform: scaleY(0.6); }
+  6% { opacity: 1; transform: none; }
+  40% { transform: none; }
+  42% { transform: scaleX(1.3) translateX(4px); }
+  46% { transform: scaleX(0.9); }
+  50% { transform: none; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fx-wall-reflect { animation: fxWallReflect 850ms ease-out both; }
+
+@keyframes fxTraj {
+  0% { transform: scale(0); opacity: 0; }
+  20% { transform: scale(1.3); opacity: 1; }
+  40% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fx-trajectory {
+  position: absolute;
+  margin: calc(-5 * var(--u)) 0 0 calc(-5 * var(--u));
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border-radius: 50%;
+  background: #fdba74;
+  box-shadow: 0 0 0 2px #14161f;
+  opacity: 0;
+  animation: fxTraj 420ms ease-out both;
+}
+
+/* ぶつける: 出現 → ため（手前に引く）→ 加速して相手へ（300ms）→ つぶれる → 反動で戻りながら消える */
+@keyframes fxBashWall {
+  0% { transform: translateX(0) scale(1, 0); opacity: 0; }
+  8% { opacity: 1; }
+  14% { transform: translateX(0) scale(1.1, 1.08); }
+  24% { transform: translateX(calc(-10 * var(--u))) scale(0.95, 1); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.4); }
+  35%, 47% { transform: translateX(var(--bash)) scale(0.72, 1.12); }
+  58% { transform: translateX(calc(var(--bash) - 20 * var(--u))) scale(1.06, 0.96); opacity: 1; }
+  80% { transform: translateX(calc(var(--bash) - 32 * var(--u))) scale(1, 1); opacity: 0.85; }
+  100% { transform: translateX(calc(var(--bash) - 38 * var(--u))) scale(1, 1); opacity: 0; }
+}
+
+.fx-bash-wall {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  animation: fxBashWall 850ms ease-out both;
+}
+
+.fx-wall-bash path[pathLength] { stroke-dasharray: 100 120; animation: fxDraw 160ms ease-out 20ms both; }
+.fx-wall-bash .fx-wall-line { stroke-width: 9; }
+
+/* ---------------------------------------------------------------------
+ * まほう: 魔法陣 / 粒子の収束 / 弾と尾 / 着弾の煙
+ * ------------------------------------------------------------------- */
+
+@keyframes fxCastGlow {
+  0%, 8% { opacity: 0; }
+  20% { opacity: 0.3; }
+  28% { opacity: 0.1; }
+  36% { opacity: 0.55; }
+  44%, 100% { opacity: 0; }
+}
+
+.fx-silhouette.fx-cast-glow { filter: brightness(0) invert(1) sepia(1) saturate(4) hue-rotate(220deg); animation: fxCastGlow 850ms linear both; }
+
+@keyframes fxRune {
+  0% { transform: rotate(0deg) scale(0.4); opacity: 0; }
+  10% { transform: rotate(10deg) scale(1); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: rotate(120deg) scale(1.05); opacity: 0; }
+}
+
+/* 魔法陣: 足元に寝かせる（scaleY）。中の svg を回転させる */
+.fx-rune-wrap {
+  position: absolute;
+  left: calc(-55 * var(--u));
+  top: calc(-55 * var(--u));
+  width: calc(110 * var(--u));
+  height: calc(110 * var(--u));
+  transform: scaleY(0.34);
+  filter: drop-shadow(0 0 6px #4aa8ff);
+}
+
+.fx-rune { width: 100%; height: 100%; overflow: visible; animation: fxRune 850ms ease-out both; }
+
+.fx-rune circle,
+.fx-rune path,
+.fx-rune polygon {
+  fill: none;
+  stroke: #93c5fd;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100 120;
+  animation: fxDraw 200ms ease-out 20ms both;
+}
+
+.fx-rune-tick { fill: #93c5fd; }
+.fx-rune-strong { left: calc(-84 * var(--u)); top: calc(-84 * var(--u)); width: calc(168 * var(--u)); height: calc(168 * var(--u)); filter: drop-shadow(0 0 8px #a78bfa); }
+.fx-rune-strong circle,
+.fx-rune-strong polygon { stroke: #d8b4fe; }
+.fx-rune-strong .fx-rune-ring2 { animation-delay: 80ms; }
+.fx-rune-strong .fx-rune-star { animation: fxDraw 220ms ease-out 140ms both; }
+.fx-rune-strong .fx-rune-tick { fill: #d8b4fe; }
+
+@keyframes fxConverge {
+  0% { transform: rotate(var(--a)) translateX(var(--r)) scale(1.2); opacity: 0; }
+  20% { opacity: 1; }
+  90% { transform: rotate(var(--a)) translateX(calc(6 * var(--u))) scale(0.5); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(0) scale(0.2); opacity: 0; }
+}
+
+.fx-converge {
+  --r: calc(70 * var(--u));
+  position: absolute;
+  left: calc(-4 * var(--u));
+  top: calc(-4 * var(--u));
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 50%;
+  background: #e9d5ff;
+  box-shadow: 0 0 0 2px #14161f;
+  opacity: 0;
+  animation: fxConverge 300ms ease-in both;
+}
+
+.fx-converge-charge { background: #bbf7d0; --r: calc(84 * var(--u)); animation-duration: 380ms; }
+.fx-converge-over { background: #fde047; --r: calc(96 * var(--u)); }
+
+.fx-orb {
+  position: absolute;
+  left: calc(-12 * var(--u));
+  top: calc(-12 * var(--u));
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #fff 0 18%, #93c5fd 32%, #2563eb 72%);
+  box-shadow: 0 0 0 3px #14161f, 0 0 14px 4px rgba(96, 165, 250, 0.5);
+  opacity: 0;
+  animation: fxOrbWeak 850ms linear both;
+}
+
+/* 尾: 同じ軌道を少し遅れて追う小さな点（クレヨンの点線のような尾） */
+.fx-orb-tail { scale: calc(0.35 + var(--t) * 0.55); background: #93c5fd; box-shadow: 0 0 0 2px #14161f; }
+
+.fx-orb-ring { position: absolute; inset: -8px; border-radius: 50%; border: 3px dashed #e9d5ff; opacity: 0; }
+
+@keyframes fxOrbWeak {
+  0%, 18% { transform: translate(calc(66 * var(--u)), calc(-18 * var(--u))) scale(0); opacity: 1; }
+  22% { transform: translate(calc(70 * var(--u)), calc(-17 * var(--u))) scale(1.2); }
+  26% { transform: translate(calc(76 * var(--u)), calc(-16 * var(--u))) scale(1); }
+  51% { transform: translate(calc(var(--gap) - 20 * var(--u)), calc(-4 * var(--u))) scale(1); opacity: 1; }
+  53%, 100% { transform: translate(calc(var(--gap) - 16 * var(--u)), calc(-4 * var(--u))) scale(1.8); opacity: 0; }
+}
+
+@keyframes fxOrbStrong {
+  0%, 8% { transform: translate(calc(72 * var(--u)), calc(-24 * var(--u))) scale(0); opacity: 1; }
+  24% { transform: translate(calc(72 * var(--u)), calc(-24 * var(--u))) scale(0.6); }
+  30% { transform: translate(calc(72 * var(--u)), calc(-24 * var(--u))) scale(0.85); }
+  36%, 40% { transform: translate(calc(72 * var(--u)), calc(-24 * var(--u))) scale(1.1); }
+  59% { transform: translate(calc(var(--gap) - 18 * var(--u)), calc(-2 * var(--u))) scale(1.05); opacity: 1; }
+  61%, 100% { transform: translate(calc(var(--gap) - 16 * var(--u)), calc(-2 * var(--u))) scale(2); opacity: 0; }
+}
+
+/* 反射: 壁に当たって（340ms）つぶれ、山なりに跳ね返って術者へ戻る（次のフェーズで着弾） */
+@keyframes fxOrbReflect {
+  0%, 14% { transform: translate(calc(64 * var(--u)), calc(-14 * var(--u))) scale(0); opacity: 1; }
+  20% { transform: translate(calc(70 * var(--u)), calc(-12 * var(--u))) scale(1); }
+  40% { transform: translate(calc(var(--gap) - 88 * var(--u)), calc(-10 * var(--u))) scale(1); }
+  43% { transform: translate(calc(var(--gap) - 86 * var(--u)), calc(-10 * var(--u))) scale(0.6, 1.2); }
+  48% { transform: translate(calc(var(--gap) - 94 * var(--u)), calc(-34 * var(--u))) scale(1.15); }
+  62% { transform: translate(calc(var(--gap) * 0.5), calc(-70 * var(--u))) scale(1.1); }
+  78% { transform: translate(calc(var(--gap) * 0.22), calc(-56 * var(--u))) scale(1.05); }
+  94% { transform: translate(calc(18 * var(--u)), calc(-10 * var(--u))) scale(1); opacity: 1; }
+  96%, 100% { transform: translate(calc(18 * var(--u)), calc(-10 * var(--u))) scale(1.6); opacity: 0; }
+}
+
+@keyframes fxSpin { to { transform: rotate(360deg); } }
+
+@keyframes fxOrbRingReflect {
+  0%, 41% { opacity: 0; }
+  43%, 100% { opacity: 1; }
+}
+
+.fx-orb-strong {
+  left: calc(-19 * var(--u));
+  top: calc(-19 * var(--u));
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
+  background: radial-gradient(circle at 38% 35%, #fff 0 16%, #f5d0fe 26%, #a78bfa 48%, #7c3aed 78%);
+  box-shadow: 0 0 0 3px #14161f, 0 0 22px 8px rgba(167, 139, 250, 0.5);
+  animation-name: fxOrbStrong;
+}
+
+.fx-orb-strong.fx-orb-tail { background: #c4b5fd; box-shadow: 0 0 0 2px #14161f; }
+.fx-orb-strong .fx-orb-ring { opacity: 1; animation: fxSpin 420ms linear infinite; }
+.fx-orb-reflect { animation-name: fxOrbReflect; }
+.fx-orb-reflect .fx-orb-ring { border-color: #fdba74; border-style: solid; animation: fxOrbRingReflect 850ms linear both; }
+
+@keyframes fxSmoke {
+  0% { transform: scale(0.3); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: scale(1.4) translateY(calc(-14 * var(--u))); opacity: 0; }
+}
+
+.fx-smoke {
+  position: absolute;
+  margin: calc(-22 * var(--u)) 0 0 calc(-22 * var(--u));
+  width: calc(44 * var(--u));
+  height: calc(44 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(circle, #ede9fe 0 40%, #a78bfa 80%);
+  box-shadow: 0 0 0 3px #14161f;
+  opacity: 0;
+  animation: fxSmoke 420ms ease-out both;
+}
+
+/* ---------------------------------------------------------------------
+ * チャージ: 足元から炎、粒子の収束、集中線、待機オーラ（2.25 倍以上は金）
+ * ------------------------------------------------------------------- */
+
+@keyframes fxChargePulse {
+  0%, 28% { opacity: 0; }
+  34% { opacity: 0.55; }
+  44% { opacity: 0.05; }
+  58% { opacity: 0.5; }
+  70%, 100% { opacity: 0; }
+}
+
+.fx-silhouette.fx-charge-pulse { filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(65deg); animation: fxChargePulse 800ms linear both; }
+.fx-silhouette.fx-charge-pulse-over { filter: brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(5deg); }
+
+@keyframes fxChargeGlow {
+  0% { opacity: 0; transform: scale(0.6); }
+  30% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 0.5; transform: scale(1); }
+}
+
+.fx-charge-glow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-8 * var(--u));
+  width: calc(160 * var(--u));
+  height: calc(170 * var(--u));
+  margin-left: calc(-80 * var(--u));
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse at 50% 72%, rgba(74, 222, 128, 0.55), rgba(22, 163, 74, 0.22) 45%, transparent 70%);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  animation: fxChargeGlow 800ms ease-out both;
+}
+
+.fx-charge-glow-over {
+  width: calc(190 * var(--u));
+  margin-left: calc(-95 * var(--u));
+  background: radial-gradient(ellipse at 50% 72%, rgba(253, 224, 71, 0.6), rgba(22, 163, 74, 0.3) 45%, transparent 72%);
+}
+
+@keyframes fxFlame {
+  0% { transform: translateY(0) scale(0.2, 0.3); opacity: 0; }
+  20% { transform: translateY(calc(-6 * var(--u))) scale(1, calc(var(--h) * 1.1)); opacity: 1; }
+  100% { transform: translateY(calc(-76 * var(--u))) scale(0.3, calc(var(--h) * 0.6)); opacity: 0; }
+}
+
+.fx-flame {
+  position: absolute;
+  bottom: calc(2 * var(--u));
+  width: calc(22 * var(--u));
+  height: calc(34 * var(--u));
+  margin-left: calc(-11 * var(--u));
+  border: 2.5px solid #14161f;
+  border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%;
+  background: linear-gradient(to top, #15803d, #4ade80 55%, #dcfce7);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  pointer-events: none;
+  animation: fxFlame 520ms ease-out both;
+}
+
+.fx-flame-over {
+  width: calc(28 * var(--u));
+  height: calc(44 * var(--u));
+  margin-left: calc(-14 * var(--u));
+  background: linear-gradient(to top, #16a34a, #facc15 50%, #fffbeb);
+}
+
+/* チャージ後も残る、軽量な待機オーラ（1 要素の scale / opacity ループ） */
+@keyframes fxAuraIdleIn { to { opacity: 0.9; } }
+
+@keyframes fxAuraIdle {
+  0%, 100% { transform: scaleX(1); opacity: 0.9; }
+  50% { transform: scaleX(1.08); opacity: 0.6; }
+}
+
+.fx-aura-idle {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-8 * var(--u));
+  width: calc(112 * var(--u));
+  height: calc(26 * var(--u));
+  margin-left: calc(-56 * var(--u));
+  border-radius: 50%;
+  border: 3px solid #4ade80;
+  box-shadow: 0 0 0 2px #14161f, 0 0 16px 4px rgba(74, 222, 128, 0.4);
+  pointer-events: none;
+  opacity: 0.9;
+  animation: fxAuraIdle 1.2s ease-in-out infinite;
+}
+
+.fx-aura-idle-delayed {
+  opacity: 0;
+  animation: fxAuraIdleIn 200ms 620ms both, fxAuraIdle 1.2s ease-in-out 820ms infinite;
+}
+
+.fx-aura-idle-over { border-color: #fde047; border-width: 4px; box-shadow: 0 0 0 2px #14161f, 0 0 20px 6px rgba(253, 224, 71, 0.45); }
+
+@keyframes fxBolt {
+  0%, 24% { opacity: 0; }
+  26% { opacity: 1; }
+  32% { opacity: 0; }
+  40% { opacity: 1; }
+  46% { opacity: 0; }
+  58% { opacity: 1; }
+  64%, 100% { opacity: 0; }
+}
+
+.fx-bolts {
+  position: absolute;
+  left: calc(-80 * var(--u));
+  top: calc(-80 * var(--u));
+  width: calc(160 * var(--u));
+  height: calc(160 * var(--u));
+  overflow: visible;
+  filter: drop-shadow(0 0 3px #facc15);
+}
+
+.fx-bolt { fill: none; stroke: #fef08a; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; opacity: 0; animation: fxBolt 800ms steps(1) both; }
+.fx-bolt2 { animation-delay: 60ms; }
+.fx-bolt3 { animation-delay: 120ms; }
+
+/* ---------------------------------------------------------------------
+ * まひ: 体に稲妻が走り、小刻みにしびれて動けない
+ * ------------------------------------------------------------------- */
+
+@keyframes fxStunFlash {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 0.75; }
+  22% { opacity: 0.1; }
+  48% { opacity: 0.55; }
+  60% { opacity: 0; }
+  78% { opacity: 0.4; }
+}
+
+.fx-silhouette.fx-stun-flash {
+  filter: brightness(0) invert(1) sepia(1) saturate(8) hue-rotate(5deg);
+  animation: fxStunFlash 450ms steps(1) infinite;
+}
+
+.fx-stun-bolts {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(1.5px 1.5px 0 #14161f) drop-shadow(-1px -1px 0 #14161f);
+}
+
+.fx-stun-bolts polyline {
+  fill: none;
+  stroke: #fde047;
+  stroke-width: 5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* 2 組の稲妻を交互に点滅させて「走っている」ように見せる */
+@keyframes fxStunSet {
+  0%, 45% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.fx-stun-set { animation: fxStunSet 300ms steps(1) infinite; }
+.fx-stun-set2 { animation-delay: -150ms; }
+
+@keyframes fxStunSpark {
+  0%, 100% { transform: scale(0) rotate(0); opacity: 0; }
+  30% { transform: scale(1.2) rotate(30deg); opacity: 1; }
+  60% { transform: scale(0.6) rotate(60deg); opacity: 0.8; }
+}
+
+.fx-stun-spark {
+  position: absolute;
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  translate: -50% -50%;
+  background: #fde047;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: fxStunSpark 420ms steps(4) infinite;
+}
+
+/* 描き文字自体もビリビリ震える */
+@keyframes fxStunText {
+  0% { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+  15% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  25% { transform: translateX(-2px) rotate(-4deg); }
+  35% { transform: translateX(2px) rotate(3deg); }
+  45% { transform: translateX(-2px) rotate(-3deg); }
+  55% { transform: translateX(2px) rotate(2deg); }
+  65%, 100% { transform: translateX(0) rotate(-2deg); opacity: 1; }
+}
+
+.fx-sfx-stun {
+  font-size: clamp(14px, calc(22 * var(--u)), 34px);
+  color: #fde047;
+  -webkit-text-stroke-width: 5px;
+  text-shadow: 2px 3px 0 #6b7280;
+  animation: fxStunText 900ms ease-out both;
+}
+
+/* ---------------------------------------------------------------------
+ * prefers-reduced-motion: 位置が大きく動く演出・揺れ・粒子を止め、
+ * 「何が起きたか」が分かる描き文字 / バースト / 壁だけ短く残す。
+ * ------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .fx-ghost,
+  .fx-speed,
+  .fx-focus,
+  .fx-sparks,
+  .fx-shard,
+  .fx-converge,
+  .fx-flame,
+  .fx-smoke,
+  .fx-bolts,
+  .fx-shockwave,
+  .fx-trajectory,
+  .fx-twinkle,
+  .fx-orb-tail,
+  .fx-stun-spark {
+    display: none !important;
+  }
+
+  .fx-bash-wall,
+  .fx-stun-set,
+  .fx-silhouette.fx-stun-flash {
+    animation: none !important;
+  }
+
+  .fx-aura-idle,
+  .fx-aura-idle-delayed {
+    animation: fxAuraIdleIn 200ms both !important;
+  }
+}
