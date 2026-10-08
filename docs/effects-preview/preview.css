@@ -1,0 +1,63 @@
+/* プレビューページ自体のレイアウト（提案エフェクトとは無関係） */
+body { margin: 0; padding: 24px; }
+.fx-page-header { max-width: 920px; margin: 0 auto 16px; line-height: 1.7; }
+.fx-page-header h1 { margin: 0 0 4px; font-size: 26px; }
+.fx-page-header p { margin: 4px 0; color: var(--text-muted); font-size: 14px; }
+.fx-controls { display: flex; gap: 12px; align-items: center; margin-top: 10px; font-size: 14px; }
+.fx-controls button, .fx-replay {
+  font: inherit; font-weight: 800; color: var(--ink); background: var(--marker-yellow);
+  border: 3px solid var(--ink); border-radius: 255px 14px 225px 15px / 15px 225px 15px 255px;
+  padding: 4px 14px; cursor: pointer;
+}
+#scenes { max-width: 920px; margin: 0 auto; }
+.fx-group {
+  margin: 28px 0 8px; font-size: 22px; display: inline-block; padding: 2px 16px; color: #fff;
+  background: var(--c); border: 3px solid #f8fafc; transform: rotate(-1.5deg);
+  border-radius: 255px 14px 225px 15px / 15px 225px 15px 255px;
+}
+.fx-card { margin: 10px 0 18px; }
+.fx-card header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.fx-card h3 { margin: 0; font-size: 17px; }
+.fx-ms { font-size: 12px; color: var(--text-muted); }
+.fx-replay { margin-left: auto; font-size: 13px; padding: 2px 12px; }
+.fx-pair { display: flex; flex-wrap: wrap; gap: 16px; }
+
+/* ステージ（BEFORE / AFTER 共通の簡易バトル画面） */
+.fx-stage {
+  position: relative;
+  width: 440px;
+  height: 260px;
+  overflow: hidden;
+  border: 3px solid rgba(248, 250, 252, 0.85);
+  border-radius: 14px 235px 18px 225px / 225px 15px 240px 15px;
+  background:
+    radial-gradient(ellipse 340px 160px at 50% 110%, rgba(99, 102, 241, 0.28), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 20% -10%, rgba(168, 85, 247, 0.2), transparent 60%),
+    #0b0e1c;
+  container-type: size;
+}
+.fx-floor {
+  position: absolute; left: 16px; right: 16px; top: 224px; height: 3px; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, rgba(248, 250, 252, 0.45) 0 26px, transparent 26px 34px);
+}
+.fx-world { position: absolute; inset: 0; }
+.fx-fighter { position: absolute; top: 100px; width: 120px; height: 120px; }
+.fx-img { display: block; width: 120px; height: 120px; }
+.fx-shadow {
+  position: absolute; bottom: -4px; left: 50%; width: 74px; height: 12px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 72%);
+  animation: groundShadowBreath 3.2s ease-in-out infinite;
+}
+.fx-tag {
+  position: absolute; top: 8px; left: 10px; z-index: 30;
+  font-size: 12px; font-weight: 900; padding: 1px 10px; color: var(--ink);
+  border: 2px solid var(--ink); border-radius: 255px 14px 225px 15px / 15px 225px 15px 255px;
+}
+.fx-tag-before { background: #cbd5e1; }
+.fx-tag-after { background: var(--marker-yellow); }
+
+/* 撮影モード */
+.fx-capture body { padding: 0; background: #0b0e1c; }
+.fx-capture #scenes, .fx-capture .fx-stage { margin: 0; }
+.fx-capture .fx-page-header { display: none; }

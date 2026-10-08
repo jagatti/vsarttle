@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- プレビュー用のラクガキキャラ（青いねこおばけ）。左を向いている。 -->
+  <g fill="none" stroke="#14161f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 46 L30 18 L50 34 M70 33 L92 18 L94 46"/>
+    <path d="M30 18 L50 34 L70 33 L92 18 C104 40 104 62 98 80 C92 100 76 108 58 107 C38 106 22 96 20 76 C18 60 22 50 30 18 Z" fill="#60a5fa"/>
+    <circle cx="44" cy="58" r="9" fill="#fff"/>
+    <circle cx="41" cy="59" r="4" fill="#14161f"/>
+    <circle cx="72" cy="58" r="7" fill="#fff"/>
+    <circle cx="70" cy="59" r="3" fill="#14161f"/>
+    <path d="M48 78 q6 6 12 0 q6 6 12 0"/>
+    <path d="M14 70 L30 72 M12 80 L28 78" stroke-width="3"/>
+    <path d="M98 88 C112 84 114 70 106 64" />
+    <path d="M78 76 q5 3 10 0" stroke="#dbeafe" stroke-width="3"/>
+  </g>
+</svg>

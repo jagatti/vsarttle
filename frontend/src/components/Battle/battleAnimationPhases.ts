@@ -15,6 +15,8 @@ export interface DisplayBattleResources {
  * - barrierWall: バリア（光の壁を張る）
  * - barrierBreak: バリア（こうげきで割れる）
  * - barrierClash: バリア対バリア（壁同士の衝突）
+ * - barrierBash: バリアを相手に叩きつける（バリア対チャージ / バリア対まひ）
+ * - paralysisStun: まひで動けない（体に稲妻が走って震える）
  * - none: 専用モーションなし
  */
 export type MoveMotionType =
@@ -25,6 +27,8 @@ export type MoveMotionType =
   | "barrierWall"
   | "barrierBreak"
   | "barrierClash"
+  | "barrierBash"
+  | "paralysisStun"
   | "none";
 
 export interface TurnAnimationPhase {
@@ -39,6 +43,41 @@ export interface TurnAnimationPhase {
   targetMotionType?: MoveMotionType;
   /** まほうの消費 PP を着弾時に反映する */
   ppAfter?: number;
+}
+
+/**
+ * フェーズ開始から「当たった瞬間」までの時間（ms）。
+ * HP 表示・効果音・ヒット演出・画面の揺れはこのタイミングに合わせる。
+ * 値はモーションの keyframes（battle-effects.css）のヒット位置と揃える。
+ */
+export const MOTION_IMPACT_DELAY_MS = {
+  attackLunge: 255,
+  magicWeak: 442,
+  magicStrong: 510,
+  magicReflect: 340,
+  barrierClash: 230,
+  barrierBash: 300,
+} as const;
+
+export function getPhaseImpactDelayMs(phase: Pick<TurnAnimationPhase, "motionType" | "sourceActionType">): number {
+  switch (phase.motionType) {
+    case "attackLunge":
+      return MOTION_IMPACT_DELAY_MS.attackLunge;
+    case "magicBlast":
+      return phase.sourceActionType === "magicStrong" ? MOTION_IMPACT_DELAY_MS.magicStrong : MOTION_IMPACT_DELAY_MS.magicWeak;
+    case "barrierClash":
+      return MOTION_IMPACT_DELAY_MS.barrierClash;
+    case "barrierBash":
+      return MOTION_IMPACT_DELAY_MS.barrierBash;
+    default:
+      return 0;
+  }
+}
+
+/** わざの効果音を鳴らすタイミング（ms）。弾がバリアで跳ね返る瞬間なども含む。 */
+export function getPhaseSeDelayMs(phase: Pick<TurnAnimationPhase, "motionType" | "sourceActionType">): number {
+  if (phase.motionType === "magicReflect") return MOTION_IMPACT_DELAY_MS.magicReflect;
+  return getPhaseImpactDelayMs(phase);
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -65,7 +104,8 @@ function getDamagePhaseActorId(event: TurnDamageEvent, actions: Record<string, A
     return Object.keys(actions).find((playerId) => actions[playerId] === "magicWeak" || actions[playerId] === "magicStrong") ?? event.to;
   }
   if (event.phaseHint === "counter") {
-    return Object.keys(actions).find((playerId) => actions[playerId] === "charge") ?? event.to;
+    // バリアをぶつけた側のフェーズで、叩きつけた瞬間にダメージを見せる
+    return event.from;
   }
   return event.from;
 }
@@ -80,6 +120,7 @@ function defaultMotionForAction(action: ActionType): MoveMotionType {
   if (cat === "magic") return "magicBlast";
   if (cat === "barrier") return "barrierWall";
   if (cat === "charge") return "chargeConcentration";
+  if (cat === "paralysis") return "paralysisStun";
   return "none";
 }
 
@@ -133,6 +174,16 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     else if (myCategory === "barrier" && enemyCategory === "barrier") {
       phaseByActor[me.id].motionType = "barrierClash";
       phaseByActor[enemy.id].motionType = "barrierClash";
+      phaseByActor[me.id].targetMotionType = "barrierClash";
+      phaseByActor[enemy.id].targetMotionType = "barrierClash";
+    }
+    // バリア対チャージ / バリア対まひ: バリアを相手に叩きつける
+    else if (myCategory === "barrier" && (enemyCategory === "charge" || enemyCategory === "paralysis")) {
+      phaseByActor[me.id].motionType = "barrierBash";
+      phaseByActor[enemy.id].motionType = defaultMotionForAction(enemyAction);
+    } else if (enemyCategory === "barrier" && (myCategory === "charge" || myCategory === "paralysis")) {
+      phaseByActor[enemy.id].motionType = "barrierBash";
+      phaseByActor[me.id].motionType = defaultMotionForAction(myAction);
     }
     // それ以外: デフォルトモーション
     else {
@@ -193,7 +244,16 @@ export function getTurnAnimationPhases(turnResult: TurnResult, me: PlayerBattleS
     return [...chargePhases, barrierPhase, attackPhase, impactPhase, ...additionalPhases];
   }
 
-  return [...chargePhases, phaseByActor[firstId], phaseByActor[secondId]];
+  // チャージ回復を専用フェーズで見せたあと、何も起きない本フェーズは省く
+  // （バリアをぶつけられる側のチャージなど）。
+  const mainPhases = [phaseByActor[firstId], phaseByActor[secondId]].filter((phase) =>
+    !(chargedActorIds.has(phase.actorId)
+      && phase.motionType === "none"
+      && phase.damageEvents.length === 0
+      && phase.chargeEvents.length === 0
+      && phaseByActor[phase.actorId === firstId ? secondId : firstId]?.motionType === "barrierBash"),
+  );
+  return [...chargePhases, ...mainPhases];
 }
 
 export function applyAnimationPhaseToDisplayResources(

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- プレビュー用のラクガキキャラ（赤いかいじゅう）。右を向いている。 -->
+  <g fill="none" stroke="#14161f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 38 L36 22 L44 36 L52 18 L58 34 L66 20 L70 38" fill="#fb923c"/>
+    <path d="M24 70 C18 44 40 30 64 33 C92 36 104 54 100 76 C97 96 80 106 58 105 C36 104 27 92 24 70 Z" fill="#ff6b5a"/>
+    <path d="M24 74 C12 76 8 66 14 60" />
+    <path d="M40 104 L38 114 M70 105 L72 114"/>
+    <circle cx="78" cy="58" r="9" fill="#fff"/>
+    <circle cx="81" cy="59" r="4" fill="#14161f"/>
+    <path d="M70 80 Q84 90 96 78" />
+    <path d="M78 84 L80 89 L84 85" fill="#fff" stroke-width="2.5"/>
+    <path d="M44 66 q4 -6 8 0" stroke-width="3"/>
+    <path d="M38 84 q6 4 12 0" stroke="#ffd6cc" stroke-width="3"/>
+  </g>
+</svg>

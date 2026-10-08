@@ -38,7 +38,8 @@ export function getFinalBossEffect(
     case "magicBlast":
     case "magicReflect": return action === "magicStrong" ? "magicStrong" : "magicWeak";
     case "barrierWall":
-    case "barrierClash": return "barrier";
+    case "barrierClash":
+    case "barrierBash": return "barrier";
     case "chargeConcentration": return "charge";
     default: return null;
   }
