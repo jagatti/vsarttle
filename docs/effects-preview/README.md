@@ -42,6 +42,8 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 | バリア | `BarrierWallEffect`（幅 12px の縦の光の棒）。割れは `scaleY` で縮むだけ。衝突は棒が 50px ずつ動くだけ | 「壁を張った」「割れた」「ぶつかった」が読み取りにくい。光の棒は SF 寄りでラクガキの世界観と離れている |
 | まほう | `MagicBullet` は弱・強とも同じ紫のグラデーション（サイズ 24px / 36px の差のみ）。`MagicRuneEffect` も円の大きさの差のみ | 弱まほう = 青（ACTION_COLORS）と合っていない。強まほうの「ため」と「着弾の爆発」がない |
 | 反射 | `barrierReflect` で弾が同じ直線上を行って戻る | 跳ね返ったことが分かりにくい |
+| バリアでダメージ（vs チャージ / vs まひ） | `battleLogic.ts` の `barrierCollisionDamage` でダメージが入るが、`battleAnimationPhases.ts` の `defaultMotionForAction` により通常の `barrierWall`（その場に棒を張るだけ）。相手側はフェーズ開始と同時に「バシッ!」が出る | バリアが **相手に当たった** ように見えず、なぜダメージを受けたのか分かりにくい |
+| まひ（行動不能） | 行動欄に灰色の「まひ」ラベル（`ACTION_COLORS.paralysis`）が出るだけで、キャラ自体には演出なし（モーション `none`） | しびれて動けない状態がキャラから伝わらない |
 | チャージ | `chargeConcentration` + `ChargeAuraEffect`（黄色の楕円）+ 黄色いグロー | 行動色（緑）と不一致。通常バトルでは段階差がない（overcharged の見た目は協力モードの青いグローのみ） |
 | パフォーマンス | `hitFlash` / `chargeGlowPortrait` / `magicPortraitGlow` / `barrierBreak` が `filter` を、`chargeGlow` が `box-shadow` をアニメーションしている | どちらもコンポジタで処理できず、低スペック端末で毎フレーム再描画になる |
 
@@ -69,6 +71,8 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 | まほう反射 | 850ms | 壁に当たる 340ms → 術者に当たる 612ms |
 | 弱まほう | 850ms | 442ms |
 | 強まほう | 850ms | ため 0〜340ms → 着弾 510ms |
+| バリアをぶつける（vs チャージ / vs まひ） | 850ms | 壁を張る 0〜120ms → ため 200ms → 押し出し → 当たる 300ms（ヒットストップ 〜400ms） |
+| まひ（行動不能） | 850ms（フェーズ中ループ） | なし（稲妻 300ms 周期・震え 400ms 周期で点滅し続ける） |
 | チャージ | 800ms | 脈動 2 回（270ms / 470ms）。以降は軽い待機オーラのループ |
 
 ### こうげき
@@ -85,10 +89,13 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 ![バリアが割れる](img/barrierBreak-frames.jpg)
 ![バリア同士の衝突](img/barrierClash-frames.jpg)
 ![まほう反射](img/magicReflect-frames.jpg)
+![バリアをぶつける（vs チャージ）](img/barrierBashCharge-frames.jpg)
+![バリアをぶつける（vs まひ）](img/barrierBashParalysis-frames.jpg)
 
 - **展開**: オレンジのマーカーで描いた弓なりの二重線の壁が、地面から線を描くように伸びる（`stroke-dashoffset`）。中は斜線のハッチング、足元に波紋、上下に ✦ のきらめき、「キィン!」。
 - **割れる**: 当たった点から波紋 3 重 + ヒビが走り、壁が震えたあと、破片 8 枚が回転しながら放物線を描いて飛び散る。「パリーン!」。
 - **衝突**: 両者の壁が押し出して中央でぶつかり、ヒットストップ → 押し戻される。中央に白い閃光と黄色い火花、「ガキィン!」、小さな画面揺れ。
+- **バリアをぶつける（バリアでダメージを与えるとき）**: 「バリア vs チャージ」「バリア vs まひ」のように、バリア側がダメージを与える場合は、張った壁を **相手に叩きつける**。壁を張る → 少し手前に引いてためる → 本人も前に踏み込みながら壁を押し出す（スピード線）→ 相手の体に当たって壁が横につぶれる（ヒットストップ）→ 反動で戻りながら消える。当たった瞬間にオレンジのバースト + 火花 +「ドゴォッ!」+ ふっとび + 軽い画面揺れ。vs チャージでは、溜めていた緑の炎がヒットの瞬間にしぼんで消える（チャージを潰されたことが分かる）。
 - **反射**: 弾が壁に当たると壁がたわみ、「カキーン!」。弾はオレンジの縁取りに変わって **山なりの軌道** で戻り、オレンジの点線で「跳ね返った道すじ」を残す。
 
 ### まほう
@@ -107,9 +114,18 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 - **charged（緑）**: 沈み込み → 2 回の脈動。足元から緑の炎が立ちのぼり、粒子が体に収束、緑の集中線、体が緑に光る（シルエットの `opacity`）、地面の波紋 2 回、「ハァァッ!」。終わったあとは足元に軽い楕円オーラが残る。
 - **overcharged（緑 + 金）**: 炎を大きく・多く（11 本）、金色の先端、稲妻、細かい震え、わずかな地鳴り（1.5px）、「ゴゴゴ…!!」。待機オーラも金色に。
 
+### まひ（行動不能）
+
+![まひで動けない](img/paralysis-frames.jpg)
+
+- 体の上に **黄色いギザギザの稲妻（インクの縁取り）** を 2 組描き、300ms 周期で交互に点滅させて電気が走っているように見せる。
+- キャラはその場で 2〜3px だけ小刻みにガタガタ震える（`steps(1)` の `transform`）。前後には動かない＝「動けない」。
+- 体が黄色くチカチカ光る（黄色いシルエットの `opacity` の明滅）、まわりに小さな星形の火花、頭の上で描き文字「ビリビリッ」も震える。行動欄の灰色「まひ」ラベルはそのまま残す。
+- まひ中にバリアをぶつけられたときは、稲妻・震えを続けたまま被弾リアクションを重ねる（上の「バリアをぶつける（vs まひ）」）。
+
 ### 共通（既存演出との統一感）
 
-- 勝ち・ダメージ・回避・まひも同じ部品（インクの縁取り、描き文字、ギザギザのバースト、ずらし影）でそろえる。例: 回避は青いスピード線 +「ヒョイッ」、まひは黄色いギザギザ線 +「ビリビリ」。
+- 勝ち・ダメージ・回避・まひも同じ部品（インクの縁取り、描き文字、ギザギザのバースト、ずらし影）でそろえる。例: 回避は青いスピード線 +「ヒョイッ」。まひは上の「まひ（行動不能）」の稲妻 +「ビリビリッ」。
 - 既存の `comic-burst` / `damageStickerPop` / `sticker-text` の見た目はそのまま発展させる方向。
 
 ## 実装時に変更するファイル
@@ -117,10 +133,10 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 | ファイル | 変更内容 |
 | --- | --- |
 | `frontend/src/app/globals.css`（または新規 `battle-effects.css` を `globals.css` から読み込む） | `after.css` の keyframes / クラスを移植。既存の `attackTrail` / `barrierWall` / `barrierBreak` / `barrierClash` / `chargeAura` などは置き換え。`prefers-reduced-motion` のブロックに新しいクラスを追加 |
-| `frontend/src/components/Battle/MoveMotionOverlay.tsx` | `AttackTrailEffect` → SVG の斬撃（`AttackSlashEffect`）+ 残像（`AttackGhosts`）。`BarrierWallEffect` → SVG の壁 + 波紋 / ヒビ / 破片。`MagicBullet` → `sourceActionType` で色を分け、尾を追加。`MagicRuneEffect` → SVG の魔法陣。`ChargeAuraEffect` → 炎 / 収束粒子 / 段階（charged / overcharged）。新規 `ImpactEffect`（バースト + 火花 + 擬音）、`FocusLines` |
+| `frontend/src/components/Battle/MoveMotionOverlay.tsx` | `AttackTrailEffect` → SVG の斬撃（`AttackSlashEffect`）+ 残像（`AttackGhosts`）。`BarrierWallEffect` → SVG の壁 + 波紋 / ヒビ / 破片。`MagicBullet` → `sourceActionType` で色を分け、尾を追加。`MagicRuneEffect` → SVG の魔法陣。`ChargeAuraEffect` → 炎 / 収束粒子 / 段階（charged / overcharged）。新規 `BarrierBashEffect`（押し出して叩きつける壁）、`ParalysisStunEffect`（体の上の稲妻 SVG + 火花 + 「ビリビリッ」）。新規 `ImpactEffect`（バースト + 火花 + 擬音）、`FocusLines` |
 | `frontend/src/components/Battle/BattlePanel.tsx` | ① アリーナ全体に重ねる `BattleFxLayer` を追加（弾の飛翔・反射の軌道・衝突の中心・集中線など、キャラをまたぐ演出用）。② `runPhase` で、`hitIds` / `impactEffects` / ダメージ数字 / 画面揺れを **フェーズ開始ではなくヒットの瞬間** に出す（`schedule` で遅らせる）。③ 白フラッシュ用のシルエット画像を `portrait-hit-filter` の中に追加し、`hitFlash`（filter アニメーション）を置き換え |
-| `frontend/src/components/Battle/battleAnimationPhases.ts` | `TurnAnimationPhase` に `impactDelayMs`（または `getImpactTiming(motionType, sourceActionType, chargeMultiplier)`）を追加。反射時のバリア側を区別する `MoveMotionType` の `"barrierReflect"` を追加。チャージ段階を表す `motionIntensity: "normal" \| "charged" \| "overcharged"` を追加（`coopRoguelike.ts` の段階判定を通常バトルにも使う） |
-| テスト | `MoveMotionOverlay.test.ts`（アニメーション名・方向）、`battleAnimationPhases.test.ts`（ヒット時刻・新しいモーション種別）、`BattlePanel.test.ts`（ヒット演出の遅延）を更新・追加 |
+| `frontend/src/components/Battle/battleAnimationPhases.ts` | `TurnAnimationPhase` に `impactDelayMs`（または `getImpactTiming(motionType, sourceActionType, chargeMultiplier)`）を追加。反射時のバリア側を区別する `MoveMotionType` の `"barrierReflect"` を追加。バリアでダメージを与えるとき（相手がチャージ / まひ）用に `"barrierBash"` を追加し、`getTurnAnimationPhases` で「バリア vs チャージ」「バリア vs まひ」の組み合わせをバリア側 `barrierBash`、まひ側 `"paralysisStun"`（新規）に割り当てる（チャージ側は `chargeConcentration` のまま）。チャージ段階を表す `motionIntensity: "normal" \| "charged" \| "overcharged"` を追加（`coopRoguelike.ts` の段階判定を通常バトルにも使う） |
+| テスト | `MoveMotionOverlay.test.ts`（アニメーション名・方向）、`battleAnimationPhases.test.ts`（ヒット時刻・新しいモーション種別。バリア vs チャージ / まひ → `barrierBash`、まひ → `paralysisStun`）、`BattlePanel.test.ts`（ヒット演出の遅延）を更新・追加 |
 
 ## パフォーマンスとアクセシビリティ
 
@@ -135,7 +151,7 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 ## 段階的な実装計画
 
 1. **共通基盤 + こうげき**: `--hit` によるヒットタイミング同期（`battleAnimationPhases.ts` と `BattlePanel.tsx`）、白シルエットのフラッシュ、新しいダメージ数字、`ImpactEffect`、斬撃 / 残像 / スピード線、ヒットストップ。ここで reduced-motion と軽量モードの仕組みも作る。
-2. **バリア**: SVG の壁（展開 / 割れ / 衝突）、波紋、破片。`BattleFxLayer` を導入して衝突の中心に火花を出す。
+2. **バリア**: SVG の壁（展開 / 割れ / 衝突 / ぶつける）、波紋、破片。`"barrierBash"` と `"paralysisStun"`（まひの稲妻）もここで入れる。`BattleFxLayer` を導入して衝突の中心に火花を出す。
 3. **まほう**: 弱・強の色分け、魔法陣、尾、強まほうのため・収束・爆発・煙。反射の山なり軌道と点線（`"barrierReflect"` の追加）。
 4. **チャージ**: 炎 / 収束粒子 / 脈動、charged / overcharged の段階差、待機オーラ（既存の `chargeGlowPortrait` の置き換え）。
-5. **画面全体の演出と統一**: 集中線、画面揺れの強さの整理、回避・まひ・勝ちの演出を同じ部品でそろえる。最終ボス（`final-boss-*`）の演出との重なりを調整。
+5. **画面全体の演出と統一**: 集中線、画面揺れの強さの整理、回避・勝ちの演出を同じ部品でそろえる。最終ボス（`final-boss-*`）の演出との重なりを調整。

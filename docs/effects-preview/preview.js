@@ -41,9 +41,12 @@ function beforeFighter(side, o = {}) {
          .map((i) => `<i style="--particle-angle:${i * (360 / (o.impact.charged ? 8 : 6))}deg"></i>`)
          .join("")}</div>`
     : "";
+  const badge = o.badge
+    ? `<div class="doodle-frame" style="position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) rotate(-2deg);z-index:13;background:${o.badge.color};border:3px solid #f8fafc;color:#fff;font-weight:900;font-size:13px;padding:4px 14px;white-space:nowrap;box-shadow:0 4px 0 rgba(0,0,0,0.55)">${o.badge.text}</div>`
+    : "";
   return `
   <div class="fx-fighter" style="left:${POS[side]}px">
-    ${floater}${impact}
+    ${badge}${floater}${impact}
     <div class="fx-shadow"></div>
     <div style="animation:${side === "left" ? "doodleIdleFloat 3.4s" : "doodleIdleFloatRight 3.8s"} ease-in-out infinite">
       <div class="portrait-motion-frame" style="animation:${o.motion ?? ""};--dir:${dir};--motion-power:${o.power ?? 1}">
@@ -92,6 +95,9 @@ function beforeWall(side, motionType) {
   return `<div class="barrier-wall-effect" style="position:absolute;top:5%;${wallSide}:-10px;width:12px;height:90%;border-radius:6px;background:linear-gradient(to bottom, #fbbf2400, #fbbf24cc 30%, #fbbf24cc 70%, #fbbf2400);box-shadow:0 0 14px 4px #fbbf2488, inset 0 0 8px #fde68a66;transform-origin:bottom center;animation:${name} ${duration} ease-out forwards;--clash-dx:${side === "left" ? 50 : -50}px;z-index:12;pointer-events:none"></div>`;
 }
 
+// ACTION_COLORS.paralysis / ACTION_LABELS.paralysis（BattlePanel.tsx）
+const PARALYSIS_BADGE = { text: "まひ", color: "#6b7280" };
+
 const BEFORE = {
   attack: () => ({
     html: beforeFighter("left", { acting: true, motion: "attackLunge 0.72s ease-out forwards", effects: beforeTrail("left", false) }) +
@@ -131,6 +137,17 @@ const BEFORE = {
     html: beforeFighter("left", { acting: true, charged: true, motion: "chargeConcentration 0.8s ease-out forwards", effects: beforeChargeAura() }) +
       beforeFighter("right", {}),
   }),
+  barrierBashCharge: () => ({
+    html: beforeFighter("left", { acting: true, motion: "barrierBrace 0.75s ease-out forwards", effects: beforeWall("left", "barrierWall") }) +
+      beforeFighter("right", { charged: true, hit: {}, impact: {}, floater: { text: "16" } }),
+  }),
+  barrierBashParalysis: () => ({
+    html: beforeFighter("left", { acting: true, motion: "barrierBrace 0.75s ease-out forwards", effects: beforeWall("left", "barrierWall") }) +
+      beforeFighter("right", { badge: PARALYSIS_BADGE, hit: {}, impact: {}, floater: { text: "16" } }),
+  }),
+  paralysis: () => ({
+    html: beforeFighter("left", {}) + beforeFighter("right", { badge: PARALYSIS_BADGE }),
+  }),
   overcharge: () => ({
     html: beforeFighter("left", { acting: true, charged: "overcharged", motion: "chargeConcentration 0.8s ease-out forwards", effects: beforeChargeAura() }) +
       beforeFighter("right", {}),
@@ -151,6 +168,7 @@ function afterFighter(side, o = {}) {
     : "";
   return `
   <div class="fx-fighter" style="left:${POS[side]}px">
+    ${o.badge ? `<div class="fx-badge doodle-frame" style="background:${o.badge.color}">${o.badge.text}</div>` : ""}
     <div class="fx-shadow"></div>
     ${o.under ?? ""}
     ${ghosts}
@@ -158,7 +176,9 @@ function afterFighter(side, o = {}) {
       <div class="fx-motion ${o.motion ?? ""}" style="--dir:${dirOf(side)};--reach:${o.reach ?? 90}px">
         <div class="fx-hit ${o.hit ?? ""}" style="--dir:${side === "left" ? -1 : 1};--kb:${o.kb ?? 22}px">
           <img src="${IMG[side]}" alt="" class="fx-img" style="filter:${imgFilter}">
-          ${o.hit || o.pulse ? `<img src="${IMG[side]}" alt="" class="fx-img fx-silhouette ${o.pulse ?? ""}">` : ""}
+          ${o.hit ? `<img src="${IMG[side]}" alt="" class="fx-img fx-silhouette fx-hit-sil">` : ""}
+          ${o.pulse ? `<img src="${IMG[side]}" alt="" class="fx-img fx-silhouette ${o.pulse}">` : ""}
+          ${o.onBody ?? ""}
         </div>
       </div>
     </div>
@@ -248,6 +268,37 @@ const bolts = () => `<svg class="fx-bolts" viewBox="0 0 160 160">
   <polyline class="fx-bolt" points="22,40 38,58 28,66 46,88"/>
   <polyline class="fx-bolt fx-bolt2" points="138,36 120,56 132,64 112,90"/>
   <polyline class="fx-bolt fx-bolt3" points="74,4 86,20 76,26 90,42"/></svg>`;
+
+// まひ: 体の上を走る稲妻（黄色のマーカー + インクの縁取り）。位置をずらした 2 組を交互に点滅させる
+const stunBolts = () => `<svg class="fx-stun-bolts" viewBox="0 0 120 120">
+  <g class="fx-stun-set">
+    <polyline points="18,30 34,44 26,52 46,66"/>
+    <polyline points="98,24 84,42 94,50 76,70"/>
+    <polyline points="40,92 54,82 58,96 74,86"/>
+  </g>
+  <g class="fx-stun-set fx-stun-set2">
+    <polyline points="56,10 46,28 58,32 48,50"/>
+    <polyline points="12,70 30,74 24,86 42,94"/>
+    <polyline points="104,62 90,74 102,82 86,98"/>
+  </g>
+</svg>`;
+
+const stunSparks = () => [[8, 20, 0], [108, 34, 70], [16, 96, 140], [100, 100, 210], [60, -4, 105]].map(([x, y, d]) =>
+  `<i class="fx-stun-spark" style="left:${x}px;top:${y}px;animation-delay:${d}ms"></i>`).join("");
+
+const stunned = (extra = {}) => ({
+  motion: "fx-stun",
+  pulse: "fx-stun-flash",
+  onBody: stunBolts(),
+  badge: { text: "まひ", color: "#6b7280" },
+  over: stunSparks() + at(60, -14, sfx("ビリビリッ", "fx-sfx-stun")),
+  ...extra,
+});
+
+// バリアをぶつける: 自分の前に張った壁を、押し出して相手に叩きつける
+const bashWall = () => at(196, 150, `<div class="fx-bash-wall">${wall("left", "fx-wall-bash-shape")}</div>`);
+const bashTrail = () => range(3).map((i) =>
+  at(180 - i * 4, 112 + i * 38, `<i class="fx-speed fx-bash-speed" style="--dir:1;width:${56 + (i % 2) * 20}px;animation-delay:${i * 16}ms"></i>`)).join("");
 
 const AFTER = {
   attack: () => ({
@@ -368,8 +419,40 @@ const AFTER = {
       at(120, 214, `<div class="fx-ground-ring fx-ground-ring-charge"></div><div class="fx-ground-ring fx-ground-ring-charge" style="animation-delay:260ms"></div>`) +
       at(120, 70, sfx("ハァァッ!", "fx-sfx-charge fx-sfx-small")),
   }),
-  overcharge: () => ({
+  barrierBashCharge: () => ({
+    hit: 300,
+    world: "fx-shake-hit",
+    html:
+      bashTrail() +
+      afterFighter("left", { motion: "fx-bash-actor" }) +
+      afterFighter("right", {
+        motion: "fx-charge-actor",
+        hit: "fx-hit-target fx-hit-target-heavy",
+        kb: 36,
+        under: `<div class="fx-interrupt">${flames(5)}<div class="fx-charge-glow"></div></div>`,
+      }) +
+      bashWall() +
+      at(276, 158, burst("fx-burst-bash") + sparks(10, "fx-sparks-clash")) +
+      at(296, 100, sfx("ドゴォッ!", "fx-sfx-bash")) +
+      damage(330, "16", "fx-dmg-bash"),
+  }),
+  barrierBashParalysis: () => ({
+    hit: 300,
+    world: "fx-shake-hit",
+    html:
+      bashTrail() +
+      afterFighter("left", { motion: "fx-bash-actor" }) +
+      afterFighter("right", stunned({ hit: "fx-hit-target fx-hit-target-heavy", kb: 36, over: stunSparks() })) +
+      bashWall() +
+      at(276, 158, burst("fx-burst-bash") + sparks(10, "fx-sparks-clash")) +
+      at(296, 100, sfx("ドゴォッ!", "fx-sfx-bash")) +
+      damage(396, "16", "fx-dmg-bash"),
+  }),
+  paralysis: () => ({
     hit: 0,
+    html: afterFighter("left", {}) + afterFighter("right", stunned()),
+  }),
+  overcharge: () => ({
     world: "fx-shake-rumble",
     html:
       focusLines("fx-focus-charge fx-focus-over", "27%", "60%") +
@@ -397,10 +480,13 @@ const SCENES = [
   { id: "barrierBreak", group: "バリア", title: "バリアが割れる（こうげき vs バリア）", ms: 850, color: "#ea580c" },
   { id: "barrierClash", group: "バリア", title: "バリア同士の衝突", ms: 750, color: "#ea580c" },
   { id: "magicReflect", group: "バリア", title: "まほう反射（まほう vs バリア）", ms: 850, color: "#ea580c" },
+  { id: "barrierBashCharge", group: "バリア", title: "バリアをぶつける（バリア vs チャージ）", ms: 850, color: "#ea580c" },
+  { id: "barrierBashParalysis", group: "バリア", title: "バリアをぶつける（バリア vs まひ）", ms: 850, color: "#ea580c" },
   { id: "magicWeak", group: "まほう", title: "弱まほう", ms: 850, color: "#2563eb" },
   { id: "magicStrong", group: "まほう", title: "強まほう", ms: 850, color: "#7c3aed" },
   { id: "charge", group: "チャージ", title: "チャージ（charged）", ms: 800, color: "#16a34a" },
   { id: "overcharge", group: "チャージ", title: "オーバーチャージ（overcharged）", ms: 800, color: "#16a34a" },
+  { id: "paralysis", group: "まひ", title: "まひで動けない", ms: 850, color: "#6b7280" },
 ];
 
 function renderStage(stageEl, sceneId, variant) {

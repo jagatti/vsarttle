@@ -125,8 +125,8 @@
   pointer-events: none;
 }
 
-.fx-hit-target > .fx-silhouette,
-.fx-guard-flinch > .fx-silhouette { animation: fxFlash 320ms linear var(--hit) both; }
+.fx-hit-target > .fx-hit-sil,
+.fx-guard-flinch > .fx-hit-sil { animation: fxFlash 320ms linear var(--hit) both; }
 
 /* 画面揺れ: ヒットの瞬間だけ、短く小さく（--amp で強さを切り替え） */
 @keyframes fxShake {
@@ -950,6 +950,177 @@
 .fx-bolt3 { animation-delay: 120ms; }
 
 /* ---------------------------------------------------------------------
+ * バリアをぶつける（バリア vs チャージ / バリア vs まひ）
+ * 壁を張る → 少し引いてため → 押し出して相手に叩きつける → 反動で戻って消える
+ * ------------------------------------------------------------------- */
+
+@keyframes fxBashActor {
+  0% { transform: translateX(0) rotate(0); }
+  22% { transform: translateX(calc(var(--dir) * -12px)) rotate(calc(var(--dir) * -6deg)) scale(0.97, 1.03); }
+  33% { transform: translateX(calc(var(--dir) * 30px)) rotate(calc(var(--dir) * 8deg)) scale(1.06, 0.95); }
+  50% { transform: translateX(calc(var(--dir) * 30px)) rotate(calc(var(--dir) * 8deg)) scale(1.06, 0.95); }
+  70% { transform: translateX(calc(var(--dir) * 8px)) rotate(calc(var(--dir) * 2deg)); }
+  100% { transform: translateX(0) rotate(0); }
+}
+
+.fx-bash-actor { animation: fxBashActor 850ms ease-out both; }
+
+/* 壁本体: 出現 → ため（手前に引く）→ 加速して相手へ → ヒットストップでつぶれる → 反動で戻りながら消える */
+@keyframes fxBashWall {
+  0% { transform: translateX(0) scale(1, 0); opacity: 0; }
+  8% { opacity: 1; }
+  14% { transform: translateX(0) scale(1.1, 1.08); }
+  24% { transform: translateX(-10px) scale(0.95, 1); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.4); }
+  35% { transform: translateX(78px) scale(0.72, 1.12); }
+  47% { transform: translateX(78px) scale(0.72, 1.12); }
+  58% { transform: translateX(58px) scale(1.06, 0.96); opacity: 1; }
+  80% { transform: translateX(46px) scale(1, 1); opacity: 0.85; }
+  100% { transform: translateX(40px) scale(1, 1); opacity: 0; }
+}
+
+.fx-bash-wall {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 85px;
+  animation: fxBashWall 850ms ease-out both;
+}
+
+.fx-wall-bash-shape path[pathLength] { stroke-dasharray: 100 120; animation: fxDraw 160ms ease-out 20ms both; }
+.fx-wall-bash-shape .fx-wall-line { stroke-width: 9; }
+
+.fx-bash-speed { background: #fed7aa; animation-delay: 200ms; }
+
+.fx-burst-bash { left: -64px; top: -64px; width: 128px; height: 128px; }
+.fx-burst-bash .fx-burst-core {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.25) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #fff 0 18%, #fdba74 40%, #ea580c 82%);
+}
+
+.fx-sfx-bash { font-size: 40px; color: #fff7ed; text-shadow: 4px 5px 0 #ea580c; }
+.fx-dmg-bash { text-shadow: 4px 4px 0 #ea580c; }
+
+/* 割り込まれたチャージ: ヒットの瞬間にオーラがしぼんで消える */
+@keyframes fxInterrupt {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.4, 0.2); }
+}
+
+.fx-interrupt { position: absolute; inset: 0; transform-origin: 50% 100%; animation: fxInterrupt 160ms ease-in var(--hit) both; }
+
+/* ---------------------------------------------------------------------
+ * まひ: 体に稲妻が走り、小刻みにしびれて動けない
+ * ------------------------------------------------------------------- */
+
+/* その場で細かくガタガタ（大きくは動かない＝動けない感じ） */
+@keyframes fxStun {
+  0% { transform: translate(0, 0) rotate(0); }
+  12.5% { transform: translate(-3px, 1px) rotate(-1.5deg); }
+  25% { transform: translate(3px, -1px) rotate(1deg); }
+  37.5% { transform: translate(-2px, -1px) rotate(1.5deg); }
+  50% { transform: translate(2px, 1px) rotate(-1deg); }
+  62.5% { transform: translate(-3px, 0) rotate(1deg); }
+  75% { transform: translate(3px, 1px) rotate(-1.5deg); }
+  87.5% { transform: translate(-1px, -1px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+
+.fx-stun { animation: fxStun 400ms steps(1) infinite; }
+
+/* 黄色いシルエットがチカチカ（感電の明滅） */
+@keyframes fxStunFlash {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 0.75; }
+  22% { opacity: 0.1; }
+  48% { opacity: 0.55; }
+  60% { opacity: 0; }
+  78% { opacity: 0.4; }
+}
+
+.fx-silhouette.fx-stun-flash {
+  filter: brightness(0) invert(1) sepia(1) saturate(8) hue-rotate(5deg);
+  animation: fxStunFlash 450ms steps(1) infinite;
+}
+
+.fx-stun-bolts {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(1.5px 1.5px 0 #14161f) drop-shadow(-1px -1px 0 #14161f);
+}
+
+.fx-stun-bolts polyline {
+  fill: none;
+  stroke: #fde047;
+  stroke-width: 5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* 2 組の稲妻を交互に点滅させて「走っている」ように見せる */
+@keyframes fxStunSet {
+  0%, 45% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.fx-stun-set { animation: fxStunSet 300ms steps(1) infinite; }
+.fx-stun-set2 { animation-delay: -150ms; }
+
+@keyframes fxStunSpark {
+  0%, 100% { transform: scale(0) rotate(0); opacity: 0; }
+  30% { transform: scale(1.2) rotate(30deg); opacity: 1; }
+  60% { transform: scale(0.6) rotate(60deg); opacity: 0.8; }
+}
+
+.fx-stun-spark {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  translate: -50% -50%;
+  background: #fde047;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: fxStunSpark 420ms steps(4) infinite;
+}
+
+.fx-sfx-stun {
+  font-size: 22px;
+  color: #fde047;
+  -webkit-text-stroke-width: 5px;
+  text-shadow: 2px 3px 0 #6b7280;
+  animation: fxStunText 900ms ease-out both;
+}
+
+/* 描き文字自体もビリビリ震える */
+@keyframes fxStunText {
+  0% { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+  15% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  25% { transform: translateX(-2px) rotate(-4deg); }
+  35% { transform: translateX(2px) rotate(3deg); }
+  45% { transform: translateX(-2px) rotate(-3deg); }
+  55% { transform: translateX(2px) rotate(2deg); }
+  65%, 100% { transform: translateX(0) rotate(-2deg); opacity: 1; }
+}
+
+.fx-badge {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  z-index: 13;
+  border: 3px solid #f8fafc;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 4px 14px;
+  white-space: nowrap;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* ---------------------------------------------------------------------
  * prefers-reduced-motion: 位置が大きく動く演出・揺れ・粒子を止め、
  * 「何が起きたか」が分かる描き文字 / バースト / 数字だけ短く残す。
  * （プレビューでは ?reduced=1 で同じ状態を確認できる）
@@ -959,13 +1130,13 @@
   .fx-world { animation: none !important; }
   .fx-ghost-wrap, .fx-speed, .fx-focus, .fx-sparks, .fx-shard, .fx-converge,
   .fx-flame, .fx-smoke, .fx-bolts, .fx-shockwave, .fx-trajectory, .fx-twinkle,
-  .fx-orb-tail { display: none !important; }
-  .fx-motion, .fx-hit { animation: none !important; }
+  .fx-orb-tail, .fx-stun-spark { display: none !important; }
+  .fx-motion, .fx-hit, .fx-bash-wall, .fx-stun-set, .fx-silhouette.fx-stun-flash { animation: none !important; }
   .fx-aura-idle { animation: fxAuraIdleIn 200ms 620ms both !important; }
 }
 
 .fx-reduced .fx-world { animation: none !important; }
 .fx-reduced :is(.fx-ghost-wrap, .fx-speed, .fx-focus, .fx-sparks, .fx-shard, .fx-converge,
-  .fx-flame, .fx-smoke, .fx-bolts, .fx-shockwave, .fx-trajectory, .fx-twinkle, .fx-orb-tail) { display: none !important; }
-.fx-reduced :is(.fx-motion, .fx-hit) { animation: none !important; }
+  .fx-flame, .fx-smoke, .fx-bolts, .fx-shockwave, .fx-trajectory, .fx-twinkle, .fx-orb-tail, .fx-stun-spark) { display: none !important; }
+.fx-reduced :is(.fx-motion, .fx-hit, .fx-bash-wall, .fx-stun-set, .fx-silhouette.fx-stun-flash) { animation: none !important; }
 .fx-reduced .fx-aura-idle { animation: fxAuraIdleIn 200ms 620ms both !important; }
