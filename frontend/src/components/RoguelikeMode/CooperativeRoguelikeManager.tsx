@@ -24,6 +24,7 @@ import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpu
 import {
   COOP_ROGUELIKE_DAMAGE_SCALING,
   advanceCoopTurnCounters,
+  advanceCoopRewardPhase,
   applyCoopUpgrade,
   buildCoopUpgradeChoices,
   buildCoopSkillEffects,
@@ -32,6 +33,9 @@ import {
   getCoopNextPlayerId,
   getCoopResultData,
   getCoopRewardPlayerId,
+  getCoopChoiceDisabledReason,
+  getCoopFirstSelectableChoiceIndex,
+  isCoopChoiceDisabled,
   getCoopStartingPlayerId,
   getCoopTurnOutcome,
   resolveCoopTurn,
@@ -147,6 +151,8 @@ export function CooperativeRoguelikeManager(props: {
       deadline: 0,
       pendingRevivalId: null,
       rewardPlayerId: null,
+      rewardPhase: 1,
+      pickedChoiceIndex: null,
       upgradeChoices: [],
       outcome: null,
       floorDamageTaken: 0,
@@ -263,6 +269,8 @@ export function CooperativeRoguelikeManager(props: {
       excludedPlayerIds: [],
       pendingRevivalId: null,
       rewardPlayerId: null,
+      rewardPhase: 1,
+      pickedChoiceIndex: null,
       upgradeChoices: [],
       outcome: null,
       status: "協力ローグライクを開始します",
@@ -312,16 +320,14 @@ export function CooperativeRoguelikeManager(props: {
       ...current,
       stage: "upgrading",
       rewardPlayerId,
+      rewardPhase: 1,
+      pickedChoiceIndex: null,
       upgradeChoices,
       pendingRevivalId: deadAlly ?? null,
       deadline: Date.now() + REWARD_SECONDS * 1000,
       status: boss ? "相手が報酬を選んでいます" : "相手が強化を選んでいます",
     };
     publish(upgrade);
-    rewardTimerRef.current = window.setTimeout(
-      () => chooseUpgradeRef.current?.(upgrade, rewardPlayerId, 0),
-      REWARD_SECONDS * 1000,
-    );
   }, [prepareFloor, publish]);
 
   const continueAfterTurn = useCallback((result: ReturnType<typeof resolveCoopTurn>, previous: CoopSnapshot, actingPlayerId: string) => {
@@ -544,16 +550,24 @@ export function CooperativeRoguelikeManager(props: {
     const latest = snapshotRef.current;
     if (
       !latest
+      || latest.runId !== current.runId
       || latest.stage !== "upgrading"
       || latest.floor !== current.floor
       || latest.rewardPlayerId !== playerId
+      || latest.rewardPhase !== current.rewardPhase
     ) return;
     const activeSnapshot = latest;
-    const choice = activeSnapshot.upgradeChoices[choiceIndex] ?? activeSnapshot.upgradeChoices[0];
+    if (isCoopChoiceDisabled(activeSnapshot, playerId, choiceIndex)) return;
+    const choice = activeSnapshot.upgradeChoices[choiceIndex];
     const player = activeSnapshot.players[playerId];
     if (!choice || !player) return;
     if (rewardTimerRef.current !== null) window.clearTimeout(rewardTimerRef.current);
     const upgraded = applyCoopUpgrade(activeSnapshot, playerId, choice);
+    const nextReward = advanceCoopRewardPhase(upgraded, choiceIndex);
+    if (nextReward) {
+      publish({ ...nextReward, deadline: Date.now() + REWARD_SECONDS * 1000 });
+      return;
+    }
     const players = upgraded.players;
     let pendingRevivalId: string | null = null;
     if (
@@ -584,6 +598,18 @@ export function CooperativeRoguelikeManager(props: {
   useEffect(() => {
     chooseUpgradeRef.current = chooseUpgrade;
   }, [chooseUpgrade]);
+
+  useEffect(() => {
+    if (!props.isHost || !snapshot || snapshot.stage !== "upgrading" || !snapshot.rewardPlayerId) return;
+    if (rewardTimerRef.current !== null) window.clearTimeout(rewardTimerRef.current);
+    rewardTimerRef.current = window.setTimeout(() => {
+      const index = getCoopFirstSelectableChoiceIndex(snapshot);
+      if (index >= 0) chooseUpgradeRef.current?.(snapshot, snapshot.rewardPlayerId!, index);
+    }, Math.max(0, snapshot.deadline - Date.now()));
+    return () => {
+      if (rewardTimerRef.current !== null) window.clearTimeout(rewardTimerRef.current);
+    };
+  }, [props.isHost, snapshot]);
 
   useEffect(() => {
     if (!props.isHost || !snapshot || snapshot.stage !== "battle") return;
@@ -643,6 +669,7 @@ export function CooperativeRoguelikeManager(props: {
       message.type === "coop_upgrade"
       && message.payload.playerId === remotePlayerId
       && message.payload.floor === current.floor
+      && message.payload.rewardPhase === current.rewardPhase
     ) {
       chooseUpgrade(current, message.payload.playerId, message.payload.choiceIndex);
     } else if (message.type === "coop_restart" && !isHost) {
@@ -673,18 +700,18 @@ export function CooperativeRoguelikeManager(props: {
       if (snapshot.stage === "battle") update.deadline = Date.now() + getRoguelikeTurnSeconds(players[props.localPlayerId]!) * 1000;
     }
     if (snapshot.stage === "upgrading" && snapshot.rewardPlayerId === disconnectedId) {
+      if (snapshot.rewardPhase === 2) {
+        void prepareFloor(update, update.floor + 1, players, null, update.lastAttackerId ?? props.localPlayerId, update.turn);
+        return;
+      }
       update.rewardPlayerId = props.localPlayerId;
       update.pendingRevivalId = null;
+      update.upgradeChoices = buildCoopUpgradeChoices(update, props.localPlayerId, false);
       update.deadline = Date.now() + REWARD_SECONDS * 1000;
-      if (rewardTimerRef.current !== null) window.clearTimeout(rewardTimerRef.current);
-      rewardTimerRef.current = window.setTimeout(
-        () => chooseUpgradeRef.current?.(update, props.localPlayerId, 0),
-        REWARD_SECONDS * 1000,
-      );
     }
     publish(update);
     finishPresentation();
-  }, [finishPresentation, props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
+  }, [finishPresentation, prepareFloor, props.isHost, props.localPlayerId, props.peerDisconnected, publish, snapshot]);
 
   useEffect(() => () => {
     clearTimers();
@@ -706,12 +733,13 @@ export function CooperativeRoguelikeManager(props: {
 
   const sendUpgrade = (choiceIndex: number) => {
     if (!snapshot || snapshot.stage !== "upgrading" || snapshot.rewardPlayerId !== props.localPlayerId) return;
+    if (isCoopChoiceDisabled(snapshot, props.localPlayerId, choiceIndex)) return;
     if (props.isHost) {
       chooseUpgrade(snapshot, props.localPlayerId, choiceIndex);
     } else {
       props.sendMessage({
         type: "coop_upgrade",
-        payload: { runId: snapshot.runId, floor: snapshot.floor, playerId: props.localPlayerId, choiceIndex },
+        payload: { runId: snapshot.runId, floor: snapshot.floor, rewardPhase: snapshot.rewardPhase, playerId: props.localPlayerId, choiceIndex },
       });
     }
   };
@@ -835,6 +863,8 @@ export function CooperativeRoguelikeManager(props: {
            acquiredSkills={snapshot.acquiredSkills[snapshot.rewardPlayerId] ?? {}}
            acquiredHealingSkills={snapshot.acquiredHealingSkills[snapshot.rewardPlayerId] ?? {}}
            choices={snapshot.upgradeChoices}
+           choiceDisabledReason={(index) => getCoopChoiceDisabledReason(snapshot, snapshot.rewardPlayerId!, index)}
+           pickedChoiceLabel={snapshot.rewardPhase === 2 && snapshot.rewardPlayerId !== props.localPlayerId ? "自分が選んだ枠" : undefined}
            onSelect={(_, index) => sendUpgrade(index)}
            countdown={countdown}
            waitingMessage={snapshot.rewardPlayerId === props.localPlayerId ? undefined : snapshot.status}

@@ -52,7 +52,7 @@ export interface CoopSnapshot {
 export type CoopWireMessage =
   | { type: "coop_snapshot"; payload: CoopSnapshot }
   | { type: "coop_action"; payload: { runId: string; turn: number; playerId: CoopPlayerId; action: ActionType } }
-  | { type: "coop_upgrade"; payload: { runId: string; floor: number; playerId: CoopPlayerId; choiceIndex: number } }
+  | { type: "coop_upgrade"; payload: { runId: string; floor: number; rewardPhase: 1 | 2; playerId: CoopPlayerId; choiceIndex: number } }
   | { type: "coop_presentation_complete"; payload: { runId: string; floor: number; turn: number; playerId: CoopPlayerId; stage: "vs" | "resolving" } }
   | { type: "coop_restart"; payload: { runId: string } }
   | { type: "coop_redraw"; payload: { runId: string } };

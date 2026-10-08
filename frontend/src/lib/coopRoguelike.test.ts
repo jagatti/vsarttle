@@ -306,6 +306,26 @@ test("choice validation rejects out-of-turn, picked, and invalid indices but per
   assert.ok(isCoopChoiceDisabled(current, "p1", 0));
 });
 
+test("timeout selects the first available slot in either phase and synchronized snapshots retain picked slots", () => {
+  const current = rewardSnapshot();
+  assert.equal(getCoopFirstSelectableChoiceIndex(current), 0);
+  for (const pickedIndex of [1, 2]) {
+    const upgraded = applyCoopUpgrade(current, "p1", current.upgradeChoices[pickedIndex]!);
+    const next = advanceCoopRewardPhase(upgraded, pickedIndex)!;
+    const restored: CoopSnapshot = JSON.parse(JSON.stringify(next));
+    assert.equal(restored.rewardPhase, 2);
+    assert.equal(restored.pickedChoiceIndex, pickedIndex);
+    assert.equal(restored.rewardPlayerId, "p2");
+    assert.ok(isCoopChoiceDisabled(restored, "p2", pickedIndex));
+    assert.equal(getCoopFirstSelectableChoiceIndex(restored), 0);
+  }
+  const blockedFirst = rewardSnapshot();
+  blockedFirst.upgradeChoices[0] = blockedFirst.upgradeChoices[1]!;
+  blockedFirst.acquiredWeakMagicKinds.p2 = ["paralysis"];
+  const next = advanceCoopRewardPhase(blockedFirst, 1)!;
+  assert.equal(getCoopFirstSelectableChoiceIndex(next), 2);
+});
+
 test("shortBattle shared by either ally is unavailable to the second picker", () => {
   const current = rewardSnapshot();
   current.acquiredSkills.p1 = { shortBattle: 1 };

@@ -29,6 +29,8 @@ export interface RoguelikeUpgradePanelProps<Choice extends RoguelikeUpgradeChoic
   onSelect: (choice: Choice, index: number) => void;
   countdown?: number;
   waitingMessage?: string;
+  choiceDisabledReason?: (index: number) => string | null;
+  pickedChoiceLabel?: string;
 }
 
 const UPGRADE_LABELS: Record<UpgradeStatKey, string> = {
@@ -54,6 +56,8 @@ export function RoguelikeUpgradePanel<Choice extends RoguelikeUpgradeChoice>({
   onSelect,
   countdown,
   waitingMessage,
+  choiceDisabledReason,
+  pickedChoiceLabel,
 }: RoguelikeUpgradePanelProps<Choice>) {
   const playerStats = player.stats;
   const skillsTooltip = buildRoguelikeSkillsTooltip(acquiredSkills);
@@ -99,10 +103,12 @@ export function RoguelikeUpgradePanel<Choice extends RoguelikeUpgradeChoice>({
         {choices.map((choice, index) => {
           const rarity = choice.kind === "weak-stat" || choice.kind === "weak-magic" || choice.kind === "skill" ? choice.rarity : null;
           const rarityStyle = rarity ? rarityMeta[rarity] : null;
+          const disabledReason = choiceDisabledReason?.(index);
+          const disabled = !!waitingMessage || !!disabledReason;
           return (
             <button
               key={`${choice.kind}-${index}`}
-              disabled={!!waitingMessage}
+              disabled={disabled}
               onClick={() => onSelect(choice, index)}
               style={{
                 borderRadius: 14,
@@ -113,7 +119,8 @@ export function RoguelikeUpgradePanel<Choice extends RoguelikeUpgradeChoice>({
                     : "linear-gradient(135deg, rgba(120,53,15,0.85), rgba(217,119,6,0.25))",
                 padding: "20px 18px",
                 textAlign: "left",
-                cursor: waitingMessage ? "default" : "pointer",
+                cursor: disabled ? "default" : "pointer",
+                ...(disabledReason ? { filter: "grayscale(1)", opacity: 0.5 } : {}),
                 boxShadow: `0 0 18px ${rarityStyle?.color ?? "#f59e0b"}55`,
               }}
             >
@@ -123,6 +130,11 @@ export function RoguelikeUpgradePanel<Choice extends RoguelikeUpgradeChoice>({
                 </span>
                 {rarityStyle && <span style={{ color: rarityStyle.color }}>{rarityStyle.stars}</span>}
               </div>
+              {disabledReason && (
+                <div className="mt-2 text-sm font-bold">
+                  {disabledReason === "相手が選んだ枠" ? pickedChoiceLabel ?? disabledReason : disabledReason}
+                </div>
+              )}
               <div style={{ color: "#fff7ed", fontSize: 22, fontWeight: 900, marginTop: 8 }}>
                 {choice.kind === "boss-multiply" || choice.kind === "full-heal" || choice.kind === "skill" || choice.kind === "revival"
                   ? choice.label
