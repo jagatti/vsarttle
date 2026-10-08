@@ -1,11 +1,15 @@
 # バトルエフェクト強化案プレビュー（Before / After）
 
-ゲーム本体のコードは変更せずに、バトル中のエフェクト強化案を確認するための **スタンドアロンのプレビュー** です。
-オーナーが方向性を決めたあと、別タスクで本実装します。
+バトル中のエフェクト強化案を確認するための **スタンドアロンのプレビュー（見本）** です。
+
+> **実装済み**: この見本どおりに本体へ実装しました（`frontend/src/app/battle-effects.css`、`frontend/src/components/Battle/MoveMotionOverlay.tsx`、`BattlePanel.tsx`、`battleAnimationPhases.ts`）。
+> このフォルダは見た目の基準として残しています。BEFORE は実装前の `globals.css` を `before-globals.css` として固定したものです。
+> 実装で決めたこと: HP・効果音・ヒット演出は当たった瞬間に合わせる / チャージ 2.25 倍以上は金色 / 軽量モードは設けない / 最終ボスのわざも共通エフェクトを使う（オーラ・画面の色づけは残す）。
 
 | ファイル | 内容 |
 | --- | --- |
 | `index.html` | プレビューページ。全シーンの BEFORE / AFTER を並べて再生する |
+| `before-globals.css` | 実装前の `frontend/src/app/globals.css` のコピー（BEFORE の再現用） |
 | `preview.js` | シーンの組み立て。BEFORE は `MoveMotionOverlay.tsx` / `BattlePanel.tsx` のインラインスタイルを同じ値で再現 |
 | `after.css` | **強化案の本体**（`fx-` 接頭辞の keyframes / クラス）。本実装時に移植する部分 |
 | `preview.css` | プレビューページ自体のレイアウト（提案とは無関係） |
@@ -15,7 +19,7 @@
 
 ## 見かた
 
-ビルドは不要です。BEFORE は本番の `frontend/src/app/globals.css` を相対パスで直接読み込むため、リポジトリのルートを配信してください。
+ビルドは不要です。このフォルダ（またはリポジトリのルート）を配信してください。
 
 ```bash
 # リポジトリのルートで
@@ -26,7 +30,6 @@ npx serve .        # または python3 -m http.server
 - 「▶ もう一度」でシーンごとに再生、「くりかえし再生」で自動ループします。
 - `?reduced=1` を付けると、`prefers-reduced-motion: reduce` のときの見え方になります。
 - `?capture=1&scene=attack&variant=after` で 1 ステージだけを表示します（撮影用）。
-- `globals.css` 先頭の `@import "tailwindcss"` はブラウザでは解決できず 404 になりますが、影響はありません。
 
 ### 画像の撮り方
 
@@ -155,3 +158,28 @@ GIF は 50ms 間隔のフレームを Pillow で結合し、gifsicle（`-O3 --lo
 3. **まほう**: 弱・強の色分け、魔法陣、尾、強まほうのため・収束・爆発・煙。反射の山なり軌道と点線（`"barrierReflect"` の追加）。
 4. **チャージ**: 炎 / 収束粒子 / 脈動、charged / overcharged の段階差、待機オーラ（既存の `chargeGlowPortrait` の置き換え）。
 5. **画面全体の演出と統一**: 集中線、画面揺れの強さの整理、回避・勝ちの演出を同じ部品でそろえる。最終ボス（`final-boss-*`）の演出との重なりを調整。
+
+## 実装結果（本体に入れた内容）
+
+上の計画から、次のように整理して実装しました。
+
+| ファイル | 実装した内容 |
+| --- | --- |
+| `frontend/src/app/battle-effects.css`（新規、`layout.tsx` で読み込み） | `after.css` を移植。大きさ・距離はポートレートの 1/120 を `--u` とした相対値。突進・弾・バリアが届く距離は、BattlePanel が測った 2 人の中心間の距離 `--fx-gap` から計算する。`prefers-reduced-motion` のブロックもここにある |
+| `frontend/src/app/globals.css` | 旧エフェクト（`attackTrail` / `chargeAura` / `magic-rune` / `comic-burst` / `hitFlash` / `finalBoss*` の動きなど）を削除。協力モードのチャージオーラを 緑（charged）/ 金（overcharged）に変更 |
+| `MoveMotionOverlay.tsx` | `ImpactEffect`（バースト・火花・斬撃・擬音）、`AttackRushEffect`、`MagicCastEffect`、`BarrierEffect`（deploy / hold / reflect / break / clash / clashTarget / bash）、`ChargeUnderEffect` / `ChargeOverEffect` / `ChargeIdleAura`、`ParalysisBolts` / `ParalysisText`。`getImpactKind` でヒット演出の種類を決める |
+| `BattlePanel.tsx` | HP・ダメージ数字・効果音・ヒット演出・画面の揺れを **当たった瞬間** に発火。白フラッシュ・チャージの脈動・強まほうの光・まひの点滅は、静的 filter のシルエット画像の `opacity` で表現。チャージ中のキャラは緑、2.25 倍以上は金色に光る。最終ボス専用の突進 / 詠唱モーションと `final-boss-impact` をやめ、共通エフェクトにそろえた（オーラと画面の色づけは残す） |
+| `battleAnimationPhases.ts` | `barrierBash` / `paralysisStun` を追加。`MOTION_IMPACT_DELAY_MS` と `getPhaseImpactDelayMs` / `getPhaseSeDelayMs` でヒットの時刻を一元管理 |
+
+- 反射を受けるバリアの区別は新しいモーション種別ではなく、受ける側に渡す `incomingActionType` で行っています。
+- 軽量モードは見送りました（`prefers-reduced-motion` には対応）。
+- 1 フェーズは今まで通り 850ms で、ターン全体の長さは変わりません。
+
+| アクション | 当たる瞬間（フェーズ開始から） |
+| --- | --- |
+| こうげき | 255ms |
+| 弱まほう / 強まほう | 442ms / 510ms |
+| バリア同士の衝突 | 230ms |
+| バリアをぶつける | 300ms |
+| まほう反射 | 跳ね返り 340ms（効果音）、ダメージは次のフェーズの開始時 |
+| バリア展開 / チャージ / まひ | フェーズ開始時 |

@@ -1,5 +1,5 @@
 // バトルエフェクト強化案のスタンドアロンプレビュー。
-// - BEFORE: 本番の frontend/src/app/globals.css をそのまま読み込み、
+// - BEFORE: 実装前の globals.css（before-globals.css）を読み込み、
 //   MoveMotionOverlay.tsx / BattlePanel.tsx のインラインスタイルを同じ値で再現している。
 // - AFTER : after.css の提案 keyframes（fx- 接頭辞）で組み立てた強化案。
 // 本番コードには一切依存しない（ビルド不要、ブラウザで index.html を開くだけ）。
