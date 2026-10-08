@@ -3,7 +3,10 @@ import test from "node:test";
 import {
   applyAnimationPhaseToDisplayResources,
   buildDisplayBattleResources,
+  getPhaseImpactDelayMs,
+  getPhaseSeDelayMs,
   getTurnAnimationPhases,
+  MOTION_IMPACT_DELAY_MS,
 } from "@/components/Battle/battleAnimationPhases";
 import type { ActionType, PlayerBattleState, TurnResult } from "@/types/game";
 
@@ -62,7 +65,7 @@ test("getTurnAnimationPhases keeps reflected damage on the magic caster's phase"
   assert.deepEqual(phases[2].damageEvents, turnResult.damageEvents);
 });
 
-test("getTurnAnimationPhases keeps barrier counter damage on the charging player's phase", () => {
+test("getTurnAnimationPhases shows barrier counter damage when the barrier is bashed into the charging player", () => {
   const me = makePlayer("me", { stats: { ...makePlayer("tmp").stats, speed: 3 } });
   const enemy = makePlayer("enemy", { stats: { ...makePlayer("tmp").stats, speed: 7 } });
   const turnResult = makeTurnResult(
@@ -77,13 +80,50 @@ test("getTurnAnimationPhases keeps barrier counter damage on the charging player
 
   const phases = getTurnAnimationPhases(turnResult, me, enemy);
 
+  assert.equal(phases.length, 2);
   assert.equal(phases[0].actorId, "enemy");
+  assert.equal(phases[0].motionType, "chargeConcentration");
   assert.deepEqual(phases[0].chargeEvents, turnResult.chargeEvents);
   assert.equal(phases[0].damageEvents.length, 0);
-  assert.equal(phases[1].actorId, "enemy");
+  assert.equal(phases[1].actorId, "me");
+  assert.equal(phases[1].motionType, "barrierBash");
   assert.deepEqual(phases[1].damageEvents, turnResult.damageEvents);
-  assert.equal(phases[2].actorId, "me");
-  assert.equal(phases[2].damageEvents.length, 0);
+  assert.equal(getPhaseImpactDelayMs(phases[1]), MOTION_IMPACT_DELAY_MS.barrierBash);
+});
+
+test("getTurnAnimationPhases bashes the barrier into a paralyzed player who stays stunned", () => {
+  const me = makePlayer("me", { stats: { ...makePlayer("tmp").stats, speed: 8 } });
+  const enemy = makePlayer("enemy", { stats: { ...makePlayer("tmp").stats, speed: 2 } });
+  const turnResult = makeTurnResult({ me, enemy }, { me: "paralysis", enemy: "barrier" });
+  turnResult.damageEvents = [{ from: "enemy", to: "me", amount: 9, avoided: false, reason: "こうげき", phaseHint: "counter" }];
+
+  const phases = getTurnAnimationPhases(turnResult, me, enemy);
+
+  assert.deepEqual(phases.map((phase) => [phase.actorId, phase.motionType, phase.damageEvents.length]), [
+    ["me", "paralysisStun", 0],
+    ["enemy", "barrierBash", 1],
+  ]);
+});
+
+test("getPhaseImpactDelayMs matches each motion's hit frame and keeps impact phases immediate", () => {
+  assert.equal(getPhaseImpactDelayMs({ motionType: "attackLunge", sourceActionType: "attack" }), 255);
+  assert.equal(getPhaseImpactDelayMs({ motionType: "magicBlast", sourceActionType: "magicWeak" }), 442);
+  assert.equal(getPhaseImpactDelayMs({ motionType: "magicBlast", sourceActionType: "magicStrong" }), 510);
+  assert.equal(getPhaseImpactDelayMs({ motionType: "barrierClash", sourceActionType: "barrier" }), 230);
+  assert.equal(getPhaseImpactDelayMs({ motionType: "none" }), 0);
+  assert.equal(getPhaseImpactDelayMs({ motionType: "chargeConcentration", sourceActionType: "charge" }), 0);
+  assert.equal(getPhaseSeDelayMs({ motionType: "magicReflect", sourceActionType: "magicWeak" }), MOTION_IMPACT_DELAY_MS.magicReflect);
+  for (const delay of Object.values(MOTION_IMPACT_DELAY_MS)) assert.ok(delay < 850);
+});
+
+test("getTurnAnimationPhases shows both walls when barriers clash", () => {
+  const me = makePlayer("me");
+  const enemy = makePlayer("enemy");
+  const phases = getTurnAnimationPhases(makeTurnResult({ me, enemy }, { me: "barrier", enemy: "barrier" }), me, enemy);
+  assert.deepEqual(phases.map((phase) => [phase.motionType, phase.targetMotionType]), [
+    ["barrierClash", "barrierClash"],
+    ["barrierClash", "barrierClash"],
+  ]);
 });
 
 test("applyAnimationPhaseToDisplayResources updates only the active phase and preserves clamping", () => {
