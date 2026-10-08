@@ -4,14 +4,19 @@ import type { PlayerBattleState } from "@/types/game";
 import {
   applyCoopRevivalCost,
   applyCoopUpgrade,
+  advanceCoopRewardPhase,
   advanceCoopTurnCounters,
   buildCoopUpgradeChoices,
   getCoopAvailableActions,
+  getCoopAlivePlayerIds,
   getCoopChargeMultiplierAfterAction,
   getCoopChargeAuraStage,
   getCoopNextPlayerId,
   getCoopResultData,
   getCoopRewardPlayerId,
+  getCoopChoiceDisabledReason,
+  getCoopFirstSelectableChoiceIndex,
+  isCoopChoiceDisabled,
   getCoopStartingPlayerId,
   getCoopTurnOutcome,
   resolveCoopTurn,
@@ -21,6 +26,7 @@ import {
   isCoopPresentationComplete,
   getCoopSkillTurn,
   type CoopSnapshot,
+  type CoopUpgradeChoice,
 } from "@/lib/coopRoguelike";
 import { getRoguelikeBossUpgradeChoices, pickRoguelikeWeakFloorUpgradeSlots } from "@/lib/roguelikeUpgrades";
 import { TURN_SECONDS, PARALYSIS_TURN_SECONDS, POST_TURN_DELAY_MS, getRoguelikeTurnSeconds } from "@/lib/roguelikeTiming";
@@ -202,10 +208,160 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
       players: { p1: player("p1"), p2: player("p2") }, enemy: player("enemy"),
       stage: "vs", turnResult: null, chargeMultiplier: 1, deadline: 0,
       excludedPlayerIds: [], pendingRevivalId: null, rewardPlayerId: null, upgradeChoices: [],
+      rewardPhase: 1, pickedChoiceIndex: null,
       outcome: null, status: "", acquiredWeakMagicKinds: {}, acquiredSkills: {},
       acquiredHealingSkills: {}, floorDamageTaken: 0, perfectVictoryFloor: null,
     };
   }
+
+function rewardSnapshot(floor = 1): CoopSnapshot {
+  const current = snapshot(floor);
+  const rewardPlayerId = getCoopRewardPlayerId(current.players, floor, current.playerIds, {
+    bossFloor: floor === 5, lastAttackerId: "p2",
+  });
+  return {
+    ...current, stage: "upgrading", rewardPlayerId,
+    upgradeChoices: [
+      { kind: "weak-stat", rarity: 1, key: "attack", amount: 10 },
+      { kind: "weak-magic", rarity: 3, effectKind: "paralysis", effectName: "まひ" },
+      { kind: "weak-stat", rarity: 1, key: "defense", amount: 10 },
+    ],
+  };
+}
+
+test("weak-floor rewards alternate the first picker and hand unchanged remaining slots to the partner", () => {
+  for (const floor of [1, 2]) {
+    const current = rewardSnapshot(floor);
+    const firstId = floor === 1 ? "p1" : "p2";
+    const secondId = floor === 1 ? "p2" : "p1";
+    current.acquiredWeakMagicKinds[secondId] = ["paralysis"];
+    const upgraded = applyCoopUpgrade(current, firstId, current.upgradeChoices[0]!);
+    const next = advanceCoopRewardPhase(upgraded, 0, () => { throw new Error("Must not reroll"); })!;
+    assert.equal(next.rewardPlayerId, secondId);
+    assert.equal(next.rewardPhase, 2);
+    assert.equal(next.pickedChoiceIndex, 0);
+    assert.equal(next.upgradeChoices, current.upgradeChoices);
+    assert.equal(next.players[firstId]!.stats.attack, 110);
+    assert.equal(getCoopChoiceDisabledReason(next, secondId, 0), "相手が選んだ枠");
+    assert.equal(getCoopChoiceDisabledReason(next, secondId, 1), "取得済み");
+    assert.equal(getCoopFirstSelectableChoiceIndex(next), 2);
+    const finished = applyCoopUpgrade(next, secondId, next.upgradeChoices[2]!);
+    assert.equal(finished.players[secondId]!.stats.defense, 110);
+    assert.equal(advanceCoopRewardPhase(finished, 2), null);
+    assert.equal(current.rewardPhase, 1);
+  }
+});
+
+test("both invalid remaining rewards reroll only those slots and always yield selectable choices", () => {
+  const invalidChoices: CoopUpgradeChoice[] = [
+    { kind: "weak-magic", rarity: 3, effectKind: "paralysis", effectName: "まひ" },
+    { kind: "skill", skillId: "attackResistance", ...{ rarity: 1 as const, label: "", description: "" } },
+    { kind: "skill", skillId: "guts", ...{ rarity: 3 as const, label: "", description: "" } },
+  ];
+  for (const left of invalidChoices) {
+    for (const right of invalidChoices) {
+      for (const pickedIndex of [0, 1, 2]) {
+        const current = rewardSnapshot();
+        current.acquiredWeakMagicKinds.p2 = ["paralysis"];
+        current.acquiredSkills.p2 = { attackResistance: 3, guts: 1 };
+        const picked = current.upgradeChoices[0]!;
+        current.upgradeChoices = [left, right];
+        current.upgradeChoices.splice(pickedIndex, 0, picked);
+        const upgraded = applyCoopUpgrade(current, "p1", picked);
+        for (const roll of [0, 0.5, 0.99]) {
+          const next = advanceCoopRewardPhase(upgraded, pickedIndex, () => roll)!;
+          assert.equal(next.upgradeChoices.length, 3);
+          assert.equal(next.upgradeChoices[pickedIndex], picked);
+          assert.notEqual(next.upgradeChoices, current.upgradeChoices);
+          for (const index of [0, 1, 2]) {
+            assert.equal(isCoopChoiceDisabled(next, "p2", index), index === pickedIndex);
+          }
+        }
+      }
+    }
+  }
+});
+
+test("one capped or non-stackable skill is disabled without rerolling the other available reward", () => {
+  for (const skillId of ["attackResistance", "guts"] as const) {
+    const current = rewardSnapshot();
+    current.acquiredSkills.p2 = { [skillId]: skillId === "guts" ? 1 : 3 };
+    current.upgradeChoices[1] = { kind: "skill", skillId, rarity: 1, label: "", description: "" };
+    const next = advanceCoopRewardPhase(current, 0, () => { throw new Error("Must not reroll"); })!;
+    assert.equal(next.upgradeChoices, current.upgradeChoices);
+    assert.equal(getCoopChoiceDisabledReason(next, "p2", 1), skillId === "guts" ? "取得済み" : "取得上限");
+    assert.equal(getCoopFirstSelectableChoiceIndex(next), 2);
+  }
+});
+
+test("choice validation rejects out-of-turn, picked, and invalid indices but permits consumable repeats", () => {
+  const current = rewardSnapshot();
+  for (const index of [-1, 3, 0.5, NaN, Infinity]) assert.ok(isCoopChoiceDisabled(current, "p1", index));
+  assert.ok(isCoopChoiceDisabled(current, "p2", 0));
+  current.acquiredSkills.p1 = { smallHeal: 10, attackResistance: 2 };
+  current.upgradeChoices[0] = { kind: "skill", skillId: "smallHeal", rarity: 1, label: "", description: "" };
+  current.upgradeChoices[1] = { kind: "skill", skillId: "attackResistance", rarity: 1, label: "", description: "" };
+  assert.equal(getCoopFirstSelectableChoiceIndex(current), 0);
+  assert.equal(isCoopChoiceDisabled(current, "p1", 1), false);
+  current.stage = "battle";
+  assert.ok(isCoopChoiceDisabled(current, "p1", 0));
+});
+
+test("timeout selects the first available slot in either phase and synchronized snapshots retain picked slots", () => {
+  const current = rewardSnapshot();
+  assert.equal(getCoopFirstSelectableChoiceIndex(current), 0);
+  for (const pickedIndex of [1, 2]) {
+    const upgraded = applyCoopUpgrade(current, "p1", current.upgradeChoices[pickedIndex]!);
+    const next = advanceCoopRewardPhase(upgraded, pickedIndex)!;
+    const restored: CoopSnapshot = JSON.parse(JSON.stringify(next));
+    assert.equal(restored.rewardPhase, 2);
+    assert.equal(restored.pickedChoiceIndex, pickedIndex);
+    assert.equal(restored.rewardPlayerId, "p2");
+    assert.ok(isCoopChoiceDisabled(restored, "p2", pickedIndex));
+    assert.equal(getCoopFirstSelectableChoiceIndex(restored), 0);
+  }
+  const blockedFirst = rewardSnapshot();
+  blockedFirst.upgradeChoices[0] = blockedFirst.upgradeChoices[1]!;
+  blockedFirst.acquiredWeakMagicKinds.p2 = ["paralysis"];
+  const next = advanceCoopRewardPhase(blockedFirst, 1)!;
+  assert.equal(getCoopFirstSelectableChoiceIndex(next), 2);
+});
+
+test("shortBattle shared by either ally is unavailable to the second picker", () => {
+  const current = rewardSnapshot();
+  current.acquiredSkills.p1 = { shortBattle: 1 };
+  current.upgradeChoices[1] = { kind: "skill", skillId: "shortBattle", rarity: 1, label: "", description: "" };
+  const next = advanceCoopRewardPhase(current, 0, () => { throw new Error("Must not reroll"); })!;
+  assert.equal(getCoopChoiceDisabledReason(next, "p2", 1), "取得済み");
+});
+
+test("boss rewards, revival offers, and a single survivor never open a second reward phase", () => {
+  for (const floor of [5, 10, 13, 16, 17]) {
+    const current = rewardSnapshot(floor);
+    assert.equal(advanceCoopRewardPhase(current, 0), null);
+  }
+  const revival = rewardSnapshot();
+  revival.pendingRevivalId = "p2";
+  assert.equal(advanceCoopRewardPhase(revival, 0), null);
+  const single = rewardSnapshot();
+  single.players.p2 = player("p2", 0);
+  assert.equal(advanceCoopRewardPhase(single, 0), null);
+  const excluded = rewardSnapshot();
+  excluded.excludedPlayerIds = ["p2"];
+  assert.equal(advanceCoopRewardPhase(excluded, 0), null);
+});
+
+test("the sole survivor disconnecting during rewards leaves no valid picker and requires game over", () => {
+  const current = rewardSnapshot();
+  current.players.p1 = player("p1", 0);
+  current.rewardPlayerId = "p2";
+  current.pendingRevivalId = "p1";
+  current.excludedPlayerIds = ["p2"];
+  assert.deepEqual(getCoopAlivePlayerIds(current.players, current.excludedPlayerIds), []);
+  assert.equal(getCoopTurnOutcome(current.players, 0, current.excludedPlayerIds), "game-over");
+  assert.equal(getCoopFirstSelectableChoiceIndex(current), -1);
+  assert.equal(advanceCoopRewardPhase(current, 0), null);
+});
 
   test("co-op weak-floor choices reuse solo rarity/skill/weak-magic slots with slot one intact", () => {
     const current = snapshot(2);

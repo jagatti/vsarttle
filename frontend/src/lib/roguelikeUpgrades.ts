@@ -1,6 +1,6 @@
 import { ALL_WEAK_MAGIC_EFFECTS } from "@/lib/battleLogic";
 import { getUpgradeAddAmounts, type BossMultiplyKey, type UpgradeStatKey } from "@/lib/roguelikeEnemyStats";
-import { ROGUELIKE_SKILLS, ROGUELIKE_SKILL_BALANCE, type AcquiredSkills, type SkillId } from "@/lib/roguelikeSkills";
+import { getRoguelikeSkillDisabledReason, ROGUELIKE_SKILLS, ROGUELIKE_SKILL_BALANCE, type AcquiredSkills, type SkillId } from "@/lib/roguelikeSkills";
 import type { WeakMagicEffectKind } from "@/types/game";
 
 export type RoguelikeUpgradeRarity = 1 | 2 | 3;
@@ -176,10 +176,9 @@ export function pickRoguelikeWeakFloorUpgradeSlots(
   const amountByRarity = getRoguelikeUpgradeAddAmountsByRarity(floor);
   const statKeys = Object.keys(amountByRarity[1]) as UpgradeStatKey[];
   const acquiredSkills = options.acquiredSkills ?? {};
-  const availableSkills = Object.values(ROGUELIKE_SKILLS).filter((skill) => {
-    const count = acquiredSkills[skill.id] ?? 0;
-    return skill.consumable || !Number.isFinite(count) || count < skill.maxStacks;
-  });
+  const availableSkills = Object.values(ROGUELIKE_SKILLS).filter((skill) =>
+    getRoguelikeSkillDisabledReason(acquiredSkills, skill.id) === null,
+  );
   const hpRatio = options.maxHp !== undefined && options.maxHp > 0 && options.currentHp !== undefined
     ? options.currentHp / options.maxHp : undefined;
   const slots: RoguelikeWeakFloorUpgradeSlot[] = [];
