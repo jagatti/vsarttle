@@ -404,7 +404,9 @@ const SCENES = [
 ];
 
 function renderStage(stageEl, sceneId, variant) {
-  const scene = (variant === "before" ? BEFORE : AFTER)[sceneId]();
+  const builders = variant === "before" ? BEFORE : AFTER;
+  if (!Object.hasOwn(builders, sceneId)) return;
+  const scene = builders[sceneId]();
   const world = stageEl.querySelector(".fx-world");
   world.className = `fx-world ${scene.world ?? ""}`;
   world.style.animation = scene.shake ?? "";
@@ -436,8 +438,8 @@ function main() {
   // 撮影モード: ?scene=attack&variant=after&capture=1
   if (params.get("capture") === "1") {
     document.documentElement.classList.add("fx-capture");
-    const sceneId = params.get("scene");
-    const variant = params.get("variant") ?? "after";
+    const sceneId = SCENES.find((s) => s.id === params.get("scene"))?.id ?? SCENES[0].id;
+    const variant = params.get("variant") === "before" ? "before" : "after";
     root.innerHTML = stageMarkup(sceneId, variant);
     renderStage(root.querySelector(".fx-stage"), sceneId, variant);
     window.__fxReady = true;
