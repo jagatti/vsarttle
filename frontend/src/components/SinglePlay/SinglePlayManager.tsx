@@ -5,6 +5,7 @@ import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { buildDrawingTags } from "@/lib/drawingTags";
+import { buildEquippedSkillEffects, type EquippableSkillId } from "@/lib/roguelikeSkills";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { fetchPlayerProfile, submitMatchRecord } from "@/lib/profileApi";
@@ -63,6 +64,7 @@ interface SpCharacter {
   stats: CharacterStats;
   characterType: CharacterType;
   drawingTags?: string[];
+  equippedSkillId?: EquippableSkillId | null;
   currentHp: number;
   currentPp: number;
 }
@@ -90,6 +92,7 @@ function toPlayerState(char: SpCharacter): PlayerBattleState {
     stats: char.stats,
     characterType: char.characterType,
     drawingTags: char.drawingTags,
+    equippedSkillId: char.equippedSkillId,
     currentHp: char.currentHp,
     currentPp: char.currentPp,
     chargeMultiplier: 1,
@@ -331,7 +334,7 @@ function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label
 
 function DrawingPhase(props: {
   slots: (SpCharacter | null)[];
-  onSet: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
+  onSet: (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => void;
   onComplete: () => void;
   onClear: (index: number) => void;
 }) {
@@ -882,6 +885,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         },
         disableVoidmination: true,
         forceTripleDamage: !!currentBattle[enemyIdParam].limitBreakActive,
+        skillEffects: {
+          [playerIdParam]: buildEquippedSkillEffects(currentBattle[playerIdParam].equippedSkillId),
+        },
       });
 
       // If this hit would defeat the floor 5 phase 2 boss for the first time,
@@ -1122,7 +1128,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
   // ── Event handlers ────────────────────────────────────────────────────────
 
   const handleSetSlot = useCallback(
-    (payload: { drawing: DrawingData; imageData: ImageData }) => {
+    (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => {
       const chars = charactersRef.current;
       const nextIndex = chars.findIndex((c) => c === null);
       if (nextIndex === -1) {
@@ -1142,6 +1148,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         stats: analysis.stats,
         characterType: analysis.trend,
         drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+        equippedSkillId: payload.equippedSkillId,
         currentHp: analysis.stats.maxHp,
         currentPp: analysis.stats.maxPp,
       };

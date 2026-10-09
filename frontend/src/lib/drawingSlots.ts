@@ -1,9 +1,12 @@
 import type { DrawingData } from "@/types/game";
+import { isEquippableSkillId, type EquippableSkillId } from "@/lib/roguelikeSkills";
 
 export interface DrawingSlot {
   drawingData: DrawingData;
   /** Small dataURL (JPEG) used as thumbnail preview. */
   thumbnail: string;
+  equippedSkillId?: EquippableSkillId | null;
+  drawingTags?: string[];
 }
 
 export const SLOT_COUNT = 3;
@@ -23,7 +26,17 @@ export function loadSlots(): (DrawingSlot | null)[] {
     const result: (DrawingSlot | null)[] = [];
     for (let i = 0; i < SLOT_COUNT; i++) {
       const entry = parsed[i];
-      result.push(isDrawingSlot(entry) ? entry : null);
+      if (!isDrawingSlot(entry)) {
+        result.push(null);
+        continue;
+      }
+      result.push({
+        ...entry,
+        equippedSkillId: isEquippableSkillId(entry.equippedSkillId) ? entry.equippedSkillId : null,
+        drawingTags: Array.isArray(entry.drawingTags)
+          ? entry.drawingTags.filter((tag): tag is string => typeof tag === "string")
+          : undefined,
+      });
     }
     return result;
   } catch {

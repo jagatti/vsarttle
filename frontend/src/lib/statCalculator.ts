@@ -477,6 +477,17 @@ export function deriveStatsFromBase(base: BaseStatProfile, axes: DrawingAxes): C
   };
 }
 
+export function getDrawingStatDeltas(stats: CharacterStats, baseStats: CharacterStats) {
+  return {
+    hp: stats.maxHp - baseStats.maxHp,
+    pp: stats.maxPp - baseStats.maxPp,
+    attack: stats.attack - baseStats.attack,
+    defense: stats.defense - baseStats.defense,
+    speed: stats.speed - baseStats.speed,
+    evasion: Math.round(stats.evasion * 100) - Math.round(baseStats.evasion * 100),
+  };
+}
+
 export function analyzeDrawing(drawing: DrawingData, imageData: ImageDataLike): DrawingAnalysis {
   const trendInfo = detectTrend(imageData, true);
   const { base, weights, purity } = blendBaseStats(trendInfo);

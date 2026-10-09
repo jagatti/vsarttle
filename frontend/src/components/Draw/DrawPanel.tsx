@@ -7,6 +7,7 @@ import { wireDrawingToStrokes } from "@/lib/drawingWire";
 import { soundManager } from "@/lib/soundManager";
 import { createThumbnail, loadSlots, persistSlots, SLOT_COUNT } from "@/lib/drawingSlots";
 import type { DrawingSlot } from "@/lib/drawingSlots";
+import type { EquippableSkillId } from "@/lib/roguelikeSkills";
 
 const COLORS = [
   "#111111",
@@ -157,7 +158,7 @@ export function DrawPanel(props: {
   disabled?: boolean;
   /** Previously submitted drawing to continue editing (e.g. 「描きなおしてもう１戦」). */
   initialDrawing?: WireDrawingData;
-  onComplete: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
+  onComplete: (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => void;
   /** When true, hides the countdown timer display and disables auto-submit on timer expiry. */
   noTimer?: boolean;
   /** Optional submit label for specialized drawing flows. */
@@ -167,7 +168,7 @@ export function DrawPanel(props: {
    * captures the current drawing without marking it as submitted, allowing the user to keep
    * drawing after capturing. Used in single-play mode for building a party of characters.
    */
-  onSet?: (payload: { drawing: DrawingData; imageData: ImageData }) => void;
+  onSet?: (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [tool, setTool] = useState<"pen" | "eraser" | "fill">("pen");
@@ -181,6 +182,7 @@ export function DrawPanel(props: {
   const [drawingStroke, setDrawingStroke] = useState<Stroke | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const submittedRef = useRef(false);
+  const [loadedEquippedSkillId, setLoadedEquippedSkillId] = useState<EquippableSkillId | null>(null);
 
   // Push the current strokes onto the undo history before applying a mutation, and
   // clear the redo history since a new action invalidates any previously undone state.
@@ -229,7 +231,7 @@ export function DrawPanel(props: {
 
     soundManager.playSe("/sounds/se/button.mp3");
     const thumbnail = createThumbnail(canvas);
-    const newSlot: DrawingSlot = { drawingData, thumbnail };
+    const newSlot: DrawingSlot = { drawingData, thumbnail, equippedSkillId: existing?.equippedSkillId ?? null };
     const updated = slots.map((s, i) => (i === index ? newSlot : s));
     setSlots(updated);
     persistSlots(updated);
@@ -251,6 +253,7 @@ export function DrawPanel(props: {
       layers: slot.drawingData.layers,
     });
     setStrokes(loaded);
+    setLoadedEquippedSkillId(slot.equippedSkillId ?? null);
     setUndoStack([]);
     setRedoStack([]);
   };
@@ -355,14 +358,14 @@ export function DrawPanel(props: {
     };
   };
 
-  const captureState = useCallback((): { drawing: DrawingData; imageData: ImageData } | null => {
+  const captureState = useCallback((): { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null } | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
     const statsImageData = renderStrokesForStats(strokes) ?? ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    return { drawing: drawingData, imageData: statsImageData };
-  }, [drawingData, strokes]);
+    return { drawing: drawingData, imageData: statsImageData, equippedSkillId: loadedEquippedSkillId };
+  }, [drawingData, loadedEquippedSkillId, strokes]);
 
   const submit = useCallback(() => {
     if (submittedRef.current) return;

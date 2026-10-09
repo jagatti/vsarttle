@@ -9,6 +9,7 @@ import { buildDrawingTags } from "@/lib/drawingTags";
 import { calculateFinalHpRatio, createMatchPlayerRecord } from "@/lib/matchBuilders";
 import { getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
+import { buildEquippedSkillEffects, type EquippableSkillId } from "@/lib/roguelikeSkills";
 import { submitMatchRecord } from "@/lib/profileApi";
 import type { GhostRecord } from "@/lib/persistenceTypes";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
@@ -135,6 +136,9 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
         [playerBattleIdRef.current]: playerAction,
         [enemyBattleIdRef.current]: enemyAction,
       },
+      skillEffects: {
+        [playerBattleIdRef.current]: buildEquippedSkillEffects(me.equippedSkillId),
+      },
       disableVoidmination: true,
     });
 
@@ -200,7 +204,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     setStage("vs");
   };
 
-  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
+  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => {
     if (!ghost) return;
     const wireDrawing = prepareDrawingForWire(payload.drawing);
     previousDrawingRef.current = wireDrawing;
@@ -212,6 +216,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
       characterType: analysis.trend,
       stats: analysis.stats,
       drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+      equippedSkillId: payload.equippedSkillId,
       currentHp: analysis.stats.maxHp,
       currentPp: analysis.stats.maxPp,
       chargeMultiplier: 1,

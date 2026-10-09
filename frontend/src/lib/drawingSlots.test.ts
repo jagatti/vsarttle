@@ -56,15 +56,26 @@ test("loadSlots returns SLOT_COUNT null entries when storage is empty", () => {
 
 test("persistSlots and loadSlots round-trip correctly", () => {
   setupEnv();
-  const slot = { drawingData: sampleDrawing, thumbnail: "data:image/jpeg;base64,abc" };
-  const toSave: (typeof slot | null)[] = [slot, null, null];
+  const slot = { drawingData: sampleDrawing, thumbnail: "data:image/jpeg;base64,abc", equippedSkillId: "tieBoost" as const };
+  const toSave: (typeof slot | null)[] = [slot, slot, null];
   persistSlots(toSave);
   const loaded = loadSlots();
   assert.equal(loaded.length, SLOT_COUNT);
   assert.deepEqual(loaded[0]?.drawingData, sampleDrawing);
   assert.equal(loaded[0]?.thumbnail, "data:image/jpeg;base64,abc");
-  assert.equal(loaded[1], null);
+  assert.equal(loaded[0]?.equippedSkillId, "tieBoost");
+  assert.equal(loaded[1]?.equippedSkillId, "tieBoost");
+  assert.deepEqual(loaded[1]?.drawingData, sampleDrawing);
   assert.equal(loaded[2], null);
+});
+
+test("persistSlots can clear an equipped skill without changing its drawing", () => {
+  setupEnv();
+  const slot = { drawingData: sampleDrawing, thumbnail: "data:image/jpeg;base64,clear", equippedSkillId: null };
+  persistSlots([slot, null, null]);
+  const loaded = loadSlots();
+  assert.deepEqual(loaded[0]?.drawingData, sampleDrawing);
+  assert.equal(loaded[0]?.equippedSkillId, null);
 });
 
 test("loadSlots returns nulls for malformed localStorage data", () => {
@@ -81,8 +92,19 @@ test("loadSlots pads short arrays to SLOT_COUNT", () => {
   const slots = loadSlots();
   assert.equal(slots.length, SLOT_COUNT);
   assert.ok(slots[0] !== null);
+  assert.equal(slots[0]?.equippedSkillId, null);
   assert.equal(slots[1], null);
   assert.equal(slots[2], null);
+});
+
+test("loadSlots treats missing or invalid equipped skills as unequipped", () => {
+  const ls = setupEnv();
+  const legacySlot = { drawingData: sampleDrawing, thumbnail: "data:image/jpeg;base64,legacy" };
+  const invalidSlot = { ...legacySlot, equippedSkillId: "not-a-skill" };
+  ls.setItem("arttle_drawing_slots", JSON.stringify([legacySlot, invalidSlot]));
+  const slots = loadSlots();
+  assert.equal(slots[0]?.equippedSkillId, null);
+  assert.equal(slots[1]?.equippedSkillId, null);
 });
 
 test("loadSlots rejects entries missing required fields", () => {

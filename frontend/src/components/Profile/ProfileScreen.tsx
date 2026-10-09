@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { loadSlots, SLOT_COUNT } from "@/lib/drawingSlots";
+import { loadSlots, persistSlots, SLOT_COUNT } from "@/lib/drawingSlots";
 import { drawingToDataUrl } from "@/lib/drawingWire";
 import { fetchPlayerProfile } from "@/lib/profileApi";
-import { analyzeDrawing } from "@/lib/statCalculator";
+import { analyzeDrawing, deriveStatsFromBase, getDrawingStatDeltas } from "@/lib/statCalculator";
+import { buildDrawingTags, getDrawingTagByLabel } from "@/lib/drawingTags";
+import { EQUIPPABLE_SKILL_IDS, ROGUELIKE_SKILLS, type EquippableSkillId } from "@/lib/roguelikeSkills";
 import type { MatchRecord, PlayerProfileResponse } from "@/lib/persistenceTypes";
 import type { CharacterStats, CharacterType, DrawingData } from "@/types/game";
 import { soundManager } from "@/lib/soundManager";
@@ -29,6 +31,9 @@ interface ProfileSlotPreview {
   imageDataUrl: string;
   characterType: CharacterType;
   stats: CharacterStats;
+  deltas: ReturnType<typeof getDrawingStatDeltas>;
+  drawingTags: string[];
+  equippedSkillId: EquippableSkillId | null;
   drawingData: DrawingData;
 }
 
@@ -106,6 +111,7 @@ export function ProfileScreen(props: {
       const imageData = await renderDrawingToImageData(slot.drawingData, imageDataUrl);
       if (!imageData) return null;
       const analysis = analyzeDrawing(slot.drawingData, imageData);
+      const baseStats = deriveStatsFromBase(analysis.base, { sA: 0, sB: 0, sC: 0 });
       return {
         index,
         name: nickname,
@@ -113,6 +119,9 @@ export function ProfileScreen(props: {
         imageDataUrl,
         characterType: analysis.trend,
         stats: analysis.stats,
+        deltas: getDrawingStatDeltas(analysis.stats, baseStats),
+        drawingTags: slot.drawingTags?.length ? slot.drawingTags : buildDrawingTags(analysis.features).map((tag) => tag.label),
+        equippedSkillId: slot.equippedSkillId ?? null,
         drawingData: slot.drawingData,
       } satisfies ProfileSlotPreview;
     }));
@@ -123,6 +132,18 @@ export function ProfileScreen(props: {
       setSlotPreviews(previews);
     });
   }, [loadSlotPreviews]);
+
+  const setSlotEquippedSkill = (slotIndex: number, equippedSkillId: EquippableSkillId | null) => {
+    const slots = loadSlots();
+    const slot = slots[slotIndex];
+    if (!slot) return;
+    slots[slotIndex] = { ...slot, equippedSkillId };
+    persistSlots(slots);
+    setSlotPreviews((previews) => previews.map((preview, index) =>
+      index === slotIndex && preview ? { ...preview, equippedSkillId } : preview,
+    ));
+    soundManager.playSe("/sounds/se/button.mp3");
+  };
 
   useEffect(() => {
     refreshSlotPreviews();
@@ -138,7 +159,7 @@ export function ProfileScreen(props: {
   }, [refreshSlotPreviews]);
 
   useEffect(() => {
-    if (!selectedSlot) return;
+    if (selectedSlotIndex === null) return;
     slotModalLastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     slotModalCloseButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -193,7 +214,7 @@ export function ProfileScreen(props: {
       document.removeEventListener("keydown", handleKeyDown);
       slotModalLastFocusRef.current?.focus();
     };
-  }, [selectedSlot]);
+  }, [selectedSlotIndex]);
 
   return (
     <section className="app-panel space-y-4 p-4 text-gray-100">
@@ -285,6 +306,8 @@ export function ProfileScreen(props: {
                       <img src={slot.thumbnail} alt={`スロット${index + 1}`} className="mb-2 h-24 w-full rounded-md border border-gray-700 bg-black/40 object-contain" />
                       <div className="text-sm font-bold text-gray-50">{slot.name}</div>
                       <div className="text-xs text-gray-300">{TYPE_LABELS[slot.characterType]}</div>
+                      <div className="text-[11px] text-amber-200">{slot.drawingTags.join(" / ")}</div>
+                      <div className="text-[11px] text-cyan-200">{slot.equippedSkillId ? ROGUELIKE_SKILLS[slot.equippedSkillId].label : "スキルなし"}</div>
                       <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-gray-300">
                         <div>HP {slot.stats.maxHp}</div>
                         <div>PP {slot.stats.maxPp}</div>
@@ -341,7 +364,7 @@ export function ProfileScreen(props: {
             aria-modal="true"
             aria-labelledby="profile-slot-detail-title"
             ref={slotModalRef}
-            className="w-full max-w-2xl rounded-xl border border-emerald-400/40 bg-slate-900 p-4"
+            className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-xl border border-emerald-400/40 bg-slate-900 p-4"
             tabIndex={-1}
           >
             <div>
@@ -362,12 +385,63 @@ export function ProfileScreen(props: {
                 <div className="space-y-1 text-sm text-gray-100">
                   <div className="font-bold">{selectedSlot.name}</div>
                   <div className="text-emerald-200">{TYPE_LABELS[selectedSlot.characterType]}</div>
-                  <div className="pt-2">HP: {selectedSlot.stats.maxHp}</div>
-                  <div>PP: {selectedSlot.stats.maxPp}</div>
-                  <div>攻撃: {selectedSlot.stats.attack}</div>
-                  <div>防御: {selectedSlot.stats.defense}</div>
-                  <div>速度: {selectedSlot.stats.speed}</div>
-                  <div>回避: {Math.round(selectedSlot.stats.evasion * 100)}%</div>
+                  {([
+                    ["HP", selectedSlot.stats.maxHp, selectedSlot.deltas.hp, false],
+                    ["PP", selectedSlot.stats.maxPp, selectedSlot.deltas.pp, false],
+                    ["攻撃", selectedSlot.stats.attack, selectedSlot.deltas.attack, false],
+                    ["防御", selectedSlot.stats.defense, selectedSlot.deltas.defense, false],
+                    ["速度", selectedSlot.stats.speed, selectedSlot.deltas.speed, false],
+                    ["回避", Math.round(selectedSlot.stats.evasion * 100), selectedSlot.deltas.evasion, true],
+                  ] as const).map(([label, value, delta, percent]) => (
+                    <div key={label} className="flex gap-1 pt-1">
+                      <span>{label}: {value}{percent ? "%" : ""}</span>
+                      {delta !== 0 && <span className={delta > 0 ? "text-sky-300" : "text-rose-300"}>
+                        ({delta > 0 ? "+" : ""}{delta}{percent ? "%" : ""})
+                      </span>}
+                    </div>
+                  ))}
+                  <div className="pt-3 font-bold text-amber-200">絵のタグ</div>
+                  {selectedSlot.drawingTags.map((label) => {
+                    const tag = getDrawingTagByLabel(label);
+                    return <div key={label}>{label}{tag ? `：${tag.effectText}` : ""}</div>;
+                  })}
+                  <div className="pt-3 font-bold text-cyan-200">装備中のスキル</div>
+                  <div>{selectedSlot.equippedSkillId ? ROGUELIKE_SKILLS[selectedSlot.equippedSkillId].label : "なし"}</div>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <h5 className="font-bold text-cyan-100">スキルを選択</h5>
+                <button
+                  type="button"
+                  aria-pressed={!selectedSlot.equippedSkillId}
+                  className={`w-full rounded-lg border p-3 text-left ${!selectedSlot.equippedSkillId ? "border-cyan-300 bg-cyan-950/60" : "border-gray-700 bg-black/20"}`}
+                  onClick={() => setSlotEquippedSkill(selectedSlot.index, null)}
+                >
+                  <div className="font-bold">なし</div>
+                  <div className="text-xs text-gray-400">装備スキルを解除する</div>
+                </button>
+                {EQUIPPABLE_SKILL_IDS.map((skillId) => {
+                  const skill = ROGUELIKE_SKILLS[skillId];
+                  const selected = selectedSlot.equippedSkillId === skillId;
+                  return (
+                    <button
+                      key={skillId}
+                      type="button"
+                      aria-pressed={selected}
+                      className={`w-full rounded-lg border p-3 text-left ${selected ? "border-cyan-300 bg-cyan-950/60" : "border-gray-700 bg-black/20"}`}
+                      onClick={() => setSlotEquippedSkill(selectedSlot.index, skillId)}
+                    >
+                      <div className="font-bold text-cyan-100">{skill.label}{selected ? "　装備中" : ""}</div>
+                      <div className="text-xs text-gray-300">{skill.description}</div>
+                    </button>
+                  );
+                })}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <button key={index} type="button" disabled className="cursor-not-allowed rounded-lg border border-gray-700 bg-gray-800/70 p-3 text-center text-gray-500">
+                      ?????
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

@@ -24,6 +24,7 @@ import { applyEnhancementSlot, ENHANCEMENT_SLOT_CHOICES, ENHANCEMENT_SLOT_META }
 import { soundManager } from "@/lib/soundManager";
 import { getMultiplayerStageBgm, isTitleBgmPath } from "@/lib/vsTransition";
 import { ROGUELIKE_PLAYER_INITIAL_STATS } from "@/lib/roguelikeEnemyStats";
+import { buildEquippedSkillEffects, type EquippableSkillId } from "@/lib/roguelikeSkills";
 import type { CoopWireMessage } from "@/lib/coopRoguelike";
 import type {
   ActionType,
@@ -56,6 +57,7 @@ interface PeerCharacter {
   stats: PlayerBattleState["stats"];
   characterType: CharacterType;
   drawingTags?: string[];
+  equippedSkillId?: EquippableSkillId | null;
   enhancementSlot: EnhancementSlot | null;
   battleMode: BattleMode;
   weakMagicSelection?: WeakMagicEffectSelection;
@@ -138,6 +140,7 @@ export default function Home() {
     stats: PlayerBattleState["stats"];
     characterType: CharacterType;
     drawingTags: string[];
+    equippedSkillId: EquippableSkillId | null;
   } | null>(null);
   const [pendingReadyCharacter, setPendingReadyCharacter] = useState<PeerCharacter | null>(null);
   /** Cumulative win/loss record against the current opponent (resets on room change). */
@@ -275,6 +278,7 @@ export default function Home() {
       stats: local.stats,
       characterType: local.characterType,
       drawingTags: local.drawingTags,
+      equippedSkillId: local.equippedSkillId,
       enhancementSlot: local.enhancementSlot,
       currentHp: local.stats.maxHp,
       currentPp: local.stats.maxPp,
@@ -288,6 +292,7 @@ export default function Home() {
       stats: remote.stats,
       characterType: remote.characterType,
       drawingTags: remote.drawingTags,
+      equippedSkillId: remote.equippedSkillId,
       enhancementSlot: remote.enhancementSlot,
       currentHp: remote.stats.maxHp,
       currentPp: remote.stats.maxPp,
@@ -372,6 +377,12 @@ export default function Home() {
       turn: turnNumber,
       players: currentBattle,
       actions,
+      skillEffects: battleModeRef.current === "coop-roguelike"
+        ? undefined
+        : {
+            [myId]: buildEquippedSkillEffects(currentBattle[myId].equippedSkillId),
+            [enemyId]: buildEquippedSkillEffects(currentBattle[enemyId].equippedSkillId),
+          },
       weakMagicSelections: {
         [myId]: localCharacterRef.current?.weakMagicSelection,
         [enemyId]: remoteCharacterRef.current?.weakMagicSelection,
@@ -883,7 +894,7 @@ export default function Home() {
     if (bgm) soundManager.playBgm(bgm);
   }, [stage]);
 
-  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData }) => {
+  const onDrawingComplete = (payload: { drawing: DrawingData; imageData: ImageData; equippedSkillId: EquippableSkillId | null }) => {
     const analysis = analyzeDrawing(payload.drawing, payload.imageData);
     if (battleModeRef.current === "coop-roguelike") {
       const identity = playerIdentity ?? ensurePlayerIdentity(nickname);
@@ -904,6 +915,7 @@ export default function Home() {
       stats: analysis.stats,
       characterType: analysis.trend,
       drawingTags: buildDrawingTags(analysis.features).map((tag) => tag.label),
+      equippedSkillId: payload.equippedSkillId,
     });
     setStatus("強化スロットを1つ選択してください。");
   };
@@ -918,6 +930,7 @@ export default function Home() {
       stats: applyEnhancementSlot(pendingCharacterBase.stats, slot),
       characterType: pendingCharacterBase.characterType,
       drawingTags: pendingCharacterBase.drawingTags,
+      equippedSkillId: pendingCharacterBase.equippedSkillId,
       enhancementSlot: slot,
       battleMode: battleModeRef.current,
     };
