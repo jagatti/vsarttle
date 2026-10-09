@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveTurn } from "@/lib/battleLogic";
-import type { RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
+import { buildEquippedSkillEffects, type RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import type { ActionType, PlayerBattleState } from "@/types/game";
 
 const player = (id: string): PlayerBattleState => ({
@@ -43,6 +43,18 @@ test("attack resistance applies after defense, caps at three stacks, and never r
   a.stats.attack = 1;
   assert.equal(battle(actions, { b: { attackResistance: 3 } }, { players: { a, b: player("b") } }).damageEvents[0].amount, 1);
   assert.equal(battle(actions, { b: { attackResistance: 3 } }, { turn: 21 }).damageEvents[0].amount, 159);
+});
+
+test("equipped skill effects use the regular resolveTurn skill pipeline", () => {
+  assert.equal(
+    battle({ a: "attack", b: "paralysis" }, { b: buildEquippedSkillEffects("attackResistance") }).damageEvents[0].amount,
+    68,
+  );
+  const tie = battle(
+    { a: "attack", b: "attack" },
+    { a: buildEquippedSkillEffects("tieBoost") },
+  );
+  assert.equal(tie.damageEvents.find((event) => event.from === "a")?.amount, 83);
 });
 
 test("pursuit adds 50 damage against a paralyzed or charging target only", () => {

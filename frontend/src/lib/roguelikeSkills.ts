@@ -7,6 +7,19 @@ export type SkillId =
   | "pursuit" | "fightSpirit" | "guts"
   | "shortBattle" | "enhancedMagic" | "extraStatus" | "underdog";
 
+export const EQUIPPABLE_SKILL_IDS = [
+  "attackResistance",
+  "barrierResistance",
+  "magicResistance",
+  "tieBoost",
+] as const satisfies readonly SkillId[];
+
+export type EquippableSkillId = typeof EQUIPPABLE_SKILL_IDS[number];
+
+export function isEquippableSkillId(value: unknown): value is EquippableSkillId {
+  return EQUIPPABLE_SKILL_IDS.includes(value as EquippableSkillId);
+}
+
 export type AcquiredSkills = Partial<Record<SkillId, number>>;
 
 export interface RoguelikeSkillEffects {
@@ -72,6 +85,18 @@ export const ROGUELIKE_SKILLS: Record<SkillId, RoguelikeSkill> = {
   extraStatus: { id: "extraStatus", label: "異常追加", description: "弱まほうで付与する状態異常が+1。（習得効果が2個以上必要）", rarity: 2, maxStacks: 1, consumable: false },
   underdog: { id: "underdog", label: "下克上", description: "自分の最大HPが敵より低いとき、与ダメージ+50%。", rarity: 3, maxStacks: 1, consumable: false },
 };
+
+export function buildEquippedSkillEffects(skillId?: EquippableSkillId | null): RoguelikeSkillEffects {
+  if (!isEquippableSkillId(skillId)) return {};
+  if (skillId === "attackResistance" || skillId === "barrierResistance" || skillId === "magicResistance") {
+    return { [skillId]: 1 };
+  }
+  return { tieBoost: true };
+}
+
+export function buildEquippedSkillLabels(skillId?: EquippableSkillId | null): string[] {
+  return isEquippableSkillId(skillId) ? [ROGUELIKE_SKILLS[skillId].label] : [];
+}
 
 function skillStacks(acquired: AcquiredSkills, skill: RoguelikeSkill): number {
   const count = acquired[skill.id] ?? 0;

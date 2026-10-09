@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFENSE_SCALE } from "@/lib/battleLogic";
-import { analyzeDrawing, BASE_STATS, calculateStatsFromDrawing, detectCharacterType, STAT_VARIANCE } from "@/lib/statCalculator";
+import { analyzeDrawing, BASE_STATS, calculateStatsFromDrawing, detectCharacterType, getDrawingStatDeltas, STAT_VARIANCE } from "@/lib/statCalculator";
 import type { DrawingData, FillSpan, Point, Stroke } from "@/types/game";
 
 type ImageDataLike = Parameters<typeof detectCharacterType>[0];
+
+test("drawing stat deltas handle positive, negative, zero, and rounded evasion percentage changes", () => {
+  const base = { hp: 300, maxHp: 300, pp: 65, maxPp: 65, attack: 120, defense: 110, speed: 6, evasion: 0.01 };
+  assert.deepEqual(getDrawingStatDeltas({
+    ...base, hp: 305, maxHp: 305, pp: 64, maxPp: 64, attack: 125, defense: 108, speed: 5, evasion: 0.019,
+  }, base), {
+    hp: 5, pp: -1, attack: 5, defense: -2, speed: -1, evasion: 1,
+  });
+  assert.deepEqual(getDrawingStatDeltas(base, base), {
+    hp: 0, pp: 0, attack: 0, defense: 0, speed: 0, evasion: 0,
+  });
+});
 
 const CANVAS_SIZE = 32;
 

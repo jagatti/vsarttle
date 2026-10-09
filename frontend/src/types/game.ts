@@ -1,3 +1,5 @@
+import type { EquippableSkillId } from "@/lib/roguelikeSkills";
+
 export type Stage = "room" | "drawing" | "vs" | "battle" | "coop-roguelike" | "result" | "title" | "singleplay" | "profile" | "ghostmatch";
 export type BattleMode = "simple" | "custom" | "coop-roguelike";
 
@@ -96,6 +98,7 @@ export interface PlayerBattleState {
   stats: CharacterStats;
   characterType: CharacterType;
   drawingTags?: string[];
+  equippedSkillId?: EquippableSkillId | null;
   enhancementSlot?: EnhancementSlot | null;
   currentHp: number;
   currentPp: number;

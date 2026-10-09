@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   applyRoguelikeAutoRecovery,
   applyRoguelikeSkillReward,
+  buildEquippedSkillEffects,
+  buildEquippedSkillLabels,
   buildRoguelikeSkillEffects,
   buildRoguelikeSkillLabels,
   buildRoguelikeSkillsTooltip,
@@ -75,6 +77,16 @@ test("central balance constants match the skill and offer contracts", () => {
 test("empty acquired skills and consumables yield no battle effects", () => {
   assert.deepEqual(buildRoguelikeSkillEffects({}), {});
   assert.deepEqual(buildRoguelikeSkillEffects({ smallHeal: 1, mediumHeal: 1, largeHeal: 1 }), {});
+});
+
+test("equipped battle skills map to one stack or one tie boost and expose their labels", () => {
+  for (const skillId of ["attackResistance", "barrierResistance", "magicResistance"] as const) {
+    assert.deepEqual(buildEquippedSkillEffects(skillId), { [skillId]: 1 });
+  }
+  assert.deepEqual(buildEquippedSkillEffects("tieBoost"), { tieBoost: true });
+  assert.deepEqual(buildEquippedSkillEffects(null), {});
+  assert.deepEqual(buildEquippedSkillLabels("tieBoost"), ["あいこ強化"]);
+  assert.deepEqual(buildEquippedSkillLabels(null), []);
 });
 
 test("skill labels show stacks, unique names, healing acquisition counts and remaining guts", () => {

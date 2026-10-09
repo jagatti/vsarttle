@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { getAvailableActions, getDamageAnnouncement, magicCost } from "@/lib/battleLogic";
-import type { RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
+import { buildEquippedSkillLabels, type RoguelikeSkillEffects } from "@/lib/roguelikeSkills";
 import { getEffectiveStats } from "@/lib/characterStats";
 import { ENHANCEMENT_SLOT_META } from "@/lib/enhancementSlot";
 import { CharacterImage } from "@/components/Battle/CharacterImage";
@@ -266,6 +266,7 @@ function getBarrierEffectMode(
 
 function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; title?: string; typeLabelOverride?: string; skillLabels?: string[] }) {
   const { player, align, title, typeLabelOverride, skillLabels } = props;
+  const visibleSkillLabels = [...(skillLabels ?? []), ...buildEquippedSkillLabels(player.equippedSkillId)];
   const borderColor = TYPE_BORDER_COLORS[player.characterType];
   const hpPct = Math.max(0, Math.round((player.currentHp / player.stats.maxHp) * 100));
   const ppCeiling = player.voidminationSourceFloor === 16 && player.voidminationActive
@@ -342,9 +343,9 @@ function NameHpBox(props: { player: PlayerBattleState; align: "left" | "right"; 
           </span>
         ) : null}
       </div>
-      {skillLabels && skillLabels.length > 0 && (
+      {visibleSkillLabels.length > 0 && (
         <div aria-label="獲得スキル" style={{ display: "flex", flexWrap: "wrap", gap: "2px 6px", marginTop: 4, color: "#a5f3fc", fontSize: "clamp(9px, 0.7vw, 11px)", overflowWrap: "anywhere" }}>
-          {skillLabels.map((label) => <span key={label} style={{ maxWidth: "100%" }}>{label}</span>)}
+          {visibleSkillLabels.map((label) => <span key={label} style={{ maxWidth: "100%" }}>{label}</span>)}
         </div>
       )}
       <div
