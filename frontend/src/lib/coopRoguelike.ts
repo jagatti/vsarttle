@@ -155,13 +155,14 @@ export function advanceCoopRewardPhase(
   pickedChoiceIndex: number,
   random: () => number = Math.random,
 ): CoopSnapshot | null {
-  if (upgraded.stage !== "upgrading" || upgraded.rewardPhase !== 1 || !isWeakFloor(upgraded.floor)
+  if (upgraded.stage !== "upgrading" || upgraded.rewardPhase !== 1
     || upgraded.pendingRevivalId || !upgraded.upgradeChoices[pickedChoiceIndex]
     || getCoopAlivePlayerIds(upgraded.players, upgraded.excludedPlayerIds).length !== 2) return null;
   const rewardPlayerId = upgraded.playerIds.find((id) => id !== upgraded.rewardPlayerId)!;
   const next: CoopSnapshot = { ...upgraded, rewardPlayerId, rewardPhase: 2, pickedChoiceIndex };
   const remainingIndices = next.upgradeChoices.map((_, index) => index).filter((index) => index !== pickedChoiceIndex);
-  if (remainingIndices.every((index) => isCoopChoiceDisabled(next, rewardPlayerId, index))) {
+  if (isWeakFloor(upgraded.floor)
+    && remainingIndices.every((index) => isCoopChoiceDisabled(next, rewardPlayerId, index))) {
     const replacements = buildCoopUpgradeChoices(next, rewardPlayerId, false, random, remainingIndices.length);
     next.upgradeChoices = next.upgradeChoices.map((choice, index) =>
       index === pickedChoiceIndex ? choice : replacements[remainingIndices.indexOf(index)]!,
@@ -284,16 +285,11 @@ export function getCoopRewardPlayerId(
   players: Record<CoopPlayerId, PlayerBattleState>,
   clearedFloor: number,
   playerIds: readonly [CoopPlayerId, CoopPlayerId],
-  options: {
-    bossFloor: boolean;
-    lastAttackerId: CoopPlayerId;
-    excludedIds?: readonly CoopPlayerId[];
-  },
+  options: { excludedIds?: readonly CoopPlayerId[] } = {},
 ): CoopPlayerId | null {
   const alive = getCoopAlivePlayerIds(players, options.excludedIds);
   if (alive.length === 0) return null;
   if (alive.length === 1) return alive[0]!;
-  if (options.bossFloor && alive.includes(options.lastAttackerId)) return options.lastAttackerId;
   return playerIds[(clearedFloor - 1) % 2]!;
 }
 

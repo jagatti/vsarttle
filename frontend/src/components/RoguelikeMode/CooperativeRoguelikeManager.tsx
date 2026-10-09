@@ -291,11 +291,9 @@ export function CooperativeRoguelikeManager(props: {
     }
   }, [props.isHost, startRun]);
 
-  const openReward = useCallback((current: CoopSnapshot, attackerId: string) => {
+  const openReward = useCallback((current: CoopSnapshot) => {
     const boss = isBossFloor(current.floor);
     const rewardPlayerId = getCoopRewardPlayerId(current.players, current.floor, current.playerIds, {
-      bossFloor: boss,
-      lastAttackerId: attackerId,
       excludedIds: current.excludedPlayerIds,
     });
     if (!rewardPlayerId) {
@@ -354,7 +352,7 @@ export function CooperativeRoguelikeManager(props: {
       if (previous.floor >= ROGUELIKE_TOTAL_FLOORS) {
         publish({ ...previous, players, enemy: result.enemy, turnResult: synchronizedResult.turnResult, stage: "result", outcome: "cleared", status: "20層制覇！" });
       } else {
-        openReward({ ...previous, players, enemy: result.enemy, turnResult: synchronizedResult.turnResult }, actingPlayerId);
+        openReward({ ...previous, players, enemy: result.enemy, turnResult: synchronizedResult.turnResult });
       }
       return;
     }

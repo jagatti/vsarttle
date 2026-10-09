@@ -168,21 +168,20 @@ test("co-op floor clear and mutual defeat outcomes require a surviving teammate"
   assert.equal(getCoopTurnOutcome({ p1: player("p1", 0), p2: player("p2", 0) }, 20), "game-over");
 });
 
-test("co-op rewards follow layer parity except for surviving boss last attackers", () => {
+test("co-op rewards follow layer parity on weak and boss floors", () => {
   const players = { p1: player("p1"), p2: player("p2") };
-  assert.equal(getCoopRewardPlayerId(players, 1, ["p1", "p2"], { bossFloor: false, lastAttackerId: "p2" }), "p1");
-  assert.equal(getCoopRewardPlayerId(players, 2, ["p1", "p2"], { bossFloor: true, lastAttackerId: "p1" }), "p1");
+  assert.equal(getCoopRewardPlayerId(players, 1, ["p1", "p2"]), "p1");
+  assert.equal(getCoopRewardPlayerId(players, 2, ["p1", "p2"]), "p2");
   assert.equal(getCoopRewardPlayerId(
     { ...players, p2: player("p2", 0) },
     2,
     ["p1", "p2"],
-    { bossFloor: true, lastAttackerId: "p2" },
   ), "p1");
   assert.equal(getCoopRewardPlayerId(
     players,
-    2,
+    5,
     ["p1", "p2"],
-    { bossFloor: true, lastAttackerId: "p2", excludedIds: ["p2"] },
+    { excludedIds: ["p2"] },
   ), "p1");
 });
 
@@ -216,9 +215,7 @@ test("co-op revival keeps at least one HP and restores a teammate to half HP/PP 
 
 function rewardSnapshot(floor = 1): CoopSnapshot {
   const current = snapshot(floor);
-  const rewardPlayerId = getCoopRewardPlayerId(current.players, floor, current.playerIds, {
-    bossFloor: floor === 5, lastAttackerId: "p2",
-  });
+  const rewardPlayerId = getCoopRewardPlayerId(current.players, floor, current.playerIds);
   return {
     ...current, stage: "upgrading", rewardPlayerId,
     upgradeChoices: [
@@ -249,6 +246,36 @@ test("weak-floor rewards alternate the first picker and hand unchanged remaining
     assert.equal(finished.players[secondId]!.stats.defense, 110);
     assert.equal(advanceCoopRewardPhase(finished, 2), null);
     assert.equal(current.rewardPhase, 1);
+  }
+});
+
+test("boss-floor rewards let both players pick distinct original slots in alternating order", () => {
+  for (const floor of [5, 10, 13, 16, 17]) {
+    const current = snapshot(floor);
+    current.rewardPlayerId = getCoopRewardPlayerId(current.players, floor, current.playerIds);
+    current.stage = "upgrading";
+    current.upgradeChoices = buildCoopUpgradeChoices(current, current.rewardPlayerId!, false);
+    assert.equal(current.upgradeChoices.length, 3);
+    const firstId = floor % 2 === 1 ? "p1" : "p2";
+    const secondId = firstId === "p1" ? "p2" : "p1";
+    assert.equal(current.rewardPlayerId, firstId);
+
+    const pickedIndex = 0;
+    const firstChoice = current.upgradeChoices[pickedIndex]!;
+    const upgraded = applyCoopUpgrade(current, firstId, firstChoice);
+    const next = advanceCoopRewardPhase(upgraded, pickedIndex, () => {
+      throw new Error("Boss-floor choices must keep their original slots");
+    })!;
+    assert.equal(next.rewardPlayerId, secondId);
+    assert.equal(next.rewardPhase, 2);
+    assert.equal(next.pickedChoiceIndex, pickedIndex);
+    assert.equal(next.upgradeChoices, current.upgradeChoices);
+    assert.equal(getCoopChoiceDisabledReason(next, secondId, pickedIndex), "相手が選んだ枠");
+
+    const secondIndex = 1;
+    assert.equal(isCoopChoiceDisabled(next, secondId, secondIndex), false);
+    const finished = applyCoopUpgrade(next, secondId, next.upgradeChoices[secondIndex]!);
+    assert.equal(advanceCoopRewardPhase(finished, secondIndex), null);
   }
 });
 
@@ -335,10 +362,20 @@ test("shortBattle shared by either ally is unavailable to the second picker", ()
   assert.equal(getCoopChoiceDisabledReason(next, "p2", 1), "取得済み");
 });
 
-test("boss rewards, revival offers, and a single survivor never open a second reward phase", () => {
+test("boss rewards advance unless revival is pending or only one player survives", () => {
   for (const floor of [5, 10, 13, 16, 17]) {
     const current = rewardSnapshot(floor);
-    assert.equal(advanceCoopRewardPhase(current, 0), null);
+    current.upgradeChoices = buildCoopUpgradeChoices(current, current.rewardPlayerId!, false);
+    assert.ok(advanceCoopRewardPhase(current, 0));
+
+    const revival = { ...current, pendingRevivalId: "p2" };
+    assert.equal(advanceCoopRewardPhase(revival, 0), null);
+
+    const single = { ...current, players: { ...current.players, p2: player("p2", 0) } };
+    assert.equal(advanceCoopRewardPhase(single, 0), null);
+
+    const excluded = { ...current, excludedPlayerIds: ["p2"] };
+    assert.equal(advanceCoopRewardPhase(excluded, 0), null);
   }
   const revival = rewardSnapshot();
   revival.pendingRevivalId = "p2";
@@ -379,6 +416,7 @@ test("the sole survivor disconnecting during rewards leaves no valid picker and 
     for (const floor of [5, 10, 13, 16, 17]) {
       const current = snapshot(floor);
       const expected = getRoguelikeBossUpgradeChoices(floor);
+      assert.ok(expected.length >= 2);
       assert.deepEqual(buildCoopUpgradeChoices(current, "p1", false), expected);
       const revival = buildCoopUpgradeChoices(current, "p1", true);
       assert.deepEqual(revival.slice(0, 2), expected.slice(0, 2));
