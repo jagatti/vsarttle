@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchPlayerProfile, submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
+import { fetchPlayerProfile, savePlayerNickname, submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
+import { loadPlayerIdentity, persistPlayerIdentity } from "@/lib/playerIdentity";
 import type { MatchSubmissionPayload, PlayerProfileResponse, PlayerRecord } from "@/lib/persistenceTypes";
 
 function makeResponse(body: unknown, status = 200): Response {
@@ -9,6 +10,63 @@ function makeResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+function mockIdentityStorage(t: test.TestContext) {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value); },
+    },
+  });
+  t.after(() => {
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+    if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
+    else Reflect.deleteProperty(globalThis, "localStorage");
+  });
+}
+
+test("savePlayerNickname normalizes, syncs once, and persists the same identity", async (t) => {
+  mockIdentityStorage(t);
+  const identity = persistPlayerIdentity({ playerId: "player/1", nickname: "元の名前" });
+
+  for (const [input, expected] of [
+    ["  新しい名前  ", "新しい名前"],
+    ["   ", "プレイヤー"],
+    ["abcdefghijklmnopq", "abcdefghijklmnop"],
+  ]) {
+    let requests = 0;
+    const fetchImpl: typeof fetch = async (url, init) => {
+      requests++;
+      assert.equal(url, "/api/players/player%2F1");
+      assert.equal(init?.method, "PATCH");
+      assert.deepEqual(JSON.parse(init?.body as string), { nickname: expected });
+      return makeResponse({ player: { playerId: identity.playerId, nickname: expected } });
+    };
+    const updated = await savePlayerNickname(identity, input, { fetchImpl });
+    assert.equal(requests, 1);
+    assert.deepEqual(updated, { playerId: identity.playerId, nickname: expected });
+    assert.deepEqual(loadPlayerIdentity(), updated);
+  }
+});
+
+test("failed profile saves preserve the stored name; room saves still allow offline play", async (t) => {
+  mockIdentityStorage(t);
+  const identity = persistPlayerIdentity({ playerId: "player-1", nickname: "元の名前" });
+  const fetchImpl: typeof fetch = async () => makeResponse({}, 500);
+
+  await assert.rejects(savePlayerNickname(identity, "新しい名前", { fetchImpl }), /nickname sync failed/);
+  assert.deepEqual(loadPlayerIdentity(), identity);
+
+  const updated = await savePlayerNickname(identity, " 新しい名前 ", { fetchImpl, allowOffline: true });
+  assert.deepEqual(updated, { playerId: identity.playerId, nickname: "新しい名前" });
+  assert.deepEqual(loadPlayerIdentity(), updated);
+});
 
 test("submitMatchRecord posts to matches api", async () => {
   let called = "";

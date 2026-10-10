@@ -12,8 +12,8 @@ import { WeakMagicSelectPanel } from "@/components/WeakMagicSelect/WeakMagicSele
 import { createMatchPlayerRecord, calculateFinalHpRatio, remapTurnResultsToPersistentIds } from "@/lib/matchBuilders";
 import { buildDrawingTags } from "@/lib/drawingTags";
 import { drawingToDataUrl, prepareDrawingForWire } from "@/lib/drawingWire";
-import { ensurePlayerIdentity, persistPlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
-import { submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
+import { ensurePlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
+import { savePlayerNickname, submitMatchRecord, syncPlayerNickname } from "@/lib/profileApi";
 import { RoomPanel } from "@/components/Room/RoomPanel";
 import { TitleScreen } from "@/components/Title/TitleScreen";
 import { SinglePlayManager } from "@/components/SinglePlay/SinglePlayManager";
@@ -167,19 +167,10 @@ export default function Home() {
 
   const ensureSyncedIdentity = useCallback(
     async (name: string) => {
-      const normalized = name.trim() || "プレイヤー";
-      const base = playerIdentity ?? ensurePlayerIdentity(normalized);
-      const updated = persistPlayerIdentity({
-        ...base,
-        nickname: normalized,
-      });
+      const base = playerIdentity ?? ensurePlayerIdentity(name);
+      const updated = await savePlayerNickname(base, name, { allowOffline: true });
       setPlayerIdentity(updated);
       setNickname(updated.nickname);
-      try {
-        await syncPlayerNickname(updated.playerId, updated.nickname);
-      } catch {
-        // Ignore sync failures so local play can continue offline.
-      }
       return updated;
     },
     [playerIdentity],
@@ -1085,6 +1076,10 @@ export default function Home() {
         <ProfileScreen
           playerId={playerIdentity.playerId}
           fallbackNickname={nickname}
+          onNicknameChange={(name) => {
+            setNickname(name);
+            setPlayerIdentity((identity) => identity ? { ...identity, nickname: name } : identity);
+          }}
           onBack={() => setStage("title")}
         />
       )}
