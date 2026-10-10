@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSlots, persistSlots, SLOT_COUNT } from "@/lib/drawingSlots";
 import { drawingToDataUrl } from "@/lib/drawingWire";
-import { fetchPlayerProfile } from "@/lib/profileApi";
+import { fetchPlayerProfile, savePlayerNickname } from "@/lib/profileApi";
 import { analyzeDrawing, deriveStatsFromBase, getDrawingStatDeltas } from "@/lib/statCalculator";
 import { buildDrawingTags, getDrawingTagByLabel } from "@/lib/drawingTags";
 import { EQUIPPABLE_SKILL_IDS, ROGUELIKE_SKILLS, type EquippableSkillId } from "@/lib/roguelikeSkills";
@@ -64,10 +64,18 @@ export function ProfileScreen(props: {
   playerId: string;
   fallbackNickname: string;
   onBack: () => void;
+  onNicknameChange?: (nickname: string) => void;
 }) {
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [savedNickname, setSavedNickname] = useState<string | null>(null);
+  const [savingNickname, setSavingNickname] = useState(false);
+  const [nicknameMessage, setNicknameMessage] = useState("");
+  const nicknameSavingRef = useRef(false);
+  const nicknameEditButtonRef = useRef<HTMLButtonElement | null>(null);
   const [slotPreviews, setSlotPreviews] = useState<(ProfileSlotPreview | null)[]>(() => Array.from({ length: SLOT_COUNT }, () => null));
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const slotModalRef = useRef<HTMLDivElement | null>(null);
@@ -97,13 +105,48 @@ export function ProfileScreen(props: {
   }, [props.playerId]);
 
   const player = profile?.player;
-  const displayNickname = player?.nickname || props.fallbackNickname;
+  const displayNickname = savedNickname ?? (player?.nickname || props.fallbackNickname);
+
+  const closeNicknameEditor = () => {
+    setEditingNickname(false);
+    requestAnimationFrame(() => nicknameEditButtonRef.current?.focus());
+  };
+
+  const saveNickname = async () => {
+    if (nicknameSavingRef.current) return;
+    nicknameSavingRef.current = true;
+    setSavingNickname(true);
+    setNicknameMessage("");
+    soundManager.playSe("/sounds/se/button.mp3");
+    try {
+      const updated = await savePlayerNickname(
+        { playerId: props.playerId, nickname: displayNickname },
+        nicknameDraft,
+      );
+      setSavedNickname(updated.nickname);
+      setProfile((current) => current ? {
+        ...current,
+        player: { ...current.player, nickname: updated.nickname },
+      } : current);
+      setSlotPreviews((previews) => previews.map((preview) =>
+        preview ? { ...preview, name: updated.nickname } : preview,
+      ));
+      props.onNicknameChange?.(updated.nickname);
+      setNicknameMessage("保存しました");
+      closeNicknameEditor();
+    } catch {
+      setNicknameMessage("保存に失敗しました。もう一度お試しください");
+    } finally {
+      nicknameSavingRef.current = false;
+      setSavingNickname(false);
+    }
+  };
 
   const recentMatches = useMemo(() => profile?.recentMatches ?? [], [profile]);
   const selectedSlot = selectedSlotIndex !== null ? slotPreviews[selectedSlotIndex] ?? null : null;
 
   const loadSlotPreviews = useCallback(async (): Promise<(ProfileSlotPreview | null)[]> => {
-    const nickname = player?.nickname || props.fallbackNickname;
+    const nickname = displayNickname;
     const slots = loadSlots();
     return Promise.all(slots.map(async (slot, index) => {
       if (!slot) return null;
@@ -125,7 +168,7 @@ export function ProfileScreen(props: {
         drawingData: slot.drawingData,
       } satisfies ProfileSlotPreview;
     }));
-  }, [player?.nickname, props.fallbackNickname]);
+  }, [displayNickname]);
 
   const refreshSlotPreviews = useCallback(() => {
     void loadSlotPreviews().then((previews) => {
@@ -222,10 +265,80 @@ export function ProfileScreen(props: {
         <div>
           <h2 className="text-2xl font-bold text-gray-50">プロフィール</h2>
           <p className="text-sm text-gray-400">{displayNickname} / ID: {props.playerId}</p>
+          {editingNickname ? (
+            <form
+              className="mt-2 space-y-2"
+              aria-busy={savingNickname}
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveNickname();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                }
+                if (event.key === "Escape" && !nicknameSavingRef.current) {
+                  event.preventDefault();
+                  soundManager.playSe("/sounds/se/button.mp3");
+                  setNicknameMessage("");
+                  closeNicknameEditor();
+                }
+              }}
+            >
+              <label htmlFor="profile-nickname" className="block text-sm text-amber-200">ニックネーム</label>
+              <input
+                id="profile-nickname"
+                className="w-full rounded border border-amber-500/40 bg-slate-900 px-3 py-2 text-gray-100"
+                value={nicknameDraft}
+                onChange={(event) => setNicknameDraft(event.target.value)}
+                maxLength={16}
+                disabled={savingNickname}
+                aria-describedby="profile-nickname-help"
+                autoFocus
+              />
+              <p id="profile-nickname-help" className="text-xs text-gray-400">
+                16文字以内。前後の空白は除き、空欄は「プレイヤー」として保存します。
+              </p>
+              <div className="flex gap-2">
+                <button type="submit" className="title-menu-button" disabled={savingNickname}>
+                  {savingNickname ? "保存中..." : "保存"}
+                </button>
+                <button
+                  type="button"
+                  className="title-menu-button"
+                  disabled={savingNickname}
+                  onClick={() => {
+                    soundManager.playSe("/sounds/se/button.mp3");
+                    setNicknameMessage("");
+                    closeNicknameEditor();
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              ref={nicknameEditButtonRef}
+              className="title-menu-button mt-2"
+              disabled={loading}
+              aria-label="ニックネームを変更"
+              onClick={() => {
+                soundManager.playSe("/sounds/se/button.mp3");
+                setNicknameDraft(displayNickname);
+                setNicknameMessage("");
+                setEditingNickname(true);
+              }}
+            >
+              変更
+            </button>
+          )}
+          <p role="status" aria-live="polite" className="text-sm text-amber-200">{nicknameMessage}</p>
           {profile && <p className="text-xs text-amber-200">保存先: {profile.storageBackend === "vercel-kv" ? "Vercel KV" : "ローカル開発ストレージ"}</p>}
         </div>
         <button
           className="title-menu-button"
+          disabled={savingNickname}
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             props.onBack();

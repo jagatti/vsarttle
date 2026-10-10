@@ -1,4 +1,20 @@
 import type { MatchSubmissionPayload, PlayerProfileResponse, PlayerRecord } from "@/lib/persistenceTypes";
+import { normalizeNickname } from "@/lib/persistenceTypes";
+import { persistPlayerIdentity, type PlayerIdentity } from "@/lib/playerIdentity";
+
+export async function savePlayerNickname(
+  identity: PlayerIdentity,
+  nickname: string,
+  options: { allowOffline?: boolean; fetchImpl?: typeof fetch } = {},
+): Promise<PlayerIdentity> {
+  const updated = { ...identity, nickname: normalizeNickname(nickname) };
+  try {
+    await syncPlayerNickname(updated.playerId, updated.nickname, options.fetchImpl);
+  } catch (error) {
+    if (!options.allowOffline) throw error;
+  }
+  return persistPlayerIdentity(updated);
+}
 
 export async function submitMatchRecord(
   payload: MatchSubmissionPayload,
