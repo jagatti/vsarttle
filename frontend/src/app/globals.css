@@ -45,6 +45,197 @@ body {
   background-attachment: fixed;
 }
 
+.draw-panel {
+  container-type: inline-size;
+  width: 100%;
+  max-width: 780px;
+  margin-inline: auto;
+  padding: 16px;
+  border: 2px solid #fde68a;
+  border-radius: 16px;
+  color: #312e81;
+  background: linear-gradient(135deg, #fffaee, #eef2ff);
+  box-shadow: 0 6px 24px #818cf833;
+}
+
+.draw-workspace {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 500px);
+  justify-content: center;
+  align-items: start;
+  gap: 16px;
+}
+
+.draw-toolbar,
+.draw-canvas-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.draw-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draw-tool {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+}
+
+.draw-tool-status {
+  min-width: 36px;
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.draw-pen-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #e0e7ff;
+}
+
+.draw-hint {
+  min-height: 24px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.draw-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 3px solid #c7d2fe;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px #6366f133;
+}
+
+.draw-primary-action {
+  width: 100%;
+  min-height: 52px;
+  border: 2px solid #fde68a;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: 0 3px 8px #6366f140;
+}
+
+.draw-panel button:not(:disabled),
+.draw-panel input:not(:disabled) {
+  cursor: pointer;
+}
+
+.draw-panel button:focus-visible,
+.draw-panel input:focus-visible {
+  outline: 3px solid #4f46e5;
+  outline-offset: 3px;
+}
+
+.draw-primary-action:disabled {
+  opacity: 0.5;
+}
+
+.drawing-mode-layout {
+  display: flex;
+  width: 100%;
+  max-width: 1020px;
+  margin-inline: auto;
+  align-items: center;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawing-mode-panel {
+  width: 100%;
+  min-width: 0;
+  max-width: 780px;
+}
+
+.drawing-mode-sidebar {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #a5b4fc;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #373b68, #312e81);
+  box-shadow: 0 4px 16px #818cf833;
+  --drawing-slot-background: #4c5180;
+  --drawing-slot-label: #e0e7ff;
+  --drawing-slot-clear-background: #eef2ff;
+  --drawing-slot-clear-color: #312e81;
+}
+
+@media (min-width: 900px) {
+  .drawing-mode-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .drawing-mode-panel {
+    flex: 1;
+  }
+
+  .drawing-mode-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    flex-direction: column;
+  }
+}
+
+@container (max-width: 560px) {
+  .draw-workspace {
+    grid-template-columns: minmax(0, 500px);
+  }
+
+  .draw-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .draw-tools,
+  .draw-history {
+    grid-column: 1 / -1;
+  }
+
+  .draw-pen-preview {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .draw-tools {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .draw-tool {
+    flex: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .draw-tool-status {
+    margin-left: 0;
+  }
+}
+
 .app-battle-shell {
   height: 100dvh;
   min-height: 0;

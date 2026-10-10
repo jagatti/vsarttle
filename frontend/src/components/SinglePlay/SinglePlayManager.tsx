@@ -251,7 +251,7 @@ function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label
         width: 110,
         borderRadius: 10,
         border: `2px solid ${borderColor}`,
-        background: "rgba(0,0,0,0.3)",
+        background: "var(--drawing-slot-background, rgba(0,0,0,0.3))",
         padding: 6,
         display: "flex",
         flexDirection: "column",
@@ -259,7 +259,7 @@ function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label
         gap: 4,
       }}
     >
-      <div style={{ color: "#9ca3af", fontSize: 11, fontWeight: "bold" }}>{label}</div>
+      <div style={{ color: "var(--drawing-slot-label, #9ca3af)", fontSize: 11, fontWeight: "bold" }}>{label}</div>
       <div
         style={{
           width: 90,
@@ -319,8 +319,8 @@ function SlotPreview({ char, label, onClear }: { char: SpCharacter | null; label
             padding: "2px 8px",
             borderRadius: 5,
             border: "1px solid #6b7280",
-            background: "rgba(55,65,81,0.8)",
-            color: "#9ca3af",
+            background: "var(--drawing-slot-clear-background, rgba(55,65,81,0.8))",
+            color: "var(--drawing-slot-clear-color, #9ca3af)",
             fontSize: 11,
             cursor: "pointer",
           }}
@@ -342,8 +342,8 @@ function DrawingPhase(props: {
   const nextSlotIndex = props.slots.findIndex((s) => s === null);
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start">
-      <div className="flex-1 min-w-0">
+    <div className="drawing-mode-layout">
+      <div className="drawing-mode-panel">
         <DrawPanel
           seconds={999999}
           noTimer
@@ -352,15 +352,7 @@ function DrawingPhase(props: {
         />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          minWidth: 130,
-          padding: "12px 0",
-        }}
-      >
+      <div className="drawing-mode-sidebar">
         <div
           style={{
             color: "#fde68a",
@@ -376,7 +368,7 @@ function DrawingPhase(props: {
           <SlotPreview key={i} char={char} label={`枠 ${i + 1}`} onClear={char ? () => props.onClear(i) : undefined} />
         ))}
 
-        <div style={{ color: "#9ca3af", fontSize: 11, textAlign: "center" }}>
+        <div style={{ color: "#e0e7ff", fontSize: 11, textAlign: "center" }}>
           {filledCount === 0
             ? "「セット」で絵をセットしよう"
             : nextSlotIndex !== -1
@@ -393,9 +385,9 @@ function DrawingPhase(props: {
           style={{
             padding: "10px 16px",
             borderRadius: 8,
-            border: filledCount > 0 ? "2px solid #22c55e" : "2px solid #374151",
-            background: filledCount > 0 ? "rgba(6,60,20,0.9)" : "#1f2937",
-            color: filledCount > 0 ? "#86efac" : "#6b7280",
+            border: filledCount > 0 ? "2px solid #fde68a" : "2px solid #a5b4fc",
+            background: filledCount > 0 ? "#fde68a" : "#e0e7ff",
+            color: filledCount > 0 ? "#312e81" : "#6b7280",
             fontWeight: "bold",
             fontSize: 14,
             cursor: filledCount > 0 ? "pointer" : "not-allowed",
@@ -1496,8 +1488,8 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             タイトルへ戻る
           </button>
         </div>
-        <div style={{ marginBottom: 8, color: "#9ca3af", fontSize: 13 }}>
-          キャラクターを描いて「セット」ボタンで枠にセットしよう。1〜3体セットしたら「バトル開始」へ進めます。
+        <div style={{ marginBottom: 12, color: "#e0e7ff", fontSize: 14, textAlign: "center" }}>
+          ①描く → ②「セット」で枠へ → ③1〜3体で「バトル開始」
         </div>
         <DrawingPhase
           slots={characters}

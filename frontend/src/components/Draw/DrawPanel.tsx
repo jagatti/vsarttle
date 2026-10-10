@@ -392,43 +392,48 @@ export function DrawPanel(props: {
   };
 
   return (
-    <section className="space-y-3 rounded-lg border p-4">
+    <section className="draw-panel space-y-3">
       {props.noTimer ? (
         <h2 className="text-xl font-bold">おえかき</h2>
       ) : (
         <h2 className="text-xl font-bold">おえかき（残り {props.seconds} 秒）</h2>
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="draw-workspace">
+      <div className="draw-toolbar" role="group" aria-label="描画ツール">
+      <div className="draw-tools">
         {(
           [
-            { key: "pen", label: "ペン" },
-            { key: "eraser", label: "消しゴム" },
-            { key: "fill", label: "塗りつぶし" },
+            { key: "pen", label: "ペン", icon: "✏️" },
+            { key: "fill", label: "塗りつぶし", icon: "🪣" },
+            { key: "eraser", label: "消しゴム", icon: "🧽" },
           ] as const
-        ).map(({ key, label }) => {
+        ).map(({ key, label, icon }) => {
           const isSelected = tool === key;
           return (
             <button
               key={key}
+              aria-label={label}
               aria-pressed={isSelected}
-              className="rounded-md px-3 py-1.5 text-sm font-bold transition-all"
+              className="draw-tool rounded-md px-3 py-2 text-sm font-bold transition-all disabled:opacity-50"
               style={{
-                border: isSelected ? "2px solid #2563eb" : "2px solid #d1d5db",
-                background: isSelected ? "#2563eb" : "#ffffff",
-                color: isSelected ? "#ffffff" : "#374151",
-                boxShadow: isSelected ? "0 0 0 3px rgba(37,99,235,0.25)" : "none",
-                transform: isSelected ? "scale(1.05)" : "scale(1)",
+                border: isSelected ? "2px solid #4f46e5" : key === "fill" ? "2px solid #d97706" : "2px solid #c7d2fe",
+                background: key === "fill" ? "#fef3c7" : isSelected ? "#e0e7ff" : "#ffffff",
+                color: key === "fill" ? "#78350f" : "#312e81",
+                boxShadow: isSelected ? "0 0 0 3px rgba(99,102,241,0.25), 0 3px 6px #312e8120" : "none",
               }}
               onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); setTool(key); }}
               disabled={submitted}
             >
-              {label}
+              <span aria-hidden="true" className="text-xl">{icon}</span>
+              <span>{label}</span>
+              <span className="draw-tool-status">{isSelected ? "使用中" : ""}</span>
             </button>
           );
         })}
-        <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden />
+      </div>
+      <div className="draw-history flex flex-wrap items-center gap-2">
         <button
-          className="rounded-md border-2 border-gray-300 px-2 py-1.5 text-sm font-bold text-gray-500 disabled:opacity-30"
+          className="rounded-md border-2 border-indigo-200 bg-white px-2 py-2 text-sm font-bold text-indigo-900 disabled:opacity-30"
           onClick={undo}
           disabled={submitted || undoStack.length === 0}
           aria-label="元に戻す"
@@ -436,36 +441,36 @@ export function DrawPanel(props: {
           ↶ 元に戻す
         </button>
         <button
-          className="rounded-md border-2 border-gray-300 px-2 py-1.5 text-sm font-bold text-gray-500 disabled:opacity-30"
+          className="rounded-md border-2 border-indigo-200 bg-white px-2 py-2 text-sm font-bold text-indigo-900 disabled:opacity-30"
           onClick={redo}
           disabled={submitted || redoStack.length === 0}
           aria-label="やり直す"
         >
           ↷ やり直す
         </button>
-        <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden />
         <button
-          className="rounded-md border-2 border-red-400 bg-red-50 px-3 py-1.5 text-sm font-bold text-red-600"
+          className="rounded-md border-2 border-red-400 bg-red-50 px-3 py-2 text-sm font-bold text-red-700 disabled:opacity-30"
           onClick={clearAll}
           disabled={submitted}
         >
           🗑 全消去
         </button>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-bold text-gray-600">太さ</span>
+      <div>
+        <h3 className="mb-2 font-bold text-indigo-950">太さ <span className="text-sm">（{size}px）</span></h3>
+        <div className="flex flex-wrap items-center gap-2">
         {SIZE_PRESETS.map((preset) => {
           const isSelected = size === preset;
           return (
             <button
               key={preset}
-              aria-label={`太さ ${preset}`}
+              aria-label={`太さ ${preset}px`}
               aria-pressed={isSelected}
               disabled={submitted}
-              className="flex items-center justify-center rounded-md transition-all"
+              className="flex flex-col items-center justify-center rounded-md text-xs font-bold text-indigo-950 transition-all"
               style={{
-                width: SIZE_SWATCH_BOX,
-                height: SIZE_SWATCH_BOX,
+                width: SIZE_SWATCH_BOX + 8,
+                height: SIZE_SWATCH_BOX + 24,
                 border: isSelected ? "2px solid #2563eb" : "2px solid #d1d5db",
                 background: isSelected ? "#eff6ff" : "#ffffff",
                 boxShadow: isSelected ? "0 0 0 3px rgba(37,99,235,0.25)" : "none",
@@ -473,37 +478,70 @@ export function DrawPanel(props: {
               onClick={() => setSize(preset)}
             >
               <span
-                style={{
-                  width: preset,
-                  height: preset,
-                  borderRadius: "50%",
+                className="flex items-center justify-center"
+                style={{ width: SIZE_SWATCH_BOX, height: SIZE_SWATCH_BOX }}
+              >
+                <span style={{
+                  width: preset, height: preset, borderRadius: "50%",
                   background: tool === "eraser" ? "#ffffff" : color,
-                  border: tool === "eraser" ? "1px solid #9ca3af" : "none",
-                }}
-              />
+                  border: "1px solid #9ca3af",
+                }} />
+              </span>
+              <span>{preset}px</span>
             </button>
           );
         })}
+        </div>
       </div>
+      <div className="draw-pen-preview">
+        <span className="font-bold">現在のペン</span>
+        <div className="flex items-center gap-2">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-indigo-200 bg-white">
+            <span style={{ width: size, height: size, borderRadius: "50%", background: color, border: "1px solid #9ca3af" }} />
+          </span>
+          <span className="text-sm">{size}px <span className="block">{color}</span></span>
+        </div>
+      </div>
+      <div>
+      <h3 className="mb-2 font-bold text-indigo-950">色</h3>
       <div className="flex flex-wrap items-center gap-2">
         {COLORS.map((preset) => (
           <button
             key={preset}
             aria-label={preset}
+            aria-pressed={color === preset}
             disabled={submitted}
             className="h-7 w-7 rounded border"
             style={{ backgroundColor: preset, outline: color === preset ? "2px solid #2563eb" : "none" }}
             onClick={() => setColor(preset)}
           />
         ))}
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={submitted} />
+        <input aria-label="好きな色を選ぶ" type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={submitted} />
       </div>
+      </div>
+      </div>
+      <div className="draw-canvas-column">
+      <p className="draw-hint" aria-live="polite">
+        {tool === "fill" ? "🪣 タップした範囲を塗ります" : tool === "eraser" ? "🧽 なぞった部分を消します" : "✏️ 好きなキャラクターを描こう"}
+      </p>
       <canvas
         ref={canvasRef}
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
-        className="w-full max-w-[400px] touch-none rounded border bg-white"
-        style={{ pointerEvents: submitted ? "none" : "auto", opacity: submitted ? 0.7 : 1 }}
+        aria-label="おえかきキャンバス"
+        className="draw-canvas touch-none bg-white"
+        style={{
+          pointerEvents: submitted ? "none" : "auto", opacity: submitted ? 0.7 : 1,
+          cursor: `url("data:image/svg+xml,${encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">${
+              tool === "fill"
+                ? '<path d="M12 10l8-6 18 18-16 16L6 22z" fill="#fde68a" stroke="#312e81" stroke-width="2"/><path d="M12 10l14 14H8M38 28q-9 12 0 12t0-12" fill="#818cf8" stroke="#312e81" stroke-width="2"/>'
+                : tool === "eraser"
+                  ? `<rect x="${24 - size / 2}" y="${24 - size / 2}" width="${size}" height="${size}" fill="none" stroke="white" stroke-width="3"/><rect x="${24 - size / 2}" y="${24 - size / 2}" width="${size}" height="${size}" fill="none" stroke="#111" stroke-width="1"/>`
+                  : `<circle cx="24" cy="24" r="${size / 2}" fill="none" stroke="white" stroke-width="3"/><circle cx="24" cy="24" r="${size / 2}" fill="none" stroke="#111" stroke-width="1"/>`
+            }</svg>`
+          )}") 24 24, crosshair`,
+        }}
         onPointerDown={(e) => {
           if (submitted) return;
           const p = pointerPos(e);
@@ -518,8 +556,27 @@ export function DrawPanel(props: {
         onPointerUp={endStroke}
         onPointerCancel={endStroke}
       />
+      {props.onSet ? (
+        <button
+          className="draw-primary-action"
+          disabled={submitted}
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            const state = captureState();
+            if (state) props.onSet!(state);
+          }}
+        >
+          セット
+        </button>
+      ) : submitted ? (
+        <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
+      ) : (
+        <button className="draw-primary-action" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>{props.completeLabel ?? "完成"}</button>
+      )}
       {/* ── Save Slots ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-3">
+      <div>
+      <h3 className="mb-2 text-sm font-bold">保存スロット（絵をタップで読み込み）</h3>
+      <div className="flex flex-wrap justify-center gap-3">
         {Array.from({ length: SLOT_COUNT }, (_, i) => {
           const slot = slots[i];
           const isDisabled = submitted;
@@ -569,7 +626,7 @@ export function DrawPanel(props: {
                 {slot && (
                   <button
                     disabled={isDisabled}
-                    className="text-xs text-blue-500 hover:underline disabled:opacity-40"
+                    className="text-xs text-indigo-700 hover:underline disabled:opacity-40"
                     onClick={() => saveToSlot(i)}
                     title={`スロット ${i + 1} に上書き保存`}
                   >
@@ -582,23 +639,9 @@ export function DrawPanel(props: {
         })}
       </div>
       {/* ── End Save Slots ──────────────────────────────────────────────── */}
-      {props.onSet ? (
-        <button
-          className="rounded bg-indigo-600 px-3 py-2 text-white"
-          disabled={submitted}
-          onClick={() => {
-            soundManager.playSe("/sounds/se/button.mp3");
-            const state = captureState();
-            if (state) props.onSet!(state);
-          }}
-        >
-          セット
-        </button>
-      ) : submitted ? (
-        <p className="rounded bg-yellow-50 p-3 text-sm font-bold text-yellow-800">相手の完成を待っています…</p>
-      ) : (
-        <button className="rounded bg-green-600 px-3 py-2 text-white" onClick={() => { soundManager.playSe("/sounds/se/button.mp3"); submit(); }}>{props.completeLabel ?? "完成"}</button>
-      )}
+      </div>
+      </div>
+      </div>
     </section>
   );
 }

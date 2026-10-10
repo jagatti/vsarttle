@@ -820,8 +820,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   if (rlStage === "drawing") {
     return (
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="min-w-0 flex-1">
+      <div className="drawing-mode-layout">
+        <div className="drawing-mode-panel">
           <DrawPanel
             seconds={999999}
             noTimer
@@ -829,22 +829,15 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             onComplete={() => {}}
           />
         </div>
-        <div
-          style={{
-            display: "flex",
-            minWidth: 180,
-            flexDirection: "column",
-            gap: 14,
-            padding: "12px 0",
-          }}
-        >
+        <div className="drawing-mode-sidebar">
           <div style={{ color: "#fde68a", fontWeight: "bold", textAlign: "center" }}>ローグライクモード</div>
           <div
             style={{
               height: 160,
+              width: 160,
               borderRadius: 12,
-              border: `2px solid ${playerDrawingDataUrl ? "#8b5cf6" : "#374151"}`,
-              background: "rgba(0,0,0,0.35)",
+              border: `2px solid ${playerDrawingDataUrl ? "#fde68a" : "#a5b4fc"}`,
+              background: "#eef2ff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -861,7 +854,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           <div style={{ color: "#d1d5db", fontSize: 12, textAlign: "center" }}>
             {playerCharacterType ? `タイプ: ${playerCharacterType}（固定）` : "絵をセットしてください"}
           </div>
-          <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
+          <div style={{ color: "#e0e7ff", fontSize: 12, lineHeight: 1.6 }}>
             ステータスは固定で開始し、各階層クリア時の強化だけで成長します。
           </div>
           <button
@@ -870,9 +863,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             style={{
               padding: "10px 16px",
               borderRadius: 8,
-              border: playerDrawingDataUrl && playerCharacterType ? "2px solid #22c55e" : "2px solid #374151",
-              background: playerDrawingDataUrl && playerCharacterType ? "rgba(6,60,20,0.9)" : "#1f2937",
-              color: playerDrawingDataUrl && playerCharacterType ? "#86efac" : "#6b7280",
+              border: playerDrawingDataUrl && playerCharacterType ? "2px solid #fde68a" : "2px solid #a5b4fc",
+              background: playerDrawingDataUrl && playerCharacterType ? "#fde68a" : "#e0e7ff",
+              color: playerDrawingDataUrl && playerCharacterType ? "#312e81" : "#6b7280",
               fontWeight: "bold",
               cursor: playerDrawingDataUrl && playerCharacterType ? "pointer" : "not-allowed",
             }}
@@ -887,9 +880,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
             style={{
               padding: "10px 16px",
               borderRadius: 8,
-              border: "2px solid #6b7280",
-              background: "rgba(30,30,30,0.9)",
-              color: "#d1d5db",
+              border: "2px solid #a5b4fc",
+              background: "#eef2ff",
+              color: "#312e81",
               fontWeight: "bold",
               cursor: "pointer",
             }}
