@@ -10,6 +10,7 @@ import { drawingToDataUrl } from "@/lib/drawingWire";
 import { submitMatchRecord } from "@/lib/profileApi";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { soundManager } from "@/lib/soundManager";
+import { createTurnResolutionGuard } from "@/lib/turnResolutionGuard";
 import { getRoguelikeStageBgm } from "@/lib/vsTransition";
 import { LIMIT_BREAK_BGM_PATH, LIMIT_BREAK_STAT_REVEAL_INTERVAL_MS, getSinglePlayLimitBreakStatusLines, getSinglePlayLimitBreakDisplayDurationMs } from "@/lib/singlePlayLimitBreak";
 import {
@@ -92,6 +93,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
   const [turn, setTurn] = useState(1);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
+  const [isResolvingTurn, setIsResolvingTurn] = useState(false);
   const [upgradeChoices, setUpgradeChoices] = useState<UpgradeChoice[]>([]);
   const [acquiredWeakMagicKinds, setAcquiredWeakMagicKinds] = useState<WeakMagicEffectKind[]>([]);
   const [acquiredSkills, setAcquiredSkills] = useState<AcquiredSkills>({});
@@ -129,6 +131,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   const acquiredWeakMagicKindsRef = useRef<WeakMagicEffectKind[]>([]);
   const acquiredSkillsRef = useRef<AcquiredSkills>({});
   const isDebugRunRef = useRef(false);
+  // Blocks action selection from finalizeTurn until the next turn really starts.
+  const turnGuardRef = useRef(createTurnResolutionGuard());
 
   useEffect(() => {
     setRlDebugEnabled(isRoguelikeDebugQueryEnabled(window.location.search));
@@ -178,7 +182,19 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     transitionTimerRef.current = null;
   }, []);
 
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  useEffect(() => {
+    const turnGuard = turnGuardRef.current;
+    return () => {
+      clearTimers();
+      turnGuard.reset();
+    };
+  }, [clearTimers]);
+
+  const syncTurnGuard = () => setIsResolvingTurn(turnGuardRef.current.isResolving());
+  const resetTurnGuard = () => {
+    turnGuardRef.current.reset();
+    syncTurnGuard();
+  };
 
   useEffect(() => {
     const bgmStage = rlStage === "vs" || rlStage === "debug-setup" ? null : rlStage;
@@ -302,6 +318,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
       setFloor(targetFloor);
       floorRef.current = targetFloor;
       pendingActionRef.current = null;
+      turnGuardRef.current.prepareBattle();
+      syncTurnGuard();
       pendingBattleStartRef.current = () => {
         setRlStage("battle");
         pendingBattleStartRef.current = null;
@@ -319,12 +337,15 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
   function finalizeRun(summary: RunResultSummary) {
     clearTimers();
+    resetTurnGuard();
     setRunResult(summary);
     setBattleFinish({ winnerId: summary.winnerId ?? "" });
     setRlStage("result");
   }
 
   function finalizeTurn(turnNumber: number, selectedAction: ActionType | null) {
+    if (!turnGuardRef.current.beginResolution(turnNumber)) return;
+    syncTurnGuard();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
@@ -334,7 +355,10 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     const currentBattle = structuredClone(battleStateRef.current);
     const playerId = PLAYER_BATTLE_ID;
     const enemyId = enemyBattleIdRef.current;
-    if (!enemyId || !currentBattle[playerId] || !currentBattle[enemyId]) return;
+    if (!enemyId || !currentBattle[playerId] || !currentBattle[enemyId]) {
+      resetTurnGuard();
+      return;
+    }
 
     const me = currentBattle[playerId];
     const enemy = currentBattle[enemyId];
@@ -393,11 +417,16 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     setBattleState(result.nextStates);
     setTurnResult(result);
 
+    if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
     postTurnTimerRef.current = window.setTimeout(() => {
+      postTurnTimerRef.current = null;
       const nextStates = result.nextStates;
       const nextPlayer = nextStates[playerId];
       const nextEnemy = nextStates[enemyId];
-      if (!nextPlayer || !nextEnemy) return;
+      if (!nextPlayer || !nextEnemy) {
+        resetTurnGuard();
+        return;
+      }
 
       if (nextEnemy.currentHp <= 0) {
         const isPerfectVictory = floorDamageTakenRef.current === 0;
@@ -434,6 +463,8 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           startSeamlessNextBoss(floorRef.current + 1, clearedPlayer, nextEnemy);
           return;
         }
+
+        resetTurnGuard();
 
         // For weak floors and boss floors 5,10,13,16,17: show YOU WIN, then upgrade
         if (isWeakFloor(floorRef.current)) {
@@ -496,6 +527,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
     playerId: string,
     enemyId: string,
   ) {
+    // Called once the next turn has really started (setTurn + startCountdown done).
+    turnGuardRef.current.startTurn();
+    syncTurnGuard();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     const delaySeconds = getRoguelikeTurnSeconds(battle[playerId]);
     turnTimerRef.current = window.setTimeout(() => {
@@ -507,6 +541,9 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
   function startSeamlessNextBoss(nextFloor: number, currentPlayer: PlayerBattleState, currentEnemy?: PlayerBattleState) {
     clearTimers();
     floorDamageTakenRef.current = 0;
+    // The turn counter restarts for the next boss; keep actions blocked until its first turn starts.
+    turnGuardRef.current.prepareBattle();
+    syncTurnGuard();
 
     if (nextFloor === 19) {
       // 18→19: show 変身 overlay, then carry over player and start floor 19
@@ -653,6 +690,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
 
 
   function handleActionSelect(action: ActionType) {
+    if (!turnGuardRef.current.canSelectAction(turnRef.current)) return;
     if (pendingActionRef.current) return;
     pendingActionRef.current = action;
     finalizeTurn(turnRef.current, action);
@@ -1062,6 +1100,7 @@ export function RoguelikeManager(props: { onBackToTitle: () => void; playerProfi
           turn={turn}
           turnResult={turnResult}
           countdown={turnCountdown}
+          isResolvingTurn={isResolvingTurn}
           onActionSelect={battleFinish ? () => {} : handleActionSelect}
           finishResult={battleFinish}
           onRematchSame={() => {}}
