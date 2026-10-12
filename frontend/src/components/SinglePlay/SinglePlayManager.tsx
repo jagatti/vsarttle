@@ -33,6 +33,7 @@ import {
 } from "@/lib/scoreRank";
 import { FLOOR5_BOSS_CHARGE_HP_THRESHOLD, getGhostCpuActionWeights, pickGhostCpuAction } from "@/lib/ghostCpuAction";
 import { compareScoreRank } from "@/lib/persistenceTypes";
+import { createTurnResolutionGuard } from "@/lib/turnResolutionGuard";
 import { RoguelikeManager } from "@/components/RoguelikeMode/RoguelikeManager";
 import type {
   ActionType,
@@ -557,6 +558,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
   const [showResultTotal, setShowResultTotal] = useState(false);
   const [showResultBackButton, setShowResultBackButton] = useState(false);
   const [resultPhase, setResultPhase] = useState<"logo" | "rolling">("logo");
+  const [isResolvingTurn, setIsResolvingTurn] = useState(false);
 
   // ── Mutable refs (avoid stale closures) ───────────────────────────────────
   const battleStateRef = useRef<Record<string, PlayerBattleState>>({});
@@ -581,6 +583,19 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
   const floorRecordsRef = useRef<FloorRecords>({});
   const submittedFloorRefs = useRef<Set<number>>(new Set());
+  // Spans finalizeTurn → next turn actually started, so a click in between
+  // cannot re-resolve the previous turn (see turnResolutionGuard.ts).
+  const turnResolutionGuardRef = useRef(createTurnResolutionGuard());
+
+  const releaseTurnResolution = useCallback(() => {
+    turnResolutionGuardRef.current.release();
+    setIsResolvingTurn(false);
+  }, []);
+
+  const resetTurnResolution = useCallback(() => {
+    turnResolutionGuardRef.current.reset();
+    setIsResolvingTurn(false);
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
@@ -653,7 +668,9 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    const guard = turnResolutionGuardRef.current;
     return () => {
+      guard.reset();
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
       if (limitBreakTimerRef.current) clearTimeout(limitBreakTimerRef.current);
@@ -842,6 +859,8 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       playerIdParam: string,
       enemyIdParam: string,
     ) => {
+      if (!turnResolutionGuardRef.current.tryBegin(turnNumber)) return;
+      setIsResolvingTurn(true);
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -849,7 +868,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       }
 
       const currentBattle = structuredClone(battleStateRef.current);
-      if (!currentBattle[playerIdParam] || !currentBattle[enemyIdParam]) return;
+      if (!currentBattle[playerIdParam] || !currentBattle[enemyIdParam]) {
+        releaseTurnResolution();
+        return;
+      }
 
       const resolvedPlayerAction = ((): ActionType => {
         if (currentBattle[playerIdParam].paralyzedNextTurn) return "paralysis";
@@ -906,6 +928,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
 
       if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
       postTurnTimerRef.current = window.setTimeout(() => {
+        postTurnTimerRef.current = null;
         doHandlePostTurnRef.current(result, playerIdParam, enemyIdParam, turnNumber);
       }, POST_TURN_DELAY_MS);
     };
@@ -949,6 +972,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
               turnRef.current = nextTurn;
               startCountdown(TURN_SECONDS);
               doScheduleAutoActionRef.current(nextTurn, newBattle, playerIdParam, enemyIdParam);
+              releaseTurnResolution();
             }, getSinglePlayLimitBreakDisplayDurationMs(
               getSinglePlayLimitBreakStatusLines(limitBrokenEnemy).length,
             ));
@@ -990,6 +1014,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
             setTurn(1);
             turnRef.current = 1;
             floor5Phase2StartTurnRef.current = 1;
+            resetTurnResolution();
 
             startCountdown();
             doScheduleAutoActionRef.current(1, newBattle, playerIdParam, newEnemy.id);
@@ -1002,6 +1027,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           void recordFloorClear(currentFloor, clearTurn, nextStates, playerIdParam, enemyIdParam);
           setBattleFinish({ winnerId: playerIdParam });
           setSpStage("floor_win");
+          releaseTurnResolution();
         }
       } else if (nextStates[playerIdParam] && nextStates[playerIdParam].currentHp <= 0) {
         // Active player character defeated
@@ -1030,6 +1056,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           setBattleFinish({ winnerId: enemyIdParam });
           setSpStage("floor_lose");
         }
+        releaseTurnResolution();
       } else {
         // Continue battle
         const nextTurn = turnNumber + 1;
@@ -1043,6 +1070,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
           : TURN_SECONDS;
         startCountdown(nextTurnSeconds);
         doScheduleAutoActionRef.current(nextTurn, nextStates, playerIdParam, enemyIdParam);
+        releaseTurnResolution();
       }
     };
   });
@@ -1103,6 +1131,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       setTurnResult(null);
       setTurn(nextTurn);
       turnRef.current = nextTurn;
+      resetTurnResolution();
       setActiveCharIndex(charIndex);
       pendingActionRef.current = null;
       resumeBattleWithNextCharRef.current = false;
@@ -1114,7 +1143,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       };
       setSpStage("vs");
     },
-    [ensureFloorUsedCharSet, startCountdown],
+    [ensureFloorUsedCharSet, resetTurnResolution, startCountdown],
   );
 
   // ── Event handlers ────────────────────────────────────────────────────────
@@ -1187,6 +1216,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
   }, []);
 
   const onActionSelect = useCallback((action: ActionType) => {
+    if (!turnResolutionGuardRef.current.canBegin(turnRef.current)) return;
     if (pendingActionRef.current) return;
     pendingActionRef.current = action;
 
@@ -1217,16 +1247,18 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
     setFloor(nextFloor);
     setBossPhase(1);
     floor5Phase2StartTurnRef.current = null;
+    resetTurnResolution();
     setBattleFinish(null);
     setTurnResult(null);
     setSpStage("char_select");
-  }, []);
+  }, [resetTurnResolution]);
 
   const handleRetryFloor = useCallback(() => {
     soundManager.playSe("/sounds/se/button.mp3");
     resumeBattleWithNextCharRef.current = false;
     markContinuedForFloor(floorRef.current);
     floor5Phase2StartTurnRef.current = null;
+    resetTurnResolution();
 
     setCharacters((prev) =>
       prev.map((c) =>
@@ -1238,7 +1270,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
     setBattleFinish(null);
     setTurnResult(null);
     setSpStage("char_select");
-  }, [markContinuedForFloor]);
+  }, [markContinuedForFloor, resetTurnResolution]);
 
   // ── Derived battle state ───────────────────────────────────────────────────
   const playerIds = Object.keys(battleState);
@@ -1591,6 +1623,7 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
         limitBreakMode={!!enemyState.limitBreakActive}
         countdown={turnCountdown}
         onActionSelect={spStage === "battle" ? onActionSelect : () => {}}
+        isResolvingTurn={isResolvingTurn}
         finishResult={battleFinish}
         onRematchSame={() => { /* not used in single play */ }}
         onRematchRedraw={() => { /* not used in single play */ }}
