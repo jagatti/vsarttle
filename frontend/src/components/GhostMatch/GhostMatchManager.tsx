@@ -112,6 +112,10 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   }, [clearTimers]);
 
   const syncTurnGuard = () => setIsResolvingTurn(turnGuardRef.current.isResolving());
+  const resetTurnGuard = () => {
+    turnGuardRef.current.reset();
+    syncTurnGuard();
+  };
 
   useEffect(() => {
     if (stage === "drawing") {
@@ -135,8 +139,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     const me = currentBattle[playerBattleIdRef.current];
     const enemy = currentBattle[enemyBattleIdRef.current];
     if (!me || !enemy) {
-      turnGuardRef.current.reset();
-      syncTurnGuard();
+      resetTurnGuard();
       return;
     }
 
@@ -168,8 +171,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
       postTurnTimerRef.current = null;
       if (result.winnerId) {
         setBattleFinish({ winnerId: result.winnerId });
-        turnGuardRef.current.reset();
-        syncTurnGuard();
+        resetTurnGuard();
         return;
       }
       const nextTurn = turnNumber + 1;
@@ -402,8 +404,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             clearTimers();
-            turnGuardRef.current.reset();
-            syncTurnGuard();
+            resetTurnGuard();
             setBattleState({});
             void fetchGhost();
           }}
@@ -420,8 +421,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             clearTimers();
-            turnGuardRef.current.reset();
-            syncTurnGuard();
+            resetTurnGuard();
             props.onBackToTitle();
           }}
           style={{
