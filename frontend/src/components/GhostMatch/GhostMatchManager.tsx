@@ -15,6 +15,7 @@ import type { GhostRecord } from "@/lib/persistenceTypes";
 import { getAvailableActions, resolveTurn } from "@/lib/battleLogic";
 import { analyzeDrawing } from "@/lib/statCalculator";
 import { soundManager } from "@/lib/soundManager";
+import { createTurnResolutionGuard } from "@/lib/turnResolutionGuard";
 import type { ActionType, DrawingData, PlayerBattleState, TurnResult, WireDrawingData } from "@/types/game";
 
 type GhostMatchStage = "loading" | "drawing" | "vs" | "battle" | "error";
@@ -32,6 +33,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   const [battleFinish, setBattleFinish] = useState<{ winnerId: string } | null>(null);
   const [turn, setTurn] = useState(1);
   const [turnCountdown, setTurnCountdown] = useState(TURN_SECONDS);
+  const [isResolvingTurn, setIsResolvingTurn] = useState(false);
 
   const turnTimerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
@@ -44,6 +46,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   const pendingBattleStartRef = useRef<(() => void) | null>(null);
   const submittedMatchRef = useRef(false);
   const previousDrawingRef = useRef<WireDrawingData | null>(null);
+  // Blocks action selection from finalizeTurn until the next turn really starts.
+  const turnGuardRef = useRef(createTurnResolutionGuard());
 
   const meState = useMemo(() => battleState[playerBattleIdRef.current], [battleState]);
   const enemyState = useMemo(() => battleState[enemyBattleIdRef.current], [battleState]);
@@ -99,7 +103,15 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     void fetchGhost();
   }, [fetchGhost]);
 
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  useEffect(() => {
+    const turnGuard = turnGuardRef.current;
+    return () => {
+      clearTimers();
+      turnGuard.reset();
+    };
+  }, [clearTimers]);
+
+  const syncTurnGuard = () => setIsResolvingTurn(turnGuardRef.current.isResolving());
 
   useEffect(() => {
     if (stage === "drawing") {
@@ -112,6 +124,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   }, [stage]);
 
   function finalizeTurn(turnNumber: number, selectedAction: ActionType | null) {
+    if (!turnGuardRef.current.beginResolution(turnNumber)) return;
+    syncTurnGuard();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
@@ -120,7 +134,11 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     const currentBattle = structuredClone(battleStateRef.current);
     const me = currentBattle[playerBattleIdRef.current];
     const enemy = currentBattle[enemyBattleIdRef.current];
-    if (!me || !enemy) return;
+    if (!me || !enemy) {
+      turnGuardRef.current.reset();
+      syncTurnGuard();
+      return;
+    }
 
     const availableActions = getAvailableActions(me, turnNumber);
     const playerAction = me.paralyzedNextTurn
@@ -145,9 +163,13 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     battleStateRef.current = result.nextStates;
     setBattleState(result.nextStates);
     setTurnResult(result);
+    if (postTurnTimerRef.current) clearTimeout(postTurnTimerRef.current);
     postTurnTimerRef.current = window.setTimeout(() => {
+      postTurnTimerRef.current = null;
       if (result.winnerId) {
         setBattleFinish({ winnerId: result.winnerId });
+        turnGuardRef.current.reset();
+        syncTurnGuard();
         return;
       }
       const nextTurn = turnNumber + 1;
@@ -162,6 +184,9 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   }
 
   function scheduleAutoAction(turnNumber: number, battle: Record<string, PlayerBattleState>) {
+    // Called once the next turn has really started (setTurn + startCountdown done).
+    turnGuardRef.current.startTurn();
+    syncTurnGuard();
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     const delaySeconds = battle[playerBattleIdRef.current]?.paralyzedNextTurn ? PARALYSIS_TURN_SECONDS : TURN_SECONDS;
     turnTimerRef.current = window.setTimeout(() => {
@@ -194,6 +219,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
     setTurn(1);
     turnRef.current = 1;
     pendingActionRef.current = null;
+    turnGuardRef.current.prepareBattle();
+    syncTurnGuard();
     submittedMatchRef.current = false;
     pendingBattleStartRef.current = () => {
       setStage("battle");
@@ -226,6 +253,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
   };
 
   const onActionSelect = (action: ActionType) => {
+    if (!turnGuardRef.current.canSelectAction(turnRef.current)) return;
     if (pendingActionRef.current) return;
     pendingActionRef.current = action;
     finalizeTurn(turnRef.current, action);
@@ -374,6 +402,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             clearTimers();
+            turnGuardRef.current.reset();
+            syncTurnGuard();
             setBattleState({});
             void fetchGhost();
           }}
@@ -390,6 +420,8 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
           onClick={() => {
             soundManager.playSe("/sounds/se/button.mp3");
             clearTimers();
+            turnGuardRef.current.reset();
+            syncTurnGuard();
             props.onBackToTitle();
           }}
           style={{
@@ -416,6 +448,7 @@ export function GhostMatchManager(props: { onBackToTitle: () => void; playerProf
           turn={turn}
           turnResult={turnResult}
           countdown={turnCountdown}
+          isResolvingTurn={isResolvingTurn}
           onActionSelect={battleFinish ? () => {} : onActionSelect}
           finishResult={battleFinish}
           onRematchSame={() => {}}
