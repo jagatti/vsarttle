@@ -128,8 +128,13 @@ export function getDanceCpuMode(stamina: number, streak: number, random: () => n
   return random() < 0.3 ? "recovery" : "normal";
 }
 
-export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode): number {
-  const base = judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
+export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode, stamina = 1): number {
+  const base = judgments.reduce((sum, judgment) => {
+    const points = mode !== "recovery" && stamina <= 0 && judgment !== "MISS"
+      ? DANCE_JUDGMENT_POINTS.BAD
+      : DANCE_JUDGMENT_POINTS[judgment];
+    return sum + points;
+  }, 0);
   return mode === "multiplier" ? Math.round(base * 1.2) : base;
 }
 

@@ -70,6 +70,8 @@ test("dance CPU boss judgments are stronger and score scaling is applied once", 
   assert.equal(getDanceCpuJudgment(() => 0.25, true), "PERFECT");
   assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "normal"), 21);
   assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "multiplier"), 25);
+  assert.equal(getDanceActionScore(["GOOD", "MISS"], "normal", 0), 2);
+  assert.equal(getDanceActionScore(["GOOD"], "recovery", 0), 8);
   assert.deepEqual(DANCE_JUDGMENT_POINTS, { PERFECT: 13, GREAT: 10, GOOD: 8, BAD: 5, MISS: -3 });
 });
 

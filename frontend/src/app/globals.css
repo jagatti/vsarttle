@@ -2182,6 +2182,7 @@ main.app-title-shell {
 }
 
 .dance-hud-team {
+  position: relative;
   min-width: 0;
   padding: 7px 10px;
   border-left: 6px solid;
@@ -2200,6 +2201,17 @@ main.app-title-shell {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dance-hud-team .dance-score-pop {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  color: #f6b81d;
+  font-size: 11px;
+  font-weight: 1000;
+  pointer-events: none;
+  animation: dance-score-pop 700ms ease-out both;
 }
 
 .dance-hud-team strong {
@@ -2557,6 +2569,12 @@ main.app-title-shell {
   0% { opacity: 0; transform: translate(-50%, 12px) scale(0.7); }
   35% { opacity: 1; transform: translate(-50%, -6px) scale(1.16); }
   100% { opacity: 0.9; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes dance-score-pop {
+  0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+  30% { opacity: 1; transform: translateY(-5px) scale(1.15); }
+  100% { opacity: 0.8; transform: translateY(-12px) scale(1); }
 }
 
 @keyframes dance-line-pulse {
