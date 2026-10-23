@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DANCE_JUDGMENT_POINTS,
+  DANCE_BAR_DURATION_MS,
+  DANCE_FEVER_BAR_DURATION_MS,
+  DANCE_RESULT_SETTLE_MS,
+  getDanceRoundDurationMs,
   addDanceGauge,
   applyDanceStaminaJudgment,
   canActivateDanceFever,
@@ -58,8 +62,17 @@ test("dance patterns preserve the difficulty lengths and recovery X", () => {
 });
 
 test("dance target timings follow the original sequence formula", () => {
-  assert.equal(getDanceTargetTime(1000, 0), 1000 + Math.round(3000 / 1.1));
-  assert.equal(getDanceTargetTime(1000, 1) - getDanceTargetTime(1000, 0), Math.round(1400 / 1.1));
+  assert.equal(getDanceTargetTime(1000, 0), 1000 + DANCE_BAR_DURATION_MS);
+  assert.equal(getDanceTargetTime(1000, 1) - getDanceTargetTime(1000, 0), DANCE_FEVER_BAR_DURATION_MS);
+});
+
+test("dance rounds reserve real bar time and result settling time", () => {
+  assert.equal(getDanceRoundDurationMs(true), 1500 + DANCE_BAR_DURATION_MS + DANCE_RESULT_SETTLE_MS);
+  assert.equal(getDanceRoundDurationMs(false), 700 + DANCE_BAR_DURATION_MS + DANCE_RESULT_SETTLE_MS);
+  assert.equal(
+    getDanceRoundDurationMs(true, 4) - getDanceRoundDurationMs(true, 1),
+    3 * DANCE_FEVER_BAR_DURATION_MS,
+  );
 });
 
 test("dance CPU boss judgments are stronger and score is kept as base points", () => {

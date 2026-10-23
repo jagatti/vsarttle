@@ -5,6 +5,23 @@ export type DanceKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "X
 export type DanceTeam = "red" | "blue";
 export type DanceLastStep = "center" | "backline";
 
+export const DANCE_READY_DURATION_MS = 1500;
+export const DANCE_SPECTATOR_READY_DURATION_MS = 700;
+export const DANCE_BAR_DURATION_MS = Math.round(3000 / 1.1);
+export const DANCE_FEVER_BAR_DURATION_MS = Math.round(1400 / 1.1);
+export const DANCE_FEVER_TRANSITION_DELAY_MS = 900;
+export const DANCE_RESULT_DURATION_MS = 2200;
+export const DANCE_RESULT_SETTLE_MS = 300;
+
+export function getDanceRoundDurationMs(playerParticipates: boolean, feverAttempts = 1): number {
+  const readyDuration = playerParticipates
+    ? DANCE_READY_DURATION_MS
+    : DANCE_SPECTATOR_READY_DURATION_MS;
+  return readyDuration + DANCE_BAR_DURATION_MS +
+    Math.max(0, feverAttempts - 1) * DANCE_FEVER_BAR_DURATION_MS +
+    DANCE_RESULT_SETTLE_MS;
+}
+
 export function getDanceVisibleModes(playerParticipates: boolean, fever: boolean): DanceMode[] {
   if (!playerParticipates) return [];
   return fever ? ["multiplier"] : ["recovery", "normal", "multiplier"];
@@ -135,9 +152,7 @@ export function createDanceSequence(
 }
 
 export function getDanceTargetTime(startTime: number, sequenceIndex: number): number {
-  const first = Math.round(3000 / 1.1);
-  const interval = Math.round(1400 / 1.1);
-  return startTime + first + sequenceIndex * interval;
+  return startTime + DANCE_BAR_DURATION_MS + sequenceIndex * DANCE_FEVER_BAR_DURATION_MS;
 }
 
 export function getDanceCpuJudgment(random: () => number = Math.random, boss = false): DanceJudgment {

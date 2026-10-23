@@ -9,6 +9,13 @@ import {
   createDanceSequence,
   addDanceGauge,
   applyDanceStaminaJudgment,
+  DANCE_BAR_DURATION_MS,
+  DANCE_FEVER_BAR_DURATION_MS,
+  DANCE_FEVER_TRANSITION_DELAY_MS,
+  DANCE_READY_DURATION_MS,
+  DANCE_RESULT_DURATION_MS,
+  DANCE_RESULT_SETTLE_MS,
+  DANCE_SPECTATOR_READY_DURATION_MS,
   DANCE_PHASE_LABELS,
   getDanceActionScore,
   getDanceCpuJudgment,
@@ -17,6 +24,7 @@ import {
   getDanceGoal,
   getDanceFeverLimit,
   getDanceRecovery,
+  getDanceRoundDurationMs,
   isDanceFeverAllowed,
   isDanceFinalKeyWindow,
   getDanceStamina,
@@ -137,6 +145,9 @@ export function DanceBattleMiniGame(props: {
   const [centerBaseScores, setCenterBaseScores] = useState({ red: 0, blue: 0 });
   const [activeAction, setActiveAction] = useState<DanceAction | null>(null);
   const [lastJudgment, setLastJudgment] = useState<DanceJudgment | null>(null);
+  const [lastJudgmentMode, setLastJudgmentMode] = useState<DanceMode | null>(null);
+  const [lastJudgmentId, setLastJudgmentId] = useState(0);
+  const [feverProgress, setFeverProgress] = useState<{ count: number; score: number } | null>(null);
   const [laneSequences, setLaneSequences] = useState<DanceLanes>(() => createDanceLanes(3));
   const [keysRevealed, setKeysRevealed] = useState(false);
   const [roundStartedAt, setRoundStartedAt] = useState(0);
@@ -163,6 +174,8 @@ export function DanceBattleMiniGame(props: {
   const deadlineRef = useRef<number | null>(null);
   const actionDeadlineRef = useRef<number | null>(null);
   const roundSettlingRef = useRef(false);
+  const feverTransitionRef = useRef(false);
+  const finalDanceBgmPlayedRef = useRef(false);
 
   const goal = getDanceGoal(stars);
   const playerIsBackline = centerTeamRef.current !== "red" || (teamSize > 1 && redCenter !== 0);
@@ -238,7 +251,7 @@ export function DanceBattleMiniGame(props: {
         actionRef.current = missedAction;
       }
       if (!actionRef.current || !actionRef.current.fever) advanceInputRef.current("MISS");
-    }, playerParticipates ? 1500 + Math.round(3000 / 1.1) + 300 : 700);
+    }, getDanceRoundDurationMs(playerParticipates));
     return () => {
       window.clearTimeout(revealTimer);
       if (deadlineRef.current !== null) window.clearTimeout(deadlineRef.current);
@@ -264,9 +277,28 @@ export function DanceBattleMiniGame(props: {
   useEffect(() => () => soundManager.stopBgm(), []);
 
   useEffect(() => {
-    if (stage === "playing") soundManager.playBgm(phase === "last" ? FINAL_DANCE_BGM : DANCE_BGM);
+    if (stage === "playing") {
+      if (phase === "last") finalDanceBgmPlayedRef.current = true;
+      soundManager.playBgm(finalDanceBgmPlayedRef.current ? FINAL_DANCE_BGM : DANCE_BGM);
+    }
     else if (stage === "vs") soundManager.playBgm(DANCE_BGM);
-  }, [phase, stage]);
+    else if (stage === "result" && result) {
+      soundManager.stopBgm();
+      soundManager.playSe(result === "red" ? "/sounds/se/win.mp3" : "/sounds/se/lose.mp3");
+    }
+  }, [phase, result, stage]);
+
+  useEffect(() => {
+    if (stage !== "vs" && stage !== "playing" && stage !== "result") return;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [stage]);
 
   useEffect(() => {
     if (stage !== "vs") return;
@@ -327,6 +359,7 @@ export function DanceBattleMiniGame(props: {
     setCenterBaseScores({ red: 0, blue: 0 });
     centerTeamRef.current = "red";
     centerUsedThirdRef.current = false;
+    finalDanceBgmPlayedRef.current = false;
     setLastStep("center");
     redStreaksRef.current = red.map(() => 0);
     blueStreaksRef.current = blue.map(() => 0);
@@ -340,7 +373,7 @@ export function DanceBattleMiniGame(props: {
     if (stage !== "playing" || actionRef.current) return;
     const feverAllowed = isDanceFeverAllowed(phaseRef.current, lastStep, centerUsedThirdRef.current);
     const fever = mode === "multiplier" && (redStreaksRef.current[0] ?? 0) >= 2 && feverAllowed;
-    const startedAt = roundStartedAt + 1500;
+    const startedAt = roundStartedAt + DANCE_READY_DURATION_MS;
     const next: DanceAction = {
       mode,
       sequence: laneSequences[mode],
@@ -354,6 +387,8 @@ export function DanceBattleMiniGame(props: {
     actionRef.current = next;
     setActiveAction(next);
     setLastJudgment(null);
+    setLastJudgmentMode(null);
+    setFeverProgress(null);
   }, [laneSequences, lastStep, roundStartedAt, stage]);
 
   const resolveCompletedAction = useCallback((mode: DanceMode, judgments: DanceJudgment[]) => {
@@ -436,23 +471,49 @@ export function DanceBattleMiniGame(props: {
       outcome.judgments.some((judgment) => judgment === "BAD" || judgment === "MISS"))) {
       soundManager.playSe("/sounds/se/ng.mp3");
     }
-    setOutcomeLabels(Object.fromEntries(outcomes.map((outcome) => {
-      const last = outcome.judgments.at(-1) ?? "MISS";
+    const getOutcomeLabel = (outcome: typeof outcomes[number], judgments = outcome.judgments) => {
+      const score = outcome.mode === "recovery" ? 0 : getDanceActionScore(judgments, "normal");
       if (outcome.fever) {
-        const count = outcome.judgments.filter((entry) => entry !== "MISS").length;
+        const count = judgments.filter((entry) => entry !== "MISS").length;
         const kind = count >= getDanceFeverLimit(stars)
           ? "fever-best"
           : count >= Math.ceil(getDanceFeverLimit(stars) / 2) ? "fever-middle" : "fever-low";
-        return [outcome.id, {
+        return {
           kind,
-          text: `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, count)]}${outcome.base}`,
-        }];
+          text: `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, count)]}${score}`,
+        };
       }
-      return [outcome.id, {
-        kind: last.toLowerCase(),
-        text: `${last} ${outcome.base >= 0 ? "+" : ""}${outcome.base}`,
-      }];
-    })));
+      const last = judgments.at(-1) ?? "MISS";
+      return { kind: last.toLowerCase(), text: `${last} ${score >= 0 ? "+" : ""}${score}` };
+    };
+    const cpuTargetAt = roundStartedAt +
+      (playerParticipates ? DANCE_READY_DURATION_MS : DANCE_SPECTATOR_READY_DURATION_MS) +
+      DANCE_BAR_DURATION_MS;
+    let latestCpuFinishAt = cpuTargetAt + DANCE_RESULT_SETTLE_MS;
+    const playerOutcomes = outcomes.filter((outcome) =>
+      outcome.side === "red" && outcome.index === 0 && playerParticipates);
+    setOutcomeLabels((current) => ({
+      ...current,
+      ...Object.fromEntries(playerOutcomes.map((outcome) => [outcome.id, getOutcomeLabel(outcome)])),
+    }));
+    cpuOutcomes.forEach((outcome) => {
+      if (outcome.fever) {
+        outcome.judgments.forEach((_, index) => {
+          const partial = outcome.judgments.slice(0, index + 1);
+          window.setTimeout(() => {
+            setOutcomeLabels((current) => ({ ...current, [outcome.id]: getOutcomeLabel(outcome, partial) }));
+          }, Math.max(0, cpuTargetAt + index * DANCE_FEVER_BAR_DURATION_MS - performance.now()));
+        });
+        latestCpuFinishAt = Math.max(
+          latestCpuFinishAt,
+          cpuTargetAt + (outcome.judgments.length - 1) * DANCE_FEVER_BAR_DURATION_MS + DANCE_RESULT_SETTLE_MS,
+        );
+      } else {
+        window.setTimeout(() => {
+          setOutcomeLabels((current) => ({ ...current, [outcome.id]: getOutcomeLabel(outcome) }));
+        }, Math.max(0, cpuTargetAt - performance.now()));
+      }
+    });
     const actualRedBase = redOutcomes.reduce((sum, outcome) => sum + outcome.base, 0);
     const actualBlueBase = blueOutcomes.reduce((sum, outcome) => sum + outcome.base, 0);
     const redValue = redOutcomes.reduce((sum, outcome) => sum + outcome.gauge, 0);
@@ -473,9 +534,6 @@ export function DanceBattleMiniGame(props: {
     });
     const nextRedScore = addDanceGauge(redScoreRef.current, redValue, goal);
     const nextBlueScore = addDanceGauge(blueScoreRef.current, blueValue, goal);
-    setScoreDelta({ red: actualRedBase, blue: actualBlueBase });
-    setScoreDeltaGauge({ red: redValue, blue: blueValue });
-    setScoreDeltaScaled(false);
     redScoreRef.current = nextRedScore;
     blueScoreRef.current = nextBlueScore;
     redStaminaRef.current = nextRedStamina;
@@ -491,11 +549,16 @@ export function DanceBattleMiniGame(props: {
       const oldStamina = redStamina[0] ?? 0;
       setStaminaChange(playerOutcome.stamina - oldStamina);
     }
+    const cpuSettleDelay = Math.max(0, latestCpuFinishAt - performance.now());
+    const resultDelay = Math.max(DANCE_RESULT_DURATION_MS, cpuSettleDelay + DANCE_RESULT_DURATION_MS);
     window.setTimeout(() => {
+      setScoreDelta({ red: actualRedBase, blue: actualBlueBase });
+      setScoreDeltaGauge({ red: redValue, blue: blueValue });
+      setScoreDeltaScaled(false);
       setRedScore(nextRedScore);
       setBlueScore(nextBlueScore);
-      setScoreDeltaScaled(true);
-    }, 500);
+      window.setTimeout(() => setScoreDeltaScaled(true), 500);
+    }, cpuSettleDelay);
     const roster = [
       ...teams.red.map((member) => ({ id: member.id, team: "red" as const })),
       ...teams.blue.map((member) => ({ id: member.id, team: "blue" as const })),
@@ -550,43 +613,66 @@ export function DanceBattleMiniGame(props: {
       setPhase(progression.phase);
       phaseRef.current = progression.phase;
       setPhaseIndex((value) => value + 1);
-    }, 2200);
+    }, resultDelay);
   }, [
     blueCenter, centerBaseScores, goal, lastStep, playerParticipates, redCenter,
-    redStamina, stars, teams,
+    redStamina, roundStartedAt, stars, teams,
   ]);
 
   autoResolveRef.current = () => resolveCompletedAction("normal", []);
 
   const advanceDanceKey = useCallback((judgment: DanceJudgment) => {
     const current = actionRef.current;
-    if (!current) return;
+    if (!current || feverTransitionRef.current) return;
     const judged = applyDanceStaminaJudgment(judgment, redStaminaRef.current[0] ?? 0, current.mode);
     if (judged === "MISS" || judged === "BAD") soundManager.playSe("/sounds/se/ng.mp3");
     else soundManager.playSe("/sounds/se/button.mp3");
     setLastJudgment(judged);
+    setLastJudgmentMode(current.mode);
+    setLastJudgmentId((value) => value + 1);
     const accumulated = [...current.judgments, judged];
+    if (current.fever) {
+      setFeverProgress({
+        count: accumulated.filter((entry) => entry !== "MISS").length,
+        score: getDanceActionScore(accumulated, "normal"),
+      });
+    }
     if (current.fever && judged !== "MISS" && accumulated.length < getDanceFeverLimit(stars)) {
-      const nextStart = current.targetAt;
+      const isInitialFeverKey = current.judgments.length === 0;
+      const nextStart = performance.now() +
+        (isInitialFeverKey ? DANCE_FEVER_TRANSITION_DELAY_MS : 0);
       const next: DanceAction = {
         ...current,
         sequence: [(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] as const)[Math.floor(Math.random() * 4)]!],
         judgments: accumulated,
         startedAt: nextStart,
-        targetAt: nextStart + Math.round(1400 / 1.1),
+        targetAt: nextStart + DANCE_FEVER_BAR_DURATION_MS,
         index: 0,
       };
       actionRef.current = next;
-      setActiveAction(next);
+      if (deadlineRef.current !== null) window.clearTimeout(deadlineRef.current);
+      deadlineRef.current = null;
+      if (actionDeadlineRef.current !== null) window.clearTimeout(actionDeadlineRef.current);
+      if (isInitialFeverKey) {
+        feverTransitionRef.current = true;
+        window.setTimeout(() => {
+          feverTransitionRef.current = false;
+          setActiveAction(next);
+        }, DANCE_FEVER_TRANSITION_DELAY_MS);
+      } else {
+        setActiveAction(next);
+      }
       return;
     }
     if (deadlineRef.current !== null) window.clearTimeout(deadlineRef.current);
+    setFeverProgress(null);
     stopActiveAction();
     resolveCompletedAction(current.mode, accumulated);
   }, [resolveCompletedAction, stars, stopActiveAction]);
 
   const registerInput = useCallback((key: DanceKey) => {
-    if (stage !== "playing" || !keysRevealed || !playerParticipates || roundSettlingRef.current) return;
+    if (stage !== "playing" || !keysRevealed || !playerParticipates ||
+      roundSettlingRef.current || feverTransitionRef.current) return;
     const current = actionRef.current;
     if (!current) {
       const mode = (Object.keys(laneSequences) as DanceMode[])
@@ -666,10 +752,10 @@ export function DanceBattleMiniGame(props: {
     const dancing = stage === "playing" && isDancing(side, index);
     const judgment = side === "red" && index === 0 ? lastJudgment : null;
     const outcome = outcomeLabels[member.id];
-    const feverLabel = side === "red" && index === 0 && activeAction?.fever
-      ? `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}`
+    const feverLabel = side === "red" && index === 0 && activeAction?.fever && feverProgress
+      ? `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}`
       : outcome?.kind.startsWith("fever-") ? outcome.text : null;
-    const activeFeverCount = activeAction?.fever ? activeAction.judgments.length : 0;
+    const activeFeverCount = feverProgress?.count ?? 0;
     const activeFeverKind = activeFeverCount >= getDanceFeverLimit(stars)
       ? "fever-best"
       : activeFeverCount >= Math.ceil(getDanceFeverLimit(stars) / 2) ? "fever-middle" : "fever-low";
@@ -679,9 +765,10 @@ export function DanceBattleMiniGame(props: {
         className={`dance-member${isCenter ? " dance-member-center" : ""}${swapTeam === side ? " dance-member-switch" : ""}${dancing ? " dance-member-active" : " dance-member-idle"}`}
         style={{ ["--dance-team-color" as string]: TEAM_COLORS[side] }}
       >
-        {feverLabel && <strong className={`dance-judgement dance-judgement-${outcome?.kind ?? activeFeverKind}`}>{feverLabel}</strong>}
+        {feverLabel && <strong key={lastJudgmentId} className={`dance-judgement dance-judgement-${outcome?.kind ?? activeFeverKind}`}>{feverLabel}</strong>}
         {outcome && !outcome.kind.startsWith("fever-") && <strong className={`dance-judgement dance-judgement-${outcome.kind}`}>{outcome.text}</strong>}
         {judgment && !outcome && <strong className={`dance-judgement dance-judgement-${judgment.toLowerCase()}`}>{judgment}</strong>}
+        {(feverLabel ?? outcome?.text) && <strong className="dance-points">{feverLabel ?? outcome?.text}</strong>}
         <figcaption>{isCenter ? "👑 " : ""}{member.nickname}{member.boss ? " ★" : ""}　⚡{stamina}</figcaption>
         <CharacterImage src={transparentImages[member.id] ?? member.image} alt={member.nickname} />
       </figure>
@@ -827,27 +914,30 @@ export function DanceBattleMiniGame(props: {
       <div className="dance-play-controls">
         <p className="dance-status" aria-live="polite">
           {!playerParticipates ? "観戦中…" : !keysRevealed ? "READY…" : activeAction
-            ? activeAction.fever
+            ? activeAction.fever && activeAction.judgments.length > 0
               ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}　${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)}`
               : `キーを順番に入力　${activeAction.index + 1}/${activeAction.sequence.length}`
             : feverReady ? "🔥FEVER READY（3段目で発動）— 最初のキーで段を選ぼう" : "最初のキーで段を選ぼう（金枠のキー）"}
           {playerParticipates && !activeAction?.fever && lastJudgment ? `　${lastJudgment}` : ""}
         </p>
         <div className="dance-lanes" aria-label="入力レーン">
-          {getDanceVisibleModes(playerParticipates, Boolean(activeAction?.fever)).map((mode) => {
+          {getDanceVisibleModes(
+            playerParticipates,
+            Boolean(activeAction?.fever && activeAction.judgments.length > 0),
+          ).map((mode) => {
             const label = mode === "recovery"
               ? "1.回復 +10"
               : mode === "normal"
                 ? "2.×1.0 −4"
-                : activeAction?.fever
+                : activeAction?.fever && activeAction.judgments.length > 0
                   ? `🔥FEVER ${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)} −7`
                   : feverReady ? "🔥FEVER READY −7" : "3.×1.2 −7";
             const sequence = activeAction?.mode === mode && activeAction.fever && activeAction.judgments.length > 0
               ? activeAction.sequence
               : laneSequences[mode];
-            const barStart = activeAction?.startedAt ?? roundStartedAt + 1500;
+            const barStart = activeAction?.startedAt ?? roundStartedAt + DANCE_READY_DURATION_MS;
             const barDuration = activeAction?.fever && activeAction.judgments.length > 0
-              ? Math.round(1400 / 1.1) : Math.round(3000 / 1.1);
+              ? DANCE_FEVER_BAR_DURATION_MS : DANCE_BAR_DURATION_MS;
             const progress = Math.min(1.08, Math.max(0, (clock - barStart) / barDuration));
             return (
               <div key={mode} className={`dance-lane dance-lane-${mode}${activeAction?.mode === mode ? " dance-lane-selected" : ""}`}>
@@ -863,6 +953,11 @@ export function DanceBattleMiniGame(props: {
                         !keysRevealed ? "dance-key-hidden" : "",
                       ].filter(Boolean).join(" ")}>
                         {keysRevealed ? KEY_LABELS[key] : "?"}
+                        {index === sequence.length - 1 && lastJudgmentMode === mode && lastJudgment && (
+                          <strong key={lastJudgmentId} className={`dance-lane-judgement dance-judgement-${lastJudgment.toLowerCase()}`}>
+                            {lastJudgment} {getDanceActionScore([lastJudgment], mode) >= 0 ? "+" : ""}{getDanceActionScore([lastJudgment], mode)}
+                          </strong>
+                        )}
                         {index === sequence.length - 1 && (
                           <span className="dance-center-line"><i>▼</i><b>▲</b></span>
                         )}
