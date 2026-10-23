@@ -17,6 +17,8 @@ import {
   getDanceRecovery,
   getDanceStamina,
   getDanceTargetTime,
+  getDanceVisibleLaneModes,
+  isDancePlayerTurn,
   judgeDanceTiming,
   type DanceJudgment,
   type DanceKey,
@@ -102,6 +104,11 @@ export function DanceBattleMiniGame(props: {
   const [teams, setTeams] = useState<{ red: DanceMember[]; blue: DanceMember[] }>({ red: [], blue: [] });
   const [phase, setPhase] = useState<DancePhase>("a");
   const [phaseIndex, setPhaseIndex] = useState(0);
+  const [laneSequences, setLaneSequences] = useState(() => ({
+    recovery: createDanceSequence("recovery", stars),
+    normal: createDanceSequence("normal", stars),
+    multiplier: createDanceSequence("multiplier", stars),
+  }));
   const [redScore, setRedScore] = useState(0);
   const [blueScore, setBlueScore] = useState(0);
   const [redStamina, setRedStamina] = useState<number[]>([]);
@@ -128,6 +135,8 @@ export function DanceBattleMiniGame(props: {
 
   const goal = getDanceGoal(stars);
   const blueBoss = teams.blue.some((member) => member.boss);
+  const playerTurn = isDancePlayerTurn(phase, teamSize, redCenter, centerTeamRef.current);
+  const slotStartedAtRef = useRef(0);
 
   const stopActiveAction = useCallback(() => {
     actionRef.current = null;
@@ -146,6 +155,18 @@ export function DanceBattleMiniGame(props: {
     const timer = window.setTimeout(() => setStage("playing"), 3000);
     return () => window.clearTimeout(timer);
   }, [stage]);
+
+  useEffect(() => {
+    if (stage === "playing") slotStartedAtRef.current = performance.now();
+  }, [phaseIndex, stage]);
+
+  useEffect(() => {
+    setLaneSequences({
+      recovery: createDanceSequence("recovery", stars),
+      normal: createDanceSequence("normal", stars),
+      multiplier: createDanceSequence("multiplier", stars),
+    });
+  }, [phaseIndex, stars]);
 
   const createOpponent = useCallback(async (index: number): Promise<DanceMember> => {
     if (Math.random() < 0.2) return randomBoss();
@@ -208,7 +229,6 @@ export function DanceBattleMiniGame(props: {
 
   const setupNewAction = useCallback((mode: DanceMode) => {
     if (stage !== "playing" || actionRef.current) return;
-    if (phase === "last" && mode !== "multiplier") return;
     if (mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRef.current)) return;
     if (mode === "multiplier" && feverUsesRef.current === 0 && phase !== "last") {
       feverUsesRef.current = getDanceFeverLimit(stars);
@@ -216,16 +236,16 @@ export function DanceBattleMiniGame(props: {
     }
     const next: DanceAction = {
       mode,
-      sequence: createDanceSequence(mode, stars),
+      sequence: laneSequences[mode],
       judgments: [],
-      startedAt: performance.now(),
+      startedAt: slotStartedAtRef.current,
       index: 0,
       multiplied: mode === "multiplier",
     };
     actionRef.current = next;
     setActiveAction(next);
     setLastJudgment(null);
-  }, [phase, redStreak, stage, stars]);
+  }, [laneSequences, phase, redStreak, stage, stars]);
 
   const resolveCompletedAction = useCallback((
     mode: DanceMode,
@@ -383,7 +403,7 @@ export function DanceBattleMiniGame(props: {
     const judgments = [...current.judgments, judgment];
     if (judgment === "MISS") soundManager.playSe("/sounds/se/ng.mp3");
     setLastJudgment(judgment);
-    if (judgments.length >= current.sequence.length) {
+    if (current.index >= current.sequence.length - 1 || judgment === "MISS") {
       stopActiveAction();
       const cpuStaminaNow = Math.min(...(blueStaminaRef.current.length ? blueStaminaRef.current : [0]));
       const cpuMode = phaseRef.current === "last"
@@ -404,53 +424,91 @@ export function DanceBattleMiniGame(props: {
   }, [blueBoss, blueStreak, resolveCompletedAction, stars, stopActiveAction]);
 
   const registerInput = useCallback((key: DanceKey) => {
-    const current = actionRef.current;
+    if (!playerTurn) return;
+    let current = actionRef.current;
     if (!current) {
-      if (stage === "playing") soundManager.playSe("/sounds/se/ng.mp3");
+      if (stage !== "playing") return;
+      const mode = (["recovery", "normal", "multiplier"] as const).find((candidate) => laneSequences[candidate][0] === key);
+      if (!mode || (mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRemaining))) return;
+      setupNewAction(mode);
+      current = actionRef.current;
+      if (!current) return;
+      const next = { ...current, index: 1 };
+      actionRef.current = next;
+      setActiveAction(next);
       return;
     }
     const expected = current.sequence[current.index];
     if (key !== expected) {
       soundManager.playSe("/sounds/se/ng.mp3");
-      advanceDanceKey("BAD");
+      const nextIndex = key === current.sequence[0] ? 1 : 0;
+      const next = { ...current, index: nextIndex };
+      actionRef.current = next;
+      setActiveAction(next);
       return;
     }
-    const diff = performance.now() - getDanceTargetTime(current.startedAt, current.index);
+    if (current.index < current.sequence.length - 1) {
+      const next = { ...current, index: current.index + 1 };
+      actionRef.current = next;
+      setActiveAction(next);
+      return;
+    }
+    const targetTime = getDanceTargetTime(current.startedAt, 0);
+    if (performance.now() < targetTime - 900) return;
+    const diff = performance.now() - targetTime;
+    if (diff > 300) {
+      advanceDanceKey("MISS");
+      return;
+    }
     const judgment = judgeDanceTiming(diff);
     soundManager.playSe(judgment === "BAD" ? "/sounds/se/ng.mp3" : "/sounds/se/button.mp3");
     advanceDanceKey(judgment);
-  }, [advanceDanceKey, stage]);
+  }, [advanceDanceKey, feverUsesRemaining, laneSequences, phase, playerTurn, redStreak, setupNewAction, stage]);
 
   useEffect(() => {
     if (!activeAction) return;
-    const target = getDanceTargetTime(activeAction.startedAt, activeAction.index) + 116;
+    const target = getDanceTargetTime(activeAction.startedAt, 0) + 300;
     const timer = window.setTimeout(() => advanceDanceKey("MISS"), Math.max(0, target - performance.now()));
     return () => window.clearTimeout(timer);
   }, [activeAction, advanceDanceKey]);
 
   useEffect(() => {
+    if (stage !== "playing" || (playerTurn && activeAction)) return;
+    const target = playerTurn
+      ? getDanceTargetTime(slotStartedAtRef.current, 0) + 300
+      : slotStartedAtRef.current + 3000;
+    const timer = window.setTimeout(() => {
+      if (playerTurn && actionRef.current) return;
+      const redMode = playerTurn
+        ? "normal"
+        : getDanceCpuMode(Math.min(...(redStaminaRef.current.length ? redStaminaRef.current : [0])), redStreak, Math.random);
+      const blueMode = getDanceCpuMode(Math.min(...(blueStaminaRef.current.length ? blueStaminaRef.current : [0])), blueStreak, Math.random);
+      const redJudgments = playerTurn
+        ? ["MISS" as const]
+        : makeJudgeList(createDanceSequence(redMode, stars).length, teams.red.some((member) => member.boss));
+      const blueJudgments = makeJudgeList(createDanceSequence(blueMode, stars).length, blueBoss);
+      if (playerTurn) setLastJudgment("MISS");
+      resolveCompletedAction(redMode, redMode === "multiplier", redJudgments, blueMode, blueMode === "multiplier", blueJudgments);
+    }, Math.max(0, target - performance.now()));
+    return () => window.clearTimeout(timer);
+  }, [activeAction, blueBoss, blueStreak, phaseIndex, playerTurn, redStreak, resolveCompletedAction, stage, stars, teams]);
+
+  useEffect(() => {
     if (stage !== "playing") return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "1" || event.key === "2" || event.key === "3") {
-        if (actionRef.current) return;
+      const keyMap: Record<string, DanceKey> = {
+        ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", ArrowLeft: "ArrowLeft",
+        ArrowRight: "ArrowRight", x: "X", X: "X",
+      };
+      const key = keyMap[event.key];
+      if (key && playerTurn) {
         event.preventDefault();
-        setupNewAction(event.key === "1" ? "recovery" : event.key === "2" ? "normal" : "multiplier");
-        soundManager.playSe("/sounds/se/button.mp3");
-      } else {
-        const keyMap: Record<string, DanceKey> = {
-          ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", ArrowLeft: "ArrowLeft",
-          ArrowRight: "ArrowRight", x: "X", X: "X",
-        };
-        const key = keyMap[event.key];
-        if (key) {
-          event.preventDefault();
-          registerInput(key);
-        }
+        registerInput(key);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [registerInput, setupNewAction, stage]);
+  }, [playerTurn, registerInput, stage]);
 
   const renderTeam = (side: "red" | "blue") => {
     const members = teams[side];
@@ -481,6 +539,7 @@ export function DanceBattleMiniGame(props: {
 
   const currentKey = activeAction?.sequence[activeAction.index];
   const currentMode = activeAction?.mode;
+  const visibleLaneModes = getDanceVisibleLaneModes(currentMode, activeAction?.index ?? 0);
   if (stage === "configure") {
     return (
       <section className="difficulty-screen dance-setup" aria-labelledby="dance-title">
@@ -514,11 +573,15 @@ export function DanceBattleMiniGame(props: {
           <h2>煌け!ダンス★バトル — おえかきパート</h2>
           <button className="title-menu-button difficulty-back" onClick={props.onBack}>ゲーム選択へ戻る</button>
         </header>
-        <DrawPanel
-          seconds={300}
-          completeLabel="ダンスバトルへ"
-          onComplete={(payload) => void finishDrawing(payload)}
-        />
+        <div className="drawing-mode-layout">
+          <div className="drawing-mode-panel">
+            <DrawPanel
+              seconds={300}
+              completeLabel="ダンスバトルへ"
+              onComplete={(payload) => void finishDrawing(payload)}
+            />
+          </div>
+        </div>
       </section>
     );
   }
@@ -579,52 +642,58 @@ export function DanceBattleMiniGame(props: {
         {renderTeam("blue")}
       </div>
       <div className="dance-play-controls">
-        {phase === "last" && centerTeamRef.current === "red" ? (
-          <p className="dance-status" role="status">最後のダンス！相手のバックラインがセンターを超えるか判定中…</p>
+        {!playerTurn ? (
+          <p className="dance-spectating" role="status">観戦中…</p>
         ) : (
           <>
             <p className="dance-status" aria-live="polite">
               {currentKey
                 ? `タイミングよく ${KEY_LABELS[currentKey]} を入力！ ${activeAction!.index + 1}/${activeAction!.sequence.length}`
-                : phase === "last" ? "FINAL DANCE — 3を選んで挑戦！" : "ダンスを選択してください"}
+                : phase === "last" ? "FINAL DANCE — 最初のキーで挑戦！" : "最初のキーで段を選ぼう"}
               {lastJudgment ? `　${lastJudgment}` : ""}
             </p>
-            {currentMode && activeAction && (
-              <div className="dance-sequence" aria-label="入力するキー">
-                {activeAction.sequence.map((key, index) => (
-                  <span key={`${key}-${index}`} className={index === activeAction.index ? "dance-key-current" : index < activeAction.index ? "dance-key-done" : ""}>
-                    {KEY_LABELS[key]}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="dance-mode-buttons">
-              {([
-                ["recovery", "1 回復"],
-                ["normal", "2 通常"],
-                ["multiplier", "3 ×1.2"],
-              ] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  disabled={!!activeAction ||
-                    (phase === "last" && mode !== "multiplier") ||
-                    (mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRemaining))}
-                  onClick={() => {
-                  setupNewAction(mode);
-                  soundManager.playSe("/sounds/se/button.mp3");
-                  }}
-                >
-                  {label}
-                  {mode === "recovery" ? ` (+${getDanceRecovery(teams.red[redCenter]?.stats.maxPp ?? 0)})` : ""}
-                </button>
-              ))}
+            <div className="dance-lanes" aria-label="ダンスレーン">
+              {visibleLaneModes.map((mode) => {
+                const sequence = activeAction?.mode === mode ? activeAction.sequence : laneSequences[mode];
+                const feverKey = mode === "multiplier" && activeAction?.mode === "multiplier" && activeAction.index > 0;
+                const shownSequence = feverKey ? [sequence[activeAction!.index]!] : sequence;
+                const modeLabel = mode === "recovery" ? "1. 回復" : mode === "normal" ? "2. ×1.0" : "3. ×1.2";
+                return (
+                  <div className={`dance-lane${activeAction?.mode === mode ? " dance-lane-selected" : ""}`} key={`${phaseIndex}-${mode}`}>
+                    <span className="dance-lane-label">{feverKey ? `${activeAction!.judgments.length + 1}/${getDanceFeverLimit(stars)}` : modeLabel}</span>
+                    <div className="dance-lane-track">
+                      <div className="dance-lane-keys">
+                        {shownSequence.slice(0, -1).map((key, index) => (
+                          <button
+                            type="button"
+                            key={`${key}-${index}`}
+                            className={`dance-lane-key${index === 0 ? " dance-lane-key-first" : ""}${activeAction?.mode === mode && index < activeAction.index ? " dance-lane-key-done" : ""}${activeAction?.mode === mode && index === activeAction.index ? " dance-lane-key-current" : ""}`}
+                            onClick={() => registerInput(key)}
+                          >
+                            {KEY_LABELS[key]}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className={`dance-lane-key dance-lane-key-fin${activeAction?.mode === mode && activeAction.index === sequence.length - 1 ? " dance-lane-key-current" : ""}`}
+                        onClick={() => registerInput(shownSequence[shownSequence.length - 1]!)}
+                      >
+                        {KEY_LABELS[shownSequence[shownSequence.length - 1]!]}
+                      </button>
+                      <span className="dance-lane-centerline" />
+                      <span className="dance-lane-bar" />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="dance-keypad" aria-label="ダンス操作パッド">
               {(["ArrowUp", "ArrowLeft", "X", "ArrowRight", "ArrowDown"] as const).map((key) => (
                 <button key={key} onClick={() => registerInput(key)} aria-label={KEY_LABELS[key]}>{KEY_LABELS[key]}</button>
               ))}
             </div>
-            <p className="dance-input-help">PC: 矢印キー / X・段選択 1・2・3　スマホ: 画面下のボタン</p>
+            <p className="dance-input-help">最初のキー（金枠）で段を選ぼう · PC: 矢印キー / X　スマホ: キーをタップ</p>
           </>
         )}
       </div>

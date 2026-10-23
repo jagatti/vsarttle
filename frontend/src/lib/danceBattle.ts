@@ -48,6 +48,24 @@ export function canActivateDanceFever(streak: number, remainingUses: number): bo
   return streak >= 2 || remainingUses > 0;
 }
 
+export function isDancePlayerTurn(
+  phase: DancePhase,
+  teamSize: number,
+  redCenter: number,
+  centerTeam: "red" | "blue",
+): boolean {
+  if (phase === "a") return true;
+  if (phase === "c") return redCenter === 0;
+  if (phase === "b") return teamSize > 1 && redCenter !== 0;
+  if (centerTeam === "red") return redCenter === 0;
+  return teamSize === 1 || redCenter !== 0;
+}
+
+export function getDanceVisibleLaneModes(activeMode: DanceMode | undefined, activeIndex: number): DanceMode[] {
+  if (activeMode === "multiplier" && activeIndex > 0) return ["multiplier"];
+  return ["recovery", "normal", "multiplier"];
+}
+
 export function getDanceSequenceLength(mode: DanceMode, stars: 3 | 4 | 5): number {
   if (mode === "recovery") return 2;
   const level = stars - 2;
@@ -61,13 +79,17 @@ export function createDanceSequence(
 ): DanceKey[] {
   const length = getDanceSequenceLength(mode, stars);
   const sequence = Array.from({ length }, (_, index) => {
-    if (index === 0 && mode === "recovery") return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
+    if (index === 0) {
+      if (mode === "recovery") return "ArrowUp";
+      if (mode === "normal") return "ArrowDown";
+      return "ArrowLeft";
+    }
     if (index === length - 1 && mode === "recovery") return "X";
     return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
   });
   if (stars === 5 && mode !== "recovery") {
     const xCount = random() < 0.5 ? 1 : 2;
-    const availableIndexes = sequence.map((_, index) => index);
+    const availableIndexes = sequence.map((_, index) => index).filter((index) => index > 0);
     for (let index = availableIndexes.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(random() * (index + 1));
       [availableIndexes[index], availableIndexes[swapIndex]] = [availableIndexes[swapIndex]!, availableIndexes[index]!];
