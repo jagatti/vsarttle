@@ -1763,7 +1763,6 @@ main.app-title-shell {
 }
 
 .dance-team-size button,
-.dance-mode-buttons button,
 .dance-keypad button {
   min-height: 46px;
   border: 2px solid #8b7352;
@@ -1787,6 +1786,8 @@ main.app-title-shell {
 
 .dance-drawing {
   width: 100%;
+  max-width: 1020px;
+  margin-inline: auto;
 }
 
 .dance-heading-row {
@@ -1795,7 +1796,7 @@ main.app-title-shell {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
-  color: #fff7ed;
+  color: #29261f;
 }
 
 .dance-heading-row h2 {
@@ -1810,19 +1811,18 @@ main.app-title-shell {
 }
 
 .dance-arena {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
   display: flex;
-  min-height: min(100%, 760px);
-  flex: 1;
+  width: 100%;
+  height: 100dvh;
   flex-direction: column;
   gap: 14px;
   box-sizing: border-box;
   padding: clamp(10px, 2.5vw, 24px);
-  overflow: hidden;
-  border: 2px solid #8b7352;
-  border-radius: 18px 13px 17px 14px / 13px 18px 12px 17px;
-  background:
-    linear-gradient(rgba(12, 15, 30, 0.62), rgba(12, 15, 30, 0.86)),
-    url("/arttle_back/arenaback.png") center / cover;
+  overflow: auto;
+  background: url("/arttle_back/arenaback.png") center / cover fixed;
   color: #fff7ed;
 }
 
@@ -1881,9 +1881,6 @@ main.app-title-shell {
 .dance-team {
   min-width: 0;
   padding: clamp(6px, 1.3vw, 14px);
-  border: 2px solid var(--dance-team-color);
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.48);
   text-align: center;
 }
 
@@ -1892,6 +1889,7 @@ main.app-title-shell {
   color: var(--dance-team-color);
   font-size: clamp(14px, 2.4vw, 22px);
   font-weight: 900;
+  text-shadow: 0 2px 6px #000, 0 0 12px #000;
 }
 
 .dance-team-lineup {
@@ -1906,15 +1904,10 @@ main.app-title-shell {
   min-width: 0;
   margin: 0;
   padding: 5px;
-  border: 1px solid rgba(255, 247, 237, 0.3);
-  border-radius: 10px;
-  background: rgba(20, 20, 20, 0.68);
-  transition: transform 420ms ease, border-color 200ms ease;
+  transition: transform 420ms ease;
 }
 
 .dance-member-center {
-  border-color: #ffdf75;
-  box-shadow: 0 0 0 2px rgba(255, 223, 117, 0.35);
   transform: scale(1.06);
 }
 
@@ -1923,8 +1916,6 @@ main.app-title-shell {
   width: clamp(44px, 8vw, 96px);
   height: clamp(44px, 8vw, 96px);
   margin-inline: auto;
-  border-radius: 8px;
-  background: #fff;
   object-fit: contain;
 }
 
@@ -1935,6 +1926,7 @@ main.app-title-shell {
   overflow: hidden;
   color: #fff7ed;
   font-size: clamp(9px, 1.4vw, 12px);
+  text-shadow: 0 2px 5px #000, 0 0 8px #000;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1961,11 +1953,8 @@ main.app-title-shell {
 .dance-play-controls {
   display: grid;
   justify-items: center;
-  gap: 9px;
-  padding: 10px;
-  border: 1px solid rgba(255, 247, 237, 0.3);
-  border-radius: 13px;
-  background: rgba(0, 0, 0, 0.66);
+  gap: 7px;
+  padding: 4px 0;
 }
 
 .dance-status {
@@ -1976,48 +1965,141 @@ main.app-title-shell {
   text-align: center;
 }
 
-.dance-sequence {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.dance-sequence span {
-  min-width: 24px;
-  padding: 4px 6px;
-  border: 1px solid #c8b998;
-  border-radius: 6px;
-  background: #fffaee;
-  color: #29261f;
-  text-align: center;
+.dance-spectating {
+  margin: 0;
+  color: #fff7ed;
+  font-size: clamp(18px, 3vw, 26px);
   font-weight: 900;
+  text-shadow: 0 2px 7px #000, 0 0 12px #000;
 }
 
-.dance-sequence .dance-key-current {
-  background: #ffdf75;
-  transform: scale(1.15);
-}
-
-.dance-sequence .dance-key-done {
-  opacity: 0.5;
-}
-
-.dance-mode-buttons {
+.dance-lanes {
   display: grid;
-  width: min(100%, 660px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  width: 100%;
+  justify-items: center;
+  gap: 7px;
 }
 
-.dance-mode-buttons button {
-  min-width: 0;
-  padding: 6px;
+.dance-lane {
+  width: min(40vw, 560px);
 }
 
-.dance-mode-buttons button:disabled {
-  opacity: 0.52;
-  cursor: not-allowed;
+.dance-lane-label {
+  display: block;
+  margin-bottom: 3px;
+  color: #fff7ed;
+  font-size: 12px;
+  font-weight: 900;
+  text-shadow: 0 2px 5px #000, 0 0 8px #000;
+}
+
+.dance-lane-track {
+  position: relative;
+  --dance-key-size: 36px;
+  --dance-key-center-offset: 17px;
+  --dance-bar-end-offset: 20.5px;
+  height: 44px;
+  overflow: visible;
+  background: rgba(8, 10, 18, 0.42);
+}
+
+.dance-lane-keys {
+  position: absolute;
+  inset: 4px auto 4px 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.dance-lane-key {
+  display: grid;
+  width: var(--dance-key-size);
+  height: var(--dance-key-size);
+  flex: 0 0 var(--dance-key-size);
+  place-items: center;
+  box-sizing: border-box;
+  border: 2px solid #eee4cd;
+  border-radius: 6px;
+  background: #fffaf0;
+  color: #29261f;
+  font-size: 24px;
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.dance-lane-key-first {
+  border: 3px solid #ffd84d;
+  box-shadow: 0 0 8px #ffd84d;
+}
+
+.dance-lane-key-done {
+  border-color: #7bdcf7;
+  background: #7bdcf7;
+}
+
+.dance-lane-key-current {
+  background: #ffdf75;
+  box-shadow: 0 0 10px #ffdf75;
+}
+
+.dance-lane-key-fin {
+  position: absolute;
+  top: calc((44px - var(--dance-key-size)) / 2);
+  right: 0;
+}
+
+.dance-lane-centerline {
+  position: absolute;
+  top: 0;
+  right: var(--dance-key-center-offset);
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+}
+
+.dance-lane-centerline::before,
+.dance-lane-centerline::after {
+  position: absolute;
+  left: 50%;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  text-shadow: 0 0 5px #fff;
+  transform: translateX(-50%);
+}
+
+.dance-lane-centerline::before {
+  top: -10px;
+  content: "▼";
+}
+
+.dance-lane-centerline::after {
+  bottom: -10px;
+  content: "▲";
+}
+
+.dance-lane-bar {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: 14px;
+  z-index: 2;
+  width: 5px;
+  border-radius: 3px;
+  background: #ffd52a;
+  box-shadow: 0 0 7px #ffd52a, 0 0 14px #ffad00;
+  pointer-events: none;
+  animation: danceLaneBarTravel 2727ms linear forwards;
+}
+
+@keyframes danceLaneBarTravel {
+  from { left: 14px; opacity: 1; }
+  90% { opacity: 1; }
+  to { left: calc(100% - var(--dance-bar-end-offset)); opacity: 0; }
 }
 
 .dance-keypad {
@@ -2034,7 +2116,7 @@ main.app-title-shell {
 }
 
 .dance-keypad button:active,
-.dance-mode-buttons button:active {
+.dance-lane-key:active {
   transform: translateY(2px);
 }
 
@@ -2092,9 +2174,6 @@ main.app-title-shell {
 .dance-vs-teams img {
   width: clamp(55px, 12vw, 120px);
   height: clamp(55px, 12vw, 120px);
-  border: 2px solid #fff7ed;
-  border-radius: 12px;
-  background: #fff;
   object-fit: contain;
 }
 
@@ -2116,7 +2195,7 @@ main.app-title-shell {
 
 @media (max-width: 600px) {
   .dance-arena {
-    min-height: 100%;
+    height: 100dvh;
     gap: 8px;
     padding: 8px;
   }
@@ -2133,12 +2212,39 @@ main.app-title-shell {
     padding: 3px;
   }
 
-  .dance-mode-buttons button {
-    font-size: 12px;
-  }
-
   .dance-keypad {
     width: min(100%, 310px);
+  }
+
+  .dance-lane {
+    width: min(92vw, 560px);
+  }
+
+  .dance-lane-label {
+    font-size: 11px;
+  }
+
+  .dance-lane-track {
+    --dance-key-size: 34px;
+    --dance-key-center-offset: 16px;
+    --dance-bar-end-offset: 19.5px;
+  }
+
+  .dance-lane-keys {
+    inset-block: 5px;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 360px) {
+  .dance-lane-track {
+    --dance-key-size: 32px;
+    --dance-key-center-offset: 15px;
+    --dance-bar-end-offset: 18.5px;
+  }
+
+  .dance-lane-keys {
+    inset-block: 6px;
   }
 }
 

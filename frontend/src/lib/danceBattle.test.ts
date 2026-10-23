@@ -13,6 +13,8 @@ import {
   getDanceSequenceLength,
   getDanceStamina,
   getDanceTargetTime,
+  getDanceVisibleLaneModes,
+  isDancePlayerTurn,
   judgeDanceTiming,
 } from "@/lib/danceBattle";
 
@@ -68,4 +70,21 @@ test("fever requires two successful actions and is limited by difficulty", () =>
   assert.equal(canActivateDanceFever(0, 1), true);
   assert.equal(getDanceFeverLimit(3), 4);
   assert.equal(getDanceFeverLimit(5), 8);
+});
+
+test("dance lane starters distinguish modes and fever rounds show one lane", () => {
+  const firstKeys = (["recovery", "normal", "multiplier"] as const)
+    .map((mode) => createDanceSequence(mode, 5, () => 0)[0]);
+  assert.deepEqual(firstKeys, ["ArrowUp", "ArrowDown", "ArrowLeft"]);
+  assert.deepEqual(getDanceVisibleLaneModes("multiplier", 1), ["multiplier"]);
+  assert.deepEqual(getDanceVisibleLaneModes("multiplier", 0), ["recovery", "normal", "multiplier"]);
+});
+
+test("spectator turn detection follows the red player's lineup position", () => {
+  assert.equal(isDancePlayerTurn("a", 3, 0, "blue"), true);
+  assert.equal(isDancePlayerTurn("c", 2, 1, "red"), false);
+  assert.equal(isDancePlayerTurn("c", 2, 0, "blue"), false);
+  assert.equal(isDancePlayerTurn("b", 2, 1, "red"), true);
+  assert.equal(isDancePlayerTurn("b", 1, 0, "blue"), true);
+  assert.equal(isDancePlayerTurn("last", 2, 0, "blue"), false);
 });
