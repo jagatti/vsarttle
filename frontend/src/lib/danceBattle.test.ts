@@ -4,16 +4,23 @@ import {
   DANCE_JUDGMENT_POINTS,
   canActivateDanceFever,
   createDanceSequence,
+  createDanceRound,
+  DANCE_MODES,
+  DANCE_ROUND_DURATION,
+  DANCE_ROUND_GRACE,
+  expireDanceRound,
   getDanceActionScore,
   getDanceCpuJudgment,
   getDanceDancers,
   getDanceGoal,
   getDanceFeverLimit,
   getDanceRecovery,
+  getDanceRoundProgress,
   getDanceSequenceLength,
   getDanceStamina,
   getDanceTargetTime,
   judgeDanceTiming,
+  inputDanceRound,
 } from "@/lib/danceBattle";
 
 test("dance timing uses the specified judgement boundaries", () => {
@@ -42,6 +49,93 @@ test("dance patterns preserve the difficulty lengths and recovery X", () => {
 test("dance target timings follow the original sequence formula", () => {
   assert.equal(getDanceTargetTime(1000, 0), 1000 + Math.round(3000 / 1.1));
   assert.equal(getDanceTargetTime(1000, 1) - getDanceTargetTime(1000, 0), Math.round(1400 / 1.1));
+});
+
+test("all three dance rows start with distinct keys and preserve their lengths", () => {
+  for (const stars of [3, 4, 5] as const) {
+    const round = createDanceRound(stars, 1000, () => 0);
+    assert.equal(new Set(DANCE_MODES.map((mode) => round.sequences[mode][0])).size, 3);
+    for (const mode of DANCE_MODES) {
+      assert.equal(round.sequences[mode].length, getDanceSequenceLength(mode, stars));
+      if (stars === 5 && mode !== "recovery") {
+        const xCount = round.sequences[mode].filter((key) => key === "X").length;
+        assert.ok(xCount >= 1 && xCount <= 2, "distinct first arrows must not erase five-star X inputs");
+      }
+    }
+    assert.equal(round.sequences.recovery.at(-1), "X");
+  }
+});
+
+test("the dance bar moves before selection and selecting a row never restarts its clock", () => {
+  const round = createDanceRound(3, 1000, () => 0);
+  const now = 1000 + DANCE_ROUND_DURATION / 2;
+  assert.equal(round.mode, null);
+  assert.equal(getDanceRoundProgress(round, now), 0.5);
+  for (const mode of DANCE_MODES) {
+    const selected = inputDanceRound(round, round.sequences[mode][0], now);
+    assert.equal(selected.mode, mode);
+    assert.equal(selected.index, 1);
+    assert.equal(selected.startedAt, round.startedAt);
+    assert.equal(selected.judgment, null, "prefix keys are not individually timed");
+    assert.equal(getDanceRoundProgress(selected, now), 0.5);
+  }
+  assert.equal(getDanceRoundProgress(round, 0), 0);
+  assert.equal(getDanceRoundProgress(round, now + DANCE_ROUND_DURATION), 1);
+});
+
+test("five-star row selection preserves X when it was generated at index zero", () => {
+  const rolls = [
+    0,
+    ...Array(9).fill(0), 0, ...Array(8).fill(0.99),
+    ...Array(10).fill(0), 0, ...Array(9).fill(0.99),
+    0,
+  ];
+  let index = 0;
+  const round = createDanceRound(5, 0, () => rolls[index++] ?? 0);
+  for (const mode of ["normal", "multiplier"] as const) {
+    assert.notEqual(round.sequences[mode][0], "X");
+    assert.equal(round.sequences[mode].filter((key) => key === "X").length, 1);
+  }
+});
+
+test("only the final dance key is judged against the shared bar deadline", () => {
+  const initial = createDanceRound(5, 1000, () => 0);
+  for (const mode of DANCE_MODES) {
+    for (const [offset, judgment] of [[0, "PERFECT"], [-70, "GREAT"], [115, "GOOD"], [200, "BAD"]] as const) {
+      let round = initial;
+      const sequence = initial.sequences[mode];
+      sequence.slice(0, -1).forEach((key, index) => {
+        round = inputDanceRound(round, key, 1200 + index * 50);
+        assert.equal(round.judgment, null);
+      });
+      round = inputDanceRound(round, sequence.at(-1)!, 1000 + DANCE_ROUND_DURATION + offset);
+      assert.equal(round.judgment, judgment);
+      assert.equal(round.index, sequence.length);
+      assert.equal(inputDanceRound(round, "X", 5000), round, "completed rounds ignore input");
+    }
+  }
+});
+
+test("unselected and partially entered rows time out as MISS after E[0] + 300ms", () => {
+  const round = createDanceRound(3, 1000, () => 0);
+  const deadline = 1000 + DANCE_ROUND_DURATION + DANCE_ROUND_GRACE;
+  assert.equal(expireDanceRound(round, deadline), round);
+  const expired = expireDanceRound(round, deadline + 1);
+  assert.equal(expired.mode, "normal", "unselected timeout falls back to row 2");
+  assert.equal(expired.judgment, "MISS");
+  const selected = inputDanceRound(round, round.sequences.recovery[0], 1200);
+  assert.equal(expireDanceRound(selected, deadline + 1).mode, "recovery");
+  assert.equal(expireDanceRound(selected, deadline + 1).judgment, "MISS");
+  assert.equal(inputDanceRound(selected, "X", deadline + 1).judgment, "MISS", "late input cannot bypass timeout");
+});
+
+test("the first matching key locks the row and subsequent wrong input is BAD", () => {
+  const round = createDanceRound(3, 1000, () => 0);
+  assert.equal(inputDanceRound(round, "X", 1100), round);
+  const selected = inputDanceRound(round, round.sequences.recovery[0], 1200);
+  const wrong = inputDanceRound(selected, round.sequences.normal[0], 1300);
+  assert.equal(wrong.mode, "recovery");
+  assert.equal(wrong.judgment, "BAD");
 });
 
 test("dance CPU boss judgments are stronger and score scaling is applied once", () => {
