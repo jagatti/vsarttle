@@ -2,6 +2,7 @@ export type DanceJudgment = "PERFECT" | "GREAT" | "GOOD" | "BAD" | "MISS";
 export type DanceMode = "recovery" | "normal" | "multiplier";
 export type DancePhase = "a" | "c" | "b" | "last";
 export type DanceKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "X";
+export type DanceTeam = "red" | "blue";
 
 export const DANCE_JUDGMENT_POINTS: Record<DanceJudgment, number> = {
   PERFECT: 13,
@@ -45,7 +46,8 @@ export function getDanceFeverLimit(stars: 3 | 4 | 5): number {
 }
 
 export function canActivateDanceFever(streak: number, remainingUses: number): boolean {
-  return streak >= 2 || remainingUses > 0;
+  void remainingUses;
+  return streak >= 2;
 }
 
 export function getDanceSequenceLength(mode: DanceMode, stars: 3 | 4 | 5): number {
@@ -58,16 +60,22 @@ export function createDanceSequence(
   mode: DanceMode,
   stars: 3 | 4 | 5,
   random: () => number = Math.random,
+  firstKeys?: Partial<Record<Exclude<DanceMode, "recovery">, DanceKey>>,
 ): DanceKey[] {
   const length = getDanceSequenceLength(mode, stars);
   const sequence = Array.from({ length }, (_, index) => {
-    if (index === 0 && mode === "recovery") return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
+    if (index === 0 && mode === "recovery") return "ArrowUp";
     if (index === length - 1 && mode === "recovery") return "X";
     return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
   });
+  if (mode !== "recovery") {
+    const first = firstKeys?.[mode] ??
+      (mode === "normal" ? "ArrowDown" : "ArrowLeft");
+    sequence[0] = first;
+  }
   if (stars === 5 && mode !== "recovery") {
     const xCount = random() < 0.5 ? 1 : 2;
-    const availableIndexes = sequence.map((_, index) => index);
+    const availableIndexes = sequence.map((_, index) => index).filter((index) => index > 0);
     for (let index = availableIndexes.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(random() * (index + 1));
       [availableIndexes[index], availableIndexes[swapIndex]] = [availableIndexes[swapIndex]!, availableIndexes[index]!];
@@ -99,12 +107,62 @@ export function getDanceCpuJudgment(random: () => number = Math.random, boss = f
 export function getDanceCpuMode(stamina: number, streak: number, random: () => number = Math.random): DanceMode {
   if (stamina < 10) return random() < 0.5 ? "recovery" : "normal";
   if (streak >= 2 && random() < 0.7) return "multiplier";
-  return random() < 0.3 ? "recovery" : "normal";
+  const roll = random();
+  return roll < 0.1 ? "recovery" : roll < 0.5 ? "normal" : "multiplier";
 }
 
 export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode): number {
-  const base = judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
-  return mode === "multiplier" ? base * 1.2 : base;
+  void mode;
+  return judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
+}
+
+export function getDanceGaugePoints(base: number, mode: DanceMode): number {
+  return mode === "multiplier" && base > 0 ? Math.round(base * 1.2) : base;
+}
+
+export function addDanceGauge(current: number, amount: number, goal: number): number {
+  return Math.max(0, Math.min(goal, current + amount));
+}
+
+export function applyDanceStaminaJudgment(
+  judgment: DanceJudgment,
+  stamina: number,
+  mode: DanceMode,
+): DanceJudgment {
+  return mode !== "recovery" && stamina <= 0 && judgment !== "MISS" ? "BAD" : judgment;
+}
+
+export function getDanceStaminaAfter(
+  stamina: number,
+  member: { maxHp: number; maxPp: number },
+  mode: DanceMode,
+  feverSuccesses = 0,
+): number {
+  if (mode === "recovery") {
+    return Math.min(getDanceStamina(member.maxHp), stamina + getDanceRecovery(member.maxPp));
+  }
+  return Math.max(0, stamina - (mode === "multiplier" ? 7 + feverSuccesses : 4));
+}
+
+export function getDanceCenterChallenge(
+  centerScore: number,
+  candidates: Array<{ id: string; mode: DanceMode; base: number }>,
+): string | null {
+  return candidates
+    .filter((candidate) => candidate.mode === "multiplier" && candidate.base > centerScore)
+    .sort((left, right) => right.base - left.base)[0]?.id ?? null;
+}
+
+export function getDanceNextCenter(
+  roster: Array<{ id: string; team: DanceTeam }>,
+  currentId: string,
+): { id: string; team: DanceTeam } | null {
+  const currentIndex = roster.findIndex((member) => member.id === currentId);
+  for (let offset = 1; offset <= roster.length; offset += 1) {
+    const member = roster[(currentIndex + offset + roster.length) % roster.length];
+    if (member && member.id !== currentId) return member;
+  }
+  return null;
 }
 
 export function getDanceDancers(
