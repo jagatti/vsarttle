@@ -57,6 +57,7 @@ test("dance patterns preserve the difficulty lengths and recovery X", () => {
   assert.equal(createDanceSequence("normal", 5, () => 0).length, 9);
   assert.ok(createDanceSequence("normal", 5, () => 0).filter((key) => key === "X").length >= 1);
   assert.ok(createDanceSequence("normal", 5, () => 0).filter((key) => key === "X").length <= 2);
+  assert.equal(createDanceSequence("normal", 5, () => 0, "ArrowDown")[0], "ArrowDown");
 });
 
 test("dance target timings follow the original sequence formula", () => {
@@ -68,7 +69,7 @@ test("dance CPU boss judgments are stronger and score scaling is applied once", 
   assert.equal(getDanceCpuJudgment(() => 0.25), "GREAT");
   assert.equal(getDanceCpuJudgment(() => 0.25, true), "PERFECT");
   assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "normal"), 21);
-  assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "multiplier"), 25.2);
+  assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "multiplier"), 25);
   assert.deepEqual(DANCE_JUDGMENT_POINTS, { PERFECT: 13, GREAT: 10, GOOD: 8, BAD: 5, MISS: -3 });
 });
 

@@ -93,7 +93,7 @@ export function createDanceSequence(
   });
   if (stars === 5 && mode !== "recovery") {
     const xCount = random() < 0.5 ? 1 : 2;
-    const availableIndexes = sequence.map((_, index) => index);
+    const availableIndexes = sequence.map((_, index) => index).filter((index) => index > 0);
     for (let index = availableIndexes.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(random() * (index + 1));
       [availableIndexes[index], availableIndexes[swapIndex]] = [availableIndexes[swapIndex]!, availableIndexes[index]!];
@@ -130,7 +130,7 @@ export function getDanceCpuMode(stamina: number, streak: number, random: () => n
 
 export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode): number {
   const base = judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
-  return mode === "multiplier" ? base * 1.2 : base;
+  return mode === "multiplier" ? Math.round(base * 1.2) : base;
 }
 
 export function getDanceDancers(

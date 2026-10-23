@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { CharacterImage } from "@/components/Battle/CharacterImage";
 import { getBossData } from "@/data/bosses";
 import { SEED_GHOSTS } from "@/data/seed-ghosts";
 import {
@@ -96,6 +97,44 @@ function teamStamina(members: DanceMember[]) {
   return members.map((member) => getDanceStamina(member.stats.maxHp));
 }
 
+function DancePortrait(props: {
+  member: DanceMember;
+  stamina: number;
+  center: boolean;
+  dancing: boolean;
+  judgment: DanceJudgment | null;
+  score: number;
+  position: number;
+  side: "red" | "blue";
+  swapping: boolean;
+}) {
+  const [imageReady, setImageReady] = useState(false);
+  return (
+    <figure
+      className={`dance-performer dance-performer-${props.side}${props.center ? " dance-performer-center" : ""}${props.dancing ? " dance-performer-dancing" : " dance-performer-idle"}${props.swapping ? " dance-performer-switch" : ""}`}
+      style={{ "--performer-x": `${props.position}%`, "--performer-y": props.position % 2 ? "58%" : "68%" } as CSSProperties}
+    >
+      <figcaption className={props.member.id === "dance-player" ? "dance-name dance-name-player" : "dance-name"}>
+        {props.center ? "👑" : ""}{props.member.nickname}{props.member.boss ? " ★" : ""} ⚡{props.stamina}
+      </figcaption>
+      {props.judgment && (
+        <strong className="dance-performer-judgment" key={`${props.judgment}-${props.score}`}>
+          {props.judgment} <span>{props.score > 0 ? "+" : ""}{props.score}</span>
+        </strong>
+      )}
+      <div className={`dance-performer-image${imageReady ? " dance-image-ready" : ""}`}>
+        <span className="dance-image-placeholder" aria-hidden="true">{props.member.nickname.slice(0, 2)}</span>
+        <CharacterImage
+          src={props.member.image}
+          alt={props.member.nickname}
+          onLoad={() => setImageReady(true)}
+          onError={() => setImageReady(true)}
+        />
+      </div>
+    </figure>
+  );
+}
+
 export function DanceBattleMiniGame(props: {
   onBack: () => void;
   playerProfile: { playerId: string; nickname: string };
@@ -108,6 +147,7 @@ export function DanceBattleMiniGame(props: {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [redScore, setRedScore] = useState(0);
   const [blueScore, setBlueScore] = useState(0);
+  const [muted, setMuted] = useState(false);
   const [redStamina, setRedStamina] = useState<number[]>([]);
   const [blueStamina, setBlueStamina] = useState<number[]>([]);
   const [redStreak, setRedStreak] = useState(0);
@@ -133,6 +173,7 @@ export function DanceBattleMiniGame(props: {
   const actionRef = useRef<DanceAction | null>(null);
   const phaseRef = useRef<DancePhase>("a");
   const centerTeamRef = useRef<"red" | "blue">("red");
+  const previousVolumesRef = useRef({ bgm: 0.08, se: 0.12 });
 
   const goal = getDanceGoal(stars);
   const blueBoss = teams.blue.some((member) => member.boss);
@@ -141,6 +182,22 @@ export function DanceBattleMiniGame(props: {
     actionRef.current = null;
     setActiveAction(null);
   }, []);
+
+  const toggleMute = () => {
+    if (muted) {
+      soundManager.setBgmVolume(previousVolumesRef.current.bgm);
+      soundManager.setSeVolume(previousVolumesRef.current.se);
+      setMuted(false);
+      return;
+    }
+    previousVolumesRef.current = {
+      bgm: soundManager.getBgmVolume(),
+      se: soundManager.getSeVolume(),
+    };
+    soundManager.setBgmVolume(0);
+    soundManager.setSeVolume(0);
+    setMuted(true);
+  };
 
   useEffect(() => () => soundManager.stopBgm(), []);
 
@@ -509,35 +566,58 @@ export function DanceBattleMiniGame(props: {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [laneChoices, registerInput, roundReady, setupNewAction, stage]);
 
-  const renderTeam = (side: "red" | "blue") => {
+  const renderTeamPanel = (side: "red" | "blue") => {
     const members = teams[side];
     const center = side === "red" ? redCenter : blueCenter;
+    const score = side === "red" ? redScore : blueScore;
+    const stamina = side === "red" ? redStamina : blueStamina;
+    const playerStamina = redStamina[0] ?? 0;
+    const playerMaxStamina = teams.red[0] ? getDanceStamina(teams.red[0].stats.maxHp) : 0;
     return (
-      <div className="dance-team" style={{ ["--dance-team-color" as string]: TEAM_COLORS[side] }}>
-        <h3>{side === "red" ? "RED TEAM" : "BLUE TEAM"}</h3>
-        <div className="dance-team-lineup">
-          {members.map((member, index) => {
-            const isCenter = index === center;
-            const stamina = (side === "red" ? redStamina : blueStamina)[index] ?? 0;
-            return (
-              <figure
-                key={member.id}
-                className={`dance-member${isCenter ? " dance-member-center" : ""}${swapTeam === side ? " dance-member-switch" : ""}${stage === "playing" ? " dance-member-active" : ""}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={member.image} alt={member.nickname} />
-                <figcaption>{member.nickname}{member.boss ? " ★" : ""}</figcaption>
-                <small>{isCenter ? "CENTER" : `ST ${stamina}`}</small>
-              </figure>
-            );
-          })}
-        </div>
+      <div className={`dance-hud-team dance-hud-${side}`}>
+        <strong>{side === "red" ? "RED TEAM" : "BLUE TEAM"}{side === centerTeamRef.current ? "　👑" : ""}</strong>
+        <span>{score} / {goal}</span>
+        <div className="dance-score-track"><i style={{ width: `${Math.max(0, Math.min(100, (score / goal) * 100))}%` }} /></div>
+        <small>{side === "red" ? `⚡あなたのスタミナ ${playerStamina} / ${playerMaxStamina} ${activeAction?.mode === "recovery" ? `+${getDanceRecovery(teams.red[0]?.stats.maxPp ?? 0)}` : activeAction ? `-${activeAction.mode === "multiplier" ? 7 : 4}` : ""}` : `⚡中央 ${members[center]?.nickname ?? "—"} ${stamina[center] ?? 0}`}</small>
       </div>
     );
   };
 
-  const currentKey = activeAction?.sequence[activeAction.index];
-  const currentMode = activeAction?.mode;
+  const renderDancers = (side: "red" | "blue") => {
+    const members = teams[side];
+    const center = side === "red" ? redCenter : blueCenter;
+    const stamina = side === "red" ? redStamina : blueStamina;
+    const active = (index: number) => {
+      if (phase === "last") return side === centerTeamRef.current || teamSize === 1 ? index === center : index !== center;
+      if (phase === "a") return true;
+      if (phase === "c") return index === center;
+      if (teamSize === 1) return side === "blue";
+      return index !== center;
+    };
+    const dancers = members.map((member, index) => ({ member, index })).filter(({ index }) => active(index));
+    return dancers.map(({ member, index }, dancerIndex) => {
+      const isCenter = index === center;
+      const position = isCenter
+        ? side === "red" ? 43 : 57
+        : side === "red" ? 13 + dancerIndex * 13 : 87 - dancerIndex * 13;
+      const point = lastJudgment ? DANCE_JUDGMENT_POINTS[lastJudgment] * (activeAction?.mode === "multiplier" ? 1.2 : 1) : 0;
+      return (
+        <DancePortrait
+          key={member.id}
+          member={member}
+          stamina={stamina[index] ?? 0}
+          center={isCenter}
+          dancing={stage === "playing" && !!activeAction && active(index)}
+          judgment={isCenter ? lastJudgment : null}
+          score={point}
+          position={position}
+          side={side}
+          swapping={swapTeam === side}
+        />
+      );
+    });
+  };
+
   if (stage === "configure") {
     return (
       <section className="difficulty-screen dance-setup" aria-labelledby="dance-title">
@@ -619,73 +699,77 @@ export function DanceBattleMiniGame(props: {
   }
 
   return (
-    <section className="dance-arena" aria-label="ダンスバトル">
+    <section className="dance-battle dance-arena" aria-label="ダンスバトル">
       <header className="dance-game-header">
-        <strong>煌け!ダンス★バトル</strong>
-        <span>{DANCE_PHASE_LABELS[phase]} · {stars === 5 ? "★★★★★" : "★".repeat(stars)} · FEVER {feverUsesRemaining}</span>
+        <span>{DANCE_PHASE_LABELS[phase]}　{stars === 5 ? "★★★★★" : "★".repeat(stars)}　FEVER ×{feverUsesRemaining}</span>
         <button className="dance-exit" onClick={() => { stopActiveAction(); props.onBack(); }}>選択へ戻る</button>
       </header>
-      <div className="dance-scoreboard">
-        <strong style={{ color: TEAM_COLORS.red }}>RED {redScore}</strong>
-        <span>GOAL {goal}</span>
-        <strong style={{ color: TEAM_COLORS.blue }}>BLUE {blueScore}</strong>
+      <div className="dance-hud">
+        {renderTeamPanel("red")}
+        <strong className="dance-hud-crown">👑</strong>
+        {renderTeamPanel("blue")}
       </div>
-      <div className="dance-players">
-        {renderTeam("red")}
-        <span className="dance-vs-mark">VS</span>
-        {renderTeam("blue")}
+      <div className="dance-stage" aria-label="ダンスステージ">
+        <div className="dance-stage-logo">Dance★Dance</div>
+        <button
+          className="dance-mute"
+          aria-label={muted ? "サウンドを有効にする" : "BGMと効果音をミュート"}
+          aria-pressed={muted}
+          onClick={toggleMute}
+        >{muted ? "🔇" : "🔊"}</button>
+        <div className="dance-platform" />
+        <div className="dance-stage-performers">
+          {renderDancers("red")}
+          {renderDancers("blue")}
+        </div>
       </div>
-      <div className="dance-play-controls">
-        {phase === "last" && centerTeamRef.current === "red" ? (
-          <p className="dance-status" role="status">最後のダンス！相手のバックラインがセンターを超えるか判定中…</p>
-        ) : (
-          <>
-            <p className="dance-status" aria-live="polite">
-              {currentKey
-                ? `タイミングよく ${KEY_LABELS[currentKey]} を入力！ ${activeAction!.index + 1}/${activeAction!.sequence.length}`
-                : phase === "last" ? "FINAL DANCE — 3を選んで挑戦！" : "ダンスを選択してください"}
-              {lastJudgment ? `　${lastJudgment}` : ""}
-            </p>
-            {currentMode && activeAction && (
-              <div className="dance-sequence" aria-label="入力するキー">
-                {activeAction.sequence.map((key, index) => (
-                  <span key={`${key}-${index}`} className={index === activeAction.index ? "dance-key-current" : index < activeAction.index ? "dance-key-done" : ""}>
-                    {KEY_LABELS[key]}
-                  </span>
-                ))}
+      <div className="dance-center-info" aria-live="polite">
+        👑中央：{teams[centerTeamRef.current][centerTeamRef.current === "red" ? redCenter : blueCenter]?.nickname ?? "—"}
+        （{centerTeamRef.current === "red" ? "赤チーム" : "青チーム"}）{centerBaseScores[centerTeamRef.current]}点 ／ 後ろのメンバーが3段目で超えれば交代
+      </div>
+      <p className="dance-hint" aria-live="polite">
+        {phase === "last" && centerTeamRef.current === "red"
+          ? "最後のダンス！相手チームの結果を待っています…"
+          : !keysVisible ? "READY…" : !roundReady ? "キーは黄色いバーが動き出す直前に表示されます" : !activeAction
+            ? "最初のキーで段を選ぼう（金枠のキー）"
+            : activeAction.timingStartedAt === null
+              ? "順番にキー入力 → 最後のキーを白い線に合わせて！"
+              : "黄色いバーが白い線に重なる瞬間に押して！"}
+      </p>
+      <div className="dance-lanes" id="lanes">
+        {laneChoices.map((lane, laneIndex) => {
+          const isSelected = activeAction?.mode === lane.mode;
+          const modeText = lane.mode === "recovery" ? `1.回復 +${getDanceRecovery(teams.red[redCenter]?.stats.maxPp ?? 0)}` : lane.mode === "normal" ? "2.ダンス −4" : `3.×1.2 −7${canActivateDanceFever(redStreak, feverUsesRemaining) ? " 🔥FEVER" : ""}`;
+          const sequence = isSelected ? activeAction.sequence : createDanceSequence(lane.mode, stars, () => 0.25, lane.firstKey);
+          const sequenceIndex = isSelected ? activeAction.index : -1;
+          const showingBar = isSelected && activeAction.timingStartedAt !== null;
+          const laneDisabled = (lane.mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRemaining)) ||
+            (phase === "last" && lane.mode !== "multiplier");
+          return (
+            <div className={`dance-lane${isSelected ? " dance-lane-on" : ""}${laneDisabled ? " dance-lane-disabled" : ""}`} key={lane.mode} data-lane={laneIndex + 1}>
+              <strong className="dance-lane-label">{modeText}</strong>
+              <div className="dance-track" style={{ "--bar-progress": String(showingBar ? timingProgress : 0) } as CSSProperties}>
+                <span className="dance-track-start" />
+                {keysVisible && <div className="dance-track-keys">
+                  {sequence.map((key, index) => (
+                    <span className={`${index === 0 ? "dance-lane-first" : ""}${index === sequence.length - 1 ? " dance-lane-final" : ""}${isSelected && index < sequenceIndex ? " dance-lane-done" : ""}`} key={`${key}-${index}`}>
+                      {KEY_LABELS[key]}
+                    </span>
+                  ))}
+                </div>}
+                <span className="dance-finish-line"><i>▼</i></span>
+                {keysVisible && <span className="dance-bar" aria-hidden="true" />}
               </div>
-            )}
-            <div className="dance-mode-buttons">
-              {([
-                ["recovery", "1 回復"],
-                ["normal", "2 通常"],
-                ["multiplier", "3 ×1.2"],
-              ] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  disabled={!!activeAction ||
-                    (phase === "last" && mode !== "multiplier") ||
-                    (mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRemaining))}
-                  onClick={() => {
-                  setupNewAction(mode);
-                  soundManager.playSe("/sounds/se/button.mp3");
-                  }}
-                >
-                  {label}
-                  {mode === "recovery" ? ` (+${getDanceRecovery(teams.red[redCenter]?.stats.maxPp ?? 0)})` : ""}
-                </button>
-              ))}
             </div>
-            <div className="dance-keypad" aria-label="ダンス操作パッド">
-              {(["ArrowUp", "ArrowLeft", "X", "ArrowRight", "ArrowDown"] as const).map((key) => (
-                <button key={key} onClick={() => registerInput(key)} aria-label={KEY_LABELS[key]}>{KEY_LABELS[key]}</button>
-              ))}
-            </div>
-            <p className="dance-input-help">PC: 矢印キー / X・段選択 1・2・3　スマホ: 画面下のボタン</p>
-          </>
-        )}
+          );
+        })}
       </div>
-      <div className="dance-round-note">ラウンド {phaseIndex + 1}　·　中央 {centerBaseScores.red} / {centerBaseScores.blue}</div>
+      <div className="dance-keypad" aria-label="ダンス操作パッド">
+        {(["ArrowLeft", "ArrowUp", "ArrowDown", "ArrowRight", "X"] as const).map((key) => (
+          <button key={key} onClick={() => registerInput(key)} aria-label={KEY_LABELS[key]}>{KEY_LABELS[key]}</button>
+        ))}
+      </div>
+      <p className="dance-round-note">PC: 矢印キー / X・数字キー1/2/3　スマホ: 下のキーをタップ　·　ラウンド {phaseIndex + 1}</p>
     </section>
   );
 }
