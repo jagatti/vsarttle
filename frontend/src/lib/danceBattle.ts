@@ -1,0 +1,319 @@
+export type DanceJudgment = "PERFECT" | "GREAT" | "GOOD" | "BAD" | "MISS";
+export type DanceMode = "recovery" | "normal" | "multiplier";
+export type DancePhase = "a" | "c" | "b" | "last";
+export type DanceKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "X";
+export type DanceTeam = "red" | "blue";
+export type DanceLastStep = "center" | "backline";
+
+export const DANCE_READY_DURATION_MS = 1500;
+export const DANCE_SPECTATOR_READY_DURATION_MS = 700;
+export const DANCE_BAR_DURATION_MS = Math.round(3000 / 1.1);
+export const DANCE_FEVER_BAR_DURATION_MS = Math.round(1400 / 1.1);
+export const DANCE_FEVER_TRANSITION_DELAY_MS = 900;
+export const DANCE_RESULT_DURATION_MS = 2200;
+export const DANCE_RESULT_SETTLE_MS = 300;
+
+export function getDanceRoundDurationMs(playerParticipates: boolean, feverAttempts = 1): number {
+  const readyDuration = playerParticipates
+    ? DANCE_READY_DURATION_MS
+    : DANCE_SPECTATOR_READY_DURATION_MS;
+  return readyDuration + DANCE_BAR_DURATION_MS +
+    Math.max(0, feverAttempts - 1) * DANCE_FEVER_BAR_DURATION_MS +
+    DANCE_RESULT_SETTLE_MS;
+}
+
+export function getDanceVisibleModes(playerParticipates: boolean, fever: boolean): DanceMode[] {
+  if (!playerParticipates) return [];
+  return fever ? ["multiplier"] : ["recovery", "normal", "multiplier"];
+}
+
+export interface DanceCenterState {
+  id: string;
+  team: DanceTeam;
+  base: number;
+}
+
+export interface DanceProgressionInput {
+  phase: DancePhase;
+  lastStep: DanceLastStep;
+  center: DanceCenterState | null;
+  centerUsedThird: boolean;
+  scores: Record<DanceTeam, number>;
+  goal: number;
+}
+
+export interface DanceRoundOutcome {
+  id: string;
+  team: DanceTeam;
+  mode: DanceMode;
+  base: number;
+  missed: boolean;
+}
+
+export interface DanceProgressionResult {
+  phase: DancePhase;
+  lastStep: DanceLastStep;
+  center: DanceCenterState | null;
+  centerUsedThird: boolean;
+  winner: DanceTeam | null;
+}
+
+export const DANCE_JUDGMENT_POINTS: Record<DanceJudgment, number> = {
+  PERFECT: 13,
+  GREAT: 10,
+  GOOD: 8,
+  BAD: 5,
+  MISS: -3,
+};
+
+export const DANCE_PHASE_LABELS: Record<DancePhase, string> = {
+  a: "オープニング — 全員ダンス",
+  c: "センターダンス",
+  b: "バックダンス",
+  last: "FINAL DANCE",
+};
+
+const DANCE_KEYS: DanceKey[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+export function judgeDanceTiming(diffMs: number): DanceJudgment {
+  const diff = Math.abs(diffMs);
+  if (diff <= 22) return "PERFECT";
+  if (diff <= 70) return "GREAT";
+  if (diff <= 115) return "GOOD";
+  return "BAD";
+}
+
+export function isDanceFinalKeyWindow(diffMs: number): boolean {
+  return diffMs >= -900 && diffMs <= 300;
+}
+
+export function getDanceStamina(maxHp: number): number {
+  return Math.ceil(Math.max(0, maxHp) / 5);
+}
+
+export function getDanceRecovery(maxPp: number): number {
+  return 10 + Math.ceil(Math.max(0, maxPp) / 10);
+}
+
+export function getDanceGoal(stars: 3 | 4 | 5): number {
+  return stars === 5 ? 540 : 304;
+}
+
+export function getDanceFeverLimit(stars: 3 | 4 | 5): number {
+  return stars === 5 ? 8 : 4;
+}
+
+export function canActivateDanceFever(streak: number, remainingUses: number): boolean {
+  void remainingUses;
+  return streak >= 2;
+}
+
+export function isDanceFeverAllowed(
+  phase: DancePhase,
+  lastStep: DanceLastStep,
+  centerUsedThird: boolean,
+): boolean {
+  return phase === "a" || phase === "c" || (phase === "last" && lastStep === "center") || centerUsedThird;
+}
+
+export function getDanceSequenceLength(mode: DanceMode, stars: 3 | 4 | 5): number {
+  if (mode === "recovery") return 2;
+  const level = stars - 2;
+  return mode === "normal" ? 3 + 2 * level : 4 + 2 * level;
+}
+
+export function createDanceSequence(
+  mode: DanceMode,
+  stars: 3 | 4 | 5,
+  random: () => number = Math.random,
+  firstKeys?: Partial<Record<Exclude<DanceMode, "recovery">, DanceKey>>,
+): DanceKey[] {
+  const length = getDanceSequenceLength(mode, stars);
+  const sequence = Array.from({ length }, (_, index) => {
+    if (index === 0 && mode === "recovery") return "ArrowUp";
+    if (index === length - 1 && mode === "recovery") return "X";
+    return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
+  });
+  if (mode !== "recovery") {
+    const first = firstKeys?.[mode] ??
+      (mode === "normal" ? "ArrowDown" : "ArrowLeft");
+    sequence[0] = first;
+  }
+  if (stars === 5 && mode !== "recovery") {
+    const xCount = random() < 0.5 ? 1 : 2;
+    const availableIndexes = sequence.map((_, index) => index).filter((index) => index > 0);
+    for (let index = availableIndexes.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random() * (index + 1));
+      [availableIndexes[index], availableIndexes[swapIndex]] = [availableIndexes[swapIndex]!, availableIndexes[index]!];
+    }
+    availableIndexes.slice(0, xCount).forEach((index) => { sequence[index] = "X"; });
+  }
+  return sequence;
+}
+
+export function getDanceTargetTime(startTime: number, sequenceIndex: number): number {
+  return startTime + DANCE_BAR_DURATION_MS + sequenceIndex * DANCE_FEVER_BAR_DURATION_MS;
+}
+
+export function getDanceCpuJudgment(random: () => number = Math.random, boss = false): DanceJudgment {
+  const normalWeights = [20, 30, 28, 12, 10];
+  const bossWeights = [32, 35, 22, 7, 4];
+  const weights = boss ? bossWeights : normalWeights;
+  let roll = random() * weights.reduce((sum, weight) => sum + weight, 0);
+  const judgments: DanceJudgment[] = ["PERFECT", "GREAT", "GOOD", "BAD", "MISS"];
+  for (let index = 0; index < weights.length; index += 1) {
+    roll -= weights[index]!;
+    if (roll < 0) return judgments[index]!;
+  }
+  return "MISS";
+}
+
+export function getDanceCpuMode(stamina: number, streak: number, random: () => number = Math.random): DanceMode {
+  if (stamina < 10) return random() < 0.5 ? "recovery" : "normal";
+  if (streak >= 2 && random() < 0.7) return "multiplier";
+  const roll = random();
+  return roll < 0.1 ? "recovery" : roll < 0.5 ? "normal" : "multiplier";
+}
+
+export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode): number {
+  void mode;
+  return judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
+}
+
+export function getDanceGaugePoints(base: number, mode: DanceMode): number {
+  return mode === "multiplier" && base > 0 ? Math.round(base * 1.2) : base;
+}
+
+export function addDanceGauge(current: number, amount: number, goal: number): number {
+  return Math.max(0, Math.min(goal, current + amount));
+}
+
+export function applyDanceStaminaJudgment(
+  judgment: DanceJudgment,
+  stamina: number,
+  mode: DanceMode,
+): DanceJudgment {
+  return mode !== "recovery" && stamina <= 0 && judgment !== "MISS" ? "BAD" : judgment;
+}
+
+export function getDanceStaminaAfter(
+  stamina: number,
+  member: { maxHp: number; maxPp: number },
+  mode: DanceMode,
+  feverSuccesses = 0,
+  missed = false,
+): number {
+  if (mode === "recovery") {
+    if (missed) return stamina;
+    return Math.min(getDanceStamina(member.maxHp), stamina + getDanceRecovery(member.maxPp));
+  }
+  return Math.max(0, stamina - (mode === "multiplier" ? 7 + feverSuccesses : 4));
+}
+
+export function getDanceCenterChallenge(
+  centerScore: number,
+  candidates: Array<{ id: string; mode: DanceMode; base: number }>,
+): string | null {
+  return candidates
+    .filter((candidate) => candidate.mode === "multiplier" && candidate.base > centerScore)
+    .sort((left, right) => right.base - left.base)[0]?.id ?? null;
+}
+
+export function getDanceNextCenter(
+  roster: Array<{ id: string; team: DanceTeam }>,
+  currentId: string,
+): { id: string; team: DanceTeam } | null {
+  return roster.find((member) => member.id !== currentId) ?? null;
+}
+
+export function resolveDanceProgression(
+  state: DanceProgressionInput,
+  outcomes: DanceRoundOutcome[],
+  roster: Array<{ id: string; team: DanceTeam }>,
+): DanceProgressionResult {
+  if (state.phase === "a") {
+    const best = outcomes.filter((outcome) => outcome.base > 0)
+      .sort((left, right) => right.base - left.base)[0];
+    if (!best) return { phase: "a", lastStep: "center", center: null, centerUsedThird: false, winner: null };
+    const goalReached = state.scores[best.team] >= state.goal;
+    return {
+      phase: goalReached ? "last" : "c",
+      lastStep: "center",
+      center: { id: best.id, team: best.team, base: best.base },
+      centerUsedThird: false,
+      winner: null,
+    };
+  }
+
+  const center = state.center;
+  if (!center) return { phase: "a", lastStep: "center", center: null, centerUsedThird: false, winner: null };
+
+  const isCenterTurn = state.phase === "c" || (state.phase === "last" && state.lastStep === "center");
+  if (isCenterTurn) {
+    const centerOutcome = outcomes.find((outcome) => outcome.id === center.id);
+    if (!centerOutcome || centerOutcome.missed) {
+      const successor = getDanceNextCenter(roster, center.id);
+      const nextCenter = successor ? { ...successor, base: 0 } : center;
+      const isLastAndGoalReached = state.phase === "last" &&
+        state.scores[nextCenter.team] >= state.goal;
+      return {
+        phase: isLastAndGoalReached ? "last" : "c",
+        lastStep: "center",
+        center: nextCenter,
+        centerUsedThird: false,
+        winner: null,
+      };
+    }
+    const nextCenter = { ...center, base: centerOutcome.base };
+    if (state.phase === "last") {
+      return { phase: "last", lastStep: "backline", center: nextCenter, centerUsedThird: centerOutcome.mode === "multiplier", winner: null };
+    }
+    if (state.scores[center.team] >= state.goal) {
+      return { phase: "last", lastStep: "center", center: nextCenter, centerUsedThird: centerOutcome.mode === "multiplier", winner: null };
+    }
+    return { phase: "b", lastStep: "center", center: nextCenter, centerUsedThird: centerOutcome.mode === "multiplier", winner: null };
+  }
+
+  const candidates = outcomes.filter((outcome) =>
+    outcome.mode === "multiplier" && outcome.base > center.base &&
+    (state.phase !== "last" || outcome.team !== center.team));
+  const challenger = candidates.sort((left, right) => right.base - left.base)[0];
+  if (state.phase === "last") {
+    if (!challenger) return { ...state, winner: center.team };
+    const nextCenter = { id: challenger.id, team: challenger.team, base: challenger.base };
+    const goalReached = state.scores[nextCenter.team] >= state.goal;
+    return {
+      phase: goalReached ? "last" : "c",
+      lastStep: "center",
+      center: nextCenter,
+      centerUsedThird: false,
+      winner: null,
+    };
+  }
+  const nextCenter = challenger
+    ? { id: challenger.id, team: challenger.team, base: challenger.base }
+    : center;
+  return {
+    phase: state.scores[nextCenter.team] >= state.goal ? "last" : "c",
+    lastStep: "center",
+    center: nextCenter,
+    centerUsedThird: state.centerUsedThird,
+    winner: null,
+  };
+}
+
+export function getDanceDancers(
+  phase: DancePhase,
+  teamSize: number,
+  isRedTeam: boolean,
+  centerTeam: "red" | "blue" = "red",
+): number {
+  if (phase === "c") return 1;
+  if (phase === "last") {
+    if ((isRedTeam ? "red" : "blue") === centerTeam) return 1;
+    return teamSize === 1 ? 1 : teamSize - 1;
+  }
+  if (phase === "a") return teamSize;
+  if (teamSize === 1) return isRedTeam ? 0 : 1;
+  return teamSize - 1;
+}

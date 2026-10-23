@@ -27,11 +27,12 @@ test("title keeps its original tagline without the additional kicker", () => {
 
 test("difficulty renders one heading, shared buttons, a readable lock status and a back action", () => {
   const html = renderToStaticMarkup(createElement(DifficultySelectScreen, {
-    onSelect: noop, onSelectRoguelike: noop, onBackToTitle: noop,
+    onSelect: noop, onSelectRoguelike: noop, onSelectMiniGames: noop, onBackToTitle: noop,
     playerProfile: { playerId: "test-player", nickname: "テスト" },
   }));
   assert.equal((html.match(/難易度を選択してください/g) ?? []).length, 1);
-  assert.equal((html.match(/class="title-menu-button/g) ?? []).length, 4);
+  assert.equal((html.match(/class="title-menu-button/g) ?? []).length, 5);
+  assert.match(html, /ミニゲーム/);
   assert.match(html, /disabled="" aria-describedby="roguelike-status"/);
   assert.match(html, /🔒/);
   assert.match(html, /id="roguelike-status" class="difficulty-note" role="status"/);

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BattlePanel } from "@/components/Battle/BattlePanel";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { DanceBattleMiniGame } from "@/components/SinglePlay/DanceBattleMiniGame";
+import { MiniGameSelectScreen } from "@/components/SinglePlay/MiniGameSelectScreen";
 import { VsScreen } from "@/components/Vs/VsScreen";
 import { buildDrawingTags } from "@/lib/drawingTags";
 import { buildEquippedSkillEffects, type EquippableSkillId } from "@/lib/roguelikeSkills";
@@ -72,6 +74,8 @@ interface SpCharacter {
 
 type SpStage =
   | "difficulty_select"
+  | "mini_game_select"
+  | "dance_battle"
   | "drawing"
   | "char_select"
   | "vs"
@@ -150,6 +154,7 @@ function getRankTextStyle(rank: BasicRank | ScoreRank): React.CSSProperties {
 export function DifficultySelectScreen(props: {
   onSelect: (difficulty: Difficulty) => void;
   onSelectRoguelike: () => void;
+  onSelectMiniGames: () => void;
   onBackToTitle: () => void;
   playerProfile: { playerId: string; nickname: string };
 }) {
@@ -219,6 +224,15 @@ export function DifficultySelectScreen(props: {
           }}
         >
           <span aria-hidden="true">{roguelikeReady ? "🗡️" : "🔒"}</span> ローグライクモード
+        </button>
+        <button
+          className="title-menu-button difficulty-button difficulty-mini-games"
+          onClick={() => {
+            soundManager.playSe("/sounds/se/button.mp3");
+            props.onSelectMiniGames();
+          }}
+        >
+          <span aria-hidden="true">🎲</span> ミニゲーム
         </button>
         <p id="roguelike-status" className="difficulty-note" role="status">
           {roguelikeReady
@@ -608,6 +622,10 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
     Object.values(battleState).find((state) => state.id.startsWith("boss-"))?.limitBreakUsed ?? false;
 
   useEffect(() => {
+    if (spStage === "mini_game_select" || spStage === "dance_battle") {
+      if (spStage === "mini_game_select") soundManager.stopBgm();
+      return;
+    }
     const bgm = getSinglePlayStageBgm(
       spStage,
       floor,
@@ -1473,10 +1491,26 @@ export function SinglePlayManager(props: { onBackToTitle: () => void; playerProf
       <DifficultySelectScreen
         onSelect={handleDifficultySelect}
         onSelectRoguelike={() => setRoguelikeMode(true)}
+        onSelectMiniGames={() => setSpStage("mini_game_select")}
         onBackToTitle={props.onBackToTitle}
         playerProfile={props.playerProfile}
       />
     );
+  }
+
+  if (spStage === "mini_game_select") {
+    return (
+      <MiniGameSelectScreen
+        onSelect={(id) => {
+          if (id === "dance-battle") setSpStage("dance_battle");
+        }}
+        onBack={() => setSpStage("difficulty_select")}
+      />
+    );
+  }
+
+  if (spStage === "dance_battle") {
+    return <DanceBattleMiniGame onBack={() => setSpStage("mini_game_select")} playerProfile={props.playerProfile} />;
   }
 
   // ── Drawing phase ────────────────────────────────────────────────────────
