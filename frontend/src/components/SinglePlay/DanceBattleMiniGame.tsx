@@ -914,9 +914,11 @@ export function DanceBattleMiniGame(props: {
       <div className="dance-play-controls">
         <p className="dance-status" aria-live="polite">
           {!playerParticipates ? "観戦中…" : !keysRevealed ? "READY…" : activeAction
-            ? activeAction.fever && activeAction.judgments.length > 0
-              ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}　${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)}`
-              : `キーを順番に入力　${activeAction.index + 1}/${activeAction.sequence.length}`
+            ? activeAction.fever && feverProgress && activeAction.judgments.length === 0
+              ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}　次の1キーへ…`
+              : activeAction.fever && activeAction.judgments.length > 0
+                ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}　${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)}`
+                : `キーを順番に入力　${activeAction.index + 1}/${activeAction.sequence.length}`
             : feverReady ? "🔥FEVER READY（3段目で発動）— 最初のキーで段を選ぼう" : "最初のキーで段を選ぼう（金枠のキー）"}
           {playerParticipates && !activeAction?.fever && lastJudgment ? `　${lastJudgment}` : ""}
         </p>
