@@ -20,6 +20,7 @@ import {
   getDanceStamina,
   getDanceStaminaAfter,
   getDanceTargetTime,
+  getDanceVisibleModes,
   isDanceFeverAllowed,
   isDanceFinalKeyWindow,
   judgeDanceTiming,
@@ -102,6 +103,13 @@ test("fever requires two successful actions and is limited by difficulty", () =>
   assert.equal(isDanceFeverAllowed("last", "center", false), true);
   assert.equal(getDanceFeverLimit(3), 4);
   assert.equal(getDanceFeverLimit(5), 8);
+});
+
+test("spectators see no input lanes and fever displays only its single-key lane", () => {
+  assert.deepEqual(getDanceVisibleModes(false, false), []);
+  assert.deepEqual(getDanceVisibleModes(false, true), []);
+  assert.deepEqual(getDanceVisibleModes(true, false), ["recovery", "normal", "multiplier"]);
+  assert.deepEqual(getDanceVisibleModes(true, true), ["multiplier"]);
 });
 
 test("lane first keys are unique and recovery is always selected by up", () => {

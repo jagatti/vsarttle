@@ -1787,19 +1787,38 @@ main.app-title-shell {
 
 .dance-drawing {
   width: 100%;
+  min-width: 0;
+  max-width: 1020px;
+  margin-inline: auto;
 }
 
 .dance-heading-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 12px;
   color: #fff7ed;
 }
 
 .dance-heading-row h2 {
+  min-width: 0;
+  flex: 1 1 420px;
+  margin: 0;
   font-size: clamp(18px, 3vw, 26px);
+  writing-mode: horizontal-tb;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.dance-drawing .drawing-mode-layout {
+  max-width: 100%;
+}
+
+.dance-drawing .drawing-mode-panel {
+  width: 100%;
 }
 
 .dance-loading {
@@ -2255,9 +2274,9 @@ main.app-title-shell {
   align-items: end;
   gap: 8px;
   padding: 12px 8px 4px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 14px;
-  background: rgba(3, 6, 15, 0.5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .dance-backline {
@@ -2275,6 +2294,7 @@ main.app-title-shell {
   color: var(--dance-team-color);
   font-size: clamp(12px, 2vw, 17px);
   text-align: center;
+  text-shadow: 0 2px 5px #000, 0 0 8px #000;
 }
 
 .dance-backline-red { --dance-team-color: #ff8980; }
@@ -2289,6 +2309,7 @@ main.app-title-shell {
   color: #fff1b3;
   font-size: 12px;
   font-weight: 900;
+  text-shadow: 0 2px 5px #000, 0 0 8px #000;
 }
 
 .dance-member {
@@ -2334,7 +2355,7 @@ main.app-title-shell {
   border: 0;
   border-radius: 0;
   background: transparent;
-  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.7));
+  filter: none;
   object-fit: contain;
 }
 
@@ -2411,31 +2432,34 @@ main.app-title-shell {
 }
 
 .dance-lane-track {
-  --dance-key-size: clamp(18px, 2.3vw, 32px);
-  --dance-marker-right: clamp(26px, calc(17px + 1.15vw), 33px);
+  --dance-key-size: clamp(34px, 3vw, 40px);
   position: relative;
   display: flex;
-  min-height: 44px;
+  min-height: 50px;
   align-items: center;
-  padding: 0 17px;
+  padding: 0 14px;
   border: 1px solid rgba(225, 232, 255, 0.22);
   border-radius: 5px;
   background: rgba(2, 5, 15, 0.82);
+  overflow: visible;
 }
 
 .dance-lane-keys {
   position: relative;
   z-index: 1;
   display: flex;
-  width: 100%;
+  width: max-content;
+  height: var(--dance-key-size);
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
 .dance-lane-key {
   display: grid;
   position: relative;
+  z-index: 1;
   width: var(--dance-key-size);
   height: var(--dance-key-size);
   flex: 0 0 var(--dance-key-size);
@@ -2505,9 +2529,9 @@ main.app-title-shell {
   position: absolute;
   z-index: 0;
   top: 50%;
-  right: var(--dance-marker-right);
-  left: 17px;
-  height: 8px;
+  right: calc(var(--dance-key-size) / 2);
+  left: calc(var(--dance-key-size) / 2);
+  height: 100%;
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -2515,13 +2539,13 @@ main.app-title-shell {
 .dance-bar {
   position: absolute;
   z-index: 0;
-  top: 50%;
-  width: 28px;
-  height: 8px;
-  border-radius: 999px;
+  top: -4px;
+  bottom: -4px;
+  width: 5px;
+  border-radius: 3px;
   background: #ffe500;
   box-shadow: 0 0 9px #ffe500, 0 0 16px rgba(255, 229, 0, 0.72);
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -2607,17 +2631,15 @@ main.app-title-shell {
   .dance-member figcaption { max-width: 28vw; font-size: 9px; }
   .dance-play-controls { width: 100%; padding: 7px; }
   .dance-lane-track {
-    --dance-key-size: 22px;
-    --dance-marker-right: 28px;
-    min-height: 39px;
+    --dance-key-size: clamp(20px, 6.8vw, 28px);
+    min-height: 40px;
   }
   .dance-keypad { width: min(100%, 340px); }
 }
 
 @media (max-width: 360px) {
   .dance-lane-track {
-    --dance-key-size: 18px;
-    --dance-marker-right: 26px;
+    --dance-key-size: clamp(20px, 6.8vw, 24px);
   }
 }
 

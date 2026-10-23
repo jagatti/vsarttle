@@ -22,6 +22,7 @@ import {
   getDanceStamina,
   getDanceStaminaAfter,
   getDanceTargetTime,
+  getDanceVisibleModes,
   judgeDanceTiming,
   resolveDanceProgression,
   type DanceJudgment,
@@ -729,11 +730,15 @@ export function DanceBattleMiniGame(props: {
           <h2>煌け!ダンス★バトル — おえかきパート</h2>
           <button className="title-menu-button difficulty-back" onClick={props.onBack}>ゲーム選択へ戻る</button>
         </header>
-        <DrawPanel
-          seconds={300}
-          completeLabel="ダンスバトルへ"
-          onComplete={(payload) => void finishDrawing(payload)}
-        />
+        <div className="drawing-mode-layout">
+          <div className="drawing-mode-panel">
+            <DrawPanel
+              seconds={300}
+              completeLabel="ダンスバトルへ"
+              onComplete={(payload) => void finishDrawing(payload)}
+            />
+          </div>
+        </div>
       </section>
     );
   }
@@ -826,16 +831,17 @@ export function DanceBattleMiniGame(props: {
               ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}　${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)}`
               : `キーを順番に入力　${activeAction.index + 1}/${activeAction.sequence.length}`
             : feverReady ? "🔥FEVER READY（3段目で発動）— 最初のキーで段を選ぼう" : "最初のキーで段を選ぼう（金枠のキー）"}
-          {!activeAction?.fever && lastJudgment ? `　${lastJudgment}` : ""}
+          {playerParticipates && !activeAction?.fever && lastJudgment ? `　${lastJudgment}` : ""}
         </p>
         <div className="dance-lanes" aria-label="入力レーン">
-          {([
-            ["recovery", "1.回復 +10"],
-            ["normal", "2.×1.0 −4"],
-            ["multiplier", activeAction?.fever
-              ? `🔥FEVER ${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)} −7`
-              : feverReady ? "🔥FEVER READY −7" : "3.×1.2 −7"],
-          ] as const).map(([mode, label]) => {
+          {getDanceVisibleModes(playerParticipates, Boolean(activeAction?.fever)).map((mode) => {
+            const label = mode === "recovery"
+              ? "1.回復 +10"
+              : mode === "normal"
+                ? "2.×1.0 −4"
+                : activeAction?.fever
+                  ? `🔥FEVER ${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)} −7`
+                  : feverReady ? "🔥FEVER READY −7" : "3.×1.2 −7";
             const sequence = activeAction?.mode === mode && activeAction.fever && activeAction.judgments.length > 0
               ? activeAction.sequence
               : laneSequences[mode];
@@ -862,24 +868,30 @@ export function DanceBattleMiniGame(props: {
                         )}
                       </span>
                     ))}
+                    {(!activeAction || activeAction.mode === mode) && (
+                      <span className="dance-bar-path">
+                        <i className="dance-bar" style={{
+                          left: `${progress * 100}%`,
+                          opacity: clock >= barStart && progress <= 1.04 ? 1 : 0,
+                        }} />
+                      </span>
+                    )}
                   </div>
-                  <span className="dance-bar-path">
-                    <i className="dance-bar" style={{
-                      left: `${progress * 100}%`,
-                      opacity: clock >= barStart && progress <= 1.04 ? 1 : 0,
-                    }} />
-                  </span>
                 </div>
               </div>
             );
           })}
         </div>
-        <div className="dance-keypad" aria-label="ダンス操作パッド">
-          {(["ArrowUp", "ArrowLeft", "X", "ArrowRight", "ArrowDown"] as const).map((key) => (
-            <button key={key} onClick={() => registerInput(key)} aria-label={KEY_LABELS[key]}>{KEY_LABELS[key]}</button>
-          ))}
-        </div>
-        <p className="dance-input-help">{playerParticipates ? "最初のキーで段を選ぼう（金枠のキー）" : "次の出番まで観戦中…"}</p>
+        {playerParticipates && (
+          <>
+            <div className="dance-keypad" aria-label="ダンス操作パッド">
+              {(["ArrowUp", "ArrowLeft", "X", "ArrowRight", "ArrowDown"] as const).map((key) => (
+                <button key={key} onClick={() => registerInput(key)} aria-label={KEY_LABELS[key]}>{KEY_LABELS[key]}</button>
+              ))}
+            </div>
+            <p className="dance-input-help">最初のキーで段を選ぼう（金枠のキー）</p>
+          </>
+        )}
       </div>
       <div className="dance-round-note">ラウンド {phaseIndex + 1}</div>
     </section>

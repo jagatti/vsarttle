@@ -5,6 +5,11 @@ export type DanceKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "X
 export type DanceTeam = "red" | "blue";
 export type DanceLastStep = "center" | "backline";
 
+export function getDanceVisibleModes(playerParticipates: boolean, fever: boolean): DanceMode[] {
+  if (!playerParticipates) return [];
+  return fever ? ["multiplier"] : ["recovery", "normal", "multiplier"];
+}
+
 export interface DanceCenterState {
   id: string;
   team: DanceTeam;
