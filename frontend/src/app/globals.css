@@ -1657,6 +1657,10 @@ main.app-title-shell {
   --menu-accent: #8050aa;
 }
 
+.difficulty-mini-games {
+  --menu-accent: #278d81;
+}
+
 .difficulty-note {
   margin: 0;
   padding: 12px;
@@ -1667,6 +1671,482 @@ main.app-title-shell {
   font-size: 15px;
   line-height: 1.7;
   text-align: center;
+}
+
+.mini-game-screen {
+  width: min(100%, 720px);
+}
+
+.mini-game-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.mini-game-card {
+  display: grid;
+  min-height: 170px;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 18px;
+  border: 2px solid #8b7352;
+  border-radius: 16px 12px 17px 13px / 12px 17px 13px 16px;
+  background: #fffaee;
+  color: #29261f;
+  box-shadow: 0 5px 0 rgba(79, 61, 31, 0.26);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.mini-game-card:hover,
+.mini-game-card:focus-visible {
+  transform: translateY(-2px) rotate(-0.3deg);
+  box-shadow: 0 7px 0 rgba(79, 61, 31, 0.26);
+}
+
+.mini-game-card:focus-visible {
+  outline: 3px solid #28251f;
+  outline-offset: 3px;
+}
+
+.mini-game-icon {
+  font-size: 40px;
+}
+
+.mini-game-name {
+  font-size: clamp(18px, 3vw, 24px);
+  font-weight: 900;
+}
+
+.mini-game-description {
+  color: #57534e;
+  font-size: 14px;
+}
+
+.dance-setup {
+  width: min(100%, 640px);
+}
+
+.dance-setup > p {
+  text-align: center;
+}
+
+.dance-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0;
+  font-weight: 800;
+}
+
+.dance-select-row select {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid #8b7352;
+  border-radius: 10px;
+  background: #fffdf7;
+  color: #29261f;
+  font: inherit;
+}
+
+.dance-team-size {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.dance-team-size button,
+.dance-mode-buttons button,
+.dance-keypad button {
+  min-height: 46px;
+  border: 2px solid #8b7352;
+  border-radius: 12px 9px 11px 8px;
+  background: #fffaee;
+  color: #29261f;
+  font: inherit;
+  font-weight: 900;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.dance-team-size button {
+  min-width: 90px;
+}
+
+.dance-team-size .dance-choice-selected {
+  background: #278d81;
+  color: #fff;
+}
+
+.dance-drawing {
+  width: 100%;
+}
+
+.dance-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #fff7ed;
+}
+
+.dance-heading-row h2 {
+  font-size: clamp(18px, 3vw, 26px);
+}
+
+.dance-loading {
+  margin: auto;
+  padding: 28px;
+  color: #fff7ed;
+  text-align: center;
+}
+
+.dance-arena {
+  display: flex;
+  min-height: min(100%, 760px);
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  padding: clamp(10px, 2.5vw, 24px);
+  overflow: hidden;
+  border: 2px solid #8b7352;
+  border-radius: 18px 13px 17px 14px / 13px 18px 12px 17px;
+  background:
+    linear-gradient(rgba(12, 15, 30, 0.62), rgba(12, 15, 30, 0.86)),
+    url("/arttle_back/arenaback.png") center / cover;
+  color: #fff7ed;
+}
+
+.dance-game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dance-game-header strong {
+  font-size: clamp(18px, 3vw, 25px);
+}
+
+.dance-game-header span {
+  color: #f8e7be;
+}
+
+.dance-exit {
+  border: 1px solid #d6c5a3;
+  border-radius: 9px;
+  padding: 7px 10px;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff7ed;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dance-scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  border: 1px solid rgba(255, 247, 237, 0.36);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: clamp(16px, 3vw, 24px);
+  font-weight: 900;
+}
+
+.dance-scoreboard span {
+  color: #f8e7be;
+  font-size: 0.72em;
+}
+
+.dance-players {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(4px, 1vw, 14px);
+  flex: 1;
+}
+
+.dance-team {
+  min-width: 0;
+  padding: clamp(6px, 1.3vw, 14px);
+  border: 2px solid var(--dance-team-color);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.48);
+  text-align: center;
+}
+
+.dance-team h3 {
+  margin: 0 0 8px;
+  color: var(--dance-team-color);
+  font-size: clamp(14px, 2.4vw, 22px);
+  font-weight: 900;
+}
+
+.dance-team-lineup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dance-member {
+  min-width: 0;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid rgba(255, 247, 237, 0.3);
+  border-radius: 10px;
+  background: rgba(20, 20, 20, 0.68);
+  transition: transform 420ms ease, border-color 200ms ease;
+}
+
+.dance-member-center {
+  border-color: #ffdf75;
+  box-shadow: 0 0 0 2px rgba(255, 223, 117, 0.35);
+  transform: scale(1.06);
+}
+
+.dance-member img {
+  display: block;
+  width: clamp(44px, 8vw, 96px);
+  height: clamp(44px, 8vw, 96px);
+  margin-inline: auto;
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.dance-member figcaption,
+.dance-member small {
+  display: block;
+  max-width: 100px;
+  overflow: hidden;
+  color: #fff7ed;
+  font-size: clamp(9px, 1.4vw, 12px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dance-member small {
+  color: #f8e7be;
+}
+
+.dance-member-active:not(.dance-member-switch) {
+  animation: danceCharacterBounce 900ms ease-in-out infinite alternate;
+}
+
+.dance-member-switch {
+  animation: danceMemberSwitch 600ms ease-in-out;
+}
+
+.dance-vs-mark {
+  color: #ffdf75;
+  font-size: clamp(18px, 4vw, 36px);
+  font-weight: 1000;
+  text-shadow: 0 2px 8px #000;
+}
+
+.dance-play-controls {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid rgba(255, 247, 237, 0.3);
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.66);
+}
+
+.dance-status {
+  margin: 0;
+  color: #fff7ed;
+  font-size: clamp(14px, 2.4vw, 19px);
+  font-weight: 900;
+  text-align: center;
+}
+
+.dance-sequence {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.dance-sequence span {
+  min-width: 24px;
+  padding: 4px 6px;
+  border: 1px solid #c8b998;
+  border-radius: 6px;
+  background: #fffaee;
+  color: #29261f;
+  text-align: center;
+  font-weight: 900;
+}
+
+.dance-sequence .dance-key-current {
+  background: #ffdf75;
+  transform: scale(1.15);
+}
+
+.dance-sequence .dance-key-done {
+  opacity: 0.5;
+}
+
+.dance-mode-buttons {
+  display: grid;
+  width: min(100%, 660px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dance-mode-buttons button {
+  min-width: 0;
+  padding: 6px;
+}
+
+.dance-mode-buttons button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.dance-keypad {
+  display: grid;
+  width: min(100%, 340px);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.dance-keypad button {
+  min-height: 52px;
+  background: #f5efe2;
+  font-size: 24px;
+}
+
+.dance-keypad button:active,
+.dance-mode-buttons button:active {
+  transform: translateY(2px);
+}
+
+.dance-input-help,
+.dance-round-note {
+  margin: 0;
+  color: #e9ddc7;
+  font-size: 12px;
+  text-align: center;
+}
+
+.dance-vs,
+.dance-result {
+  justify-content: center;
+  text-align: center;
+}
+
+.dance-vs-banner strong,
+.dance-vs-banner h2 {
+  display: block;
+  margin: 0;
+  color: #ffdf75;
+  font-size: clamp(24px, 7vw, 56px);
+  font-weight: 1000;
+  text-shadow: 0 4px 18px #000;
+}
+
+.dance-vs-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.dance-vs-teams > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dance-vs-teams h3 {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.dance-vs-teams > div:first-child h3 {
+  color: #ff8077;
+}
+
+.dance-vs-teams > div:last-child h3 {
+  color: #77baff;
+}
+
+.dance-vs-teams img {
+  width: clamp(55px, 12vw, 120px);
+  height: clamp(55px, 12vw, 120px);
+  border: 2px solid #fff7ed;
+  border-radius: 12px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.dance-result h2 {
+  margin: 0;
+  color: #ffdf75;
+  font-size: clamp(24px, 6vw, 46px);
+}
+
+@keyframes danceCharacterBounce {
+  from { transform: translateY(2px) rotate(-2deg); }
+  to { transform: translateY(-8px) rotate(2deg); }
+}
+
+@keyframes danceMemberSwitch {
+  0% { transform: translateX(-20px) scale(0.92); opacity: 0.55; }
+  100% { transform: translateX(0) scale(1.06); opacity: 1; }
+}
+
+@media (max-width: 600px) {
+  .dance-arena {
+    min-height: 100%;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .dance-players {
+    align-items: stretch;
+  }
+
+  .dance-team-lineup {
+    gap: 3px;
+  }
+
+  .dance-member {
+    padding: 3px;
+  }
+
+  .dance-mode-buttons button {
+    font-size: 12px;
+  }
+
+  .dance-keypad {
+    width: min(100%, 310px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dance-member-active,
+  .dance-member-switch {
+    animation: none;
+  }
 }
 
 main.title-bgm-active .app-panel {
