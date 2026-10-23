@@ -83,6 +83,8 @@ test("dance lane starters distinguish modes and fever rounds show one lane", () 
 test("spectator turn detection follows the red player's lineup position", () => {
   assert.equal(isDancePlayerTurn("a", 3, 0, "blue"), true);
   assert.equal(isDancePlayerTurn("c", 2, 1, "red"), false);
+  assert.equal(isDancePlayerTurn("c", 2, 0, "blue"), false);
   assert.equal(isDancePlayerTurn("b", 2, 1, "red"), true);
+  assert.equal(isDancePlayerTurn("b", 1, 0, "blue"), true);
   assert.equal(isDancePlayerTurn("last", 2, 0, "blue"), false);
 });

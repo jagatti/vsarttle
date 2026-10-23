@@ -259,13 +259,13 @@ export function DanceBattleMiniGame(props: {
     const activeIndexes = (members: DanceMember[], side: "red" | "blue") => {
       const center = side === "red" ? redCenter : blueCenter;
       if (currentPhase === "last") {
-        if (side === centerTeamRef.current || teamSize === 1) return [center];
-        return members.map((_, index) => index).filter((index) => index !== center);
+        if (side === centerTeamRef.current) return [center];
+        return teamSize === 1 ? [0] : members.map((_, index) => index).filter((index) => index !== center);
       }
       if (currentPhase === "a") return members.map((_, index) => index);
-      if (currentPhase === "c") return [center];
-      if (teamSize === 1) return side === "blue" ? [center] : [];
-      return members.map((_, index) => index).filter((index) => index !== center);
+      if (currentPhase === "c") return side === centerTeamRef.current ? [center] : [];
+      if (side === centerTeamRef.current) return members.map((_, index) => index).filter((index) => index !== center);
+      return members.map((_, index) => index);
     };
     const redIndexes = activeIndexes(teams.red, "red");
     const blueIndexes = activeIndexes(teams.blue, "blue");
@@ -334,25 +334,41 @@ export function DanceBattleMiniGame(props: {
     const blueCenterScore = currentPhase === "c" ? actualBlueBase : centerBaseScores.blue;
     if (currentPhase === "c") {
       setCenterBaseScores({ red: actualRedBase, blue: actualBlueBase });
-      const redMissed = judgments.includes("MISS");
-      const blueMissed = cpuJudgments.includes("MISS");
-      if (teamSize > 1 && redMissed) setRedCenter((value) => (value + 1) % teamSize);
-      if (teamSize > 1 && blueMissed) setBlueCenter((value) => (value + 1) % teamSize);
-      if (teamSize > 1 && (redMissed || blueMissed)) {
-        setSwapTeam(redMissed ? "red" : "blue");
+      const missed = centerTeamRef.current === "red" ? judgments.includes("MISS") : cpuJudgments.includes("MISS");
+      if (teamSize > 1 && missed) {
+        if (centerTeamRef.current === "red") setRedCenter((value) => (value + 1) % teamSize);
+        else setBlueCenter((value) => (value + 1) % teamSize);
+        setSwapTeam(centerTeamRef.current);
         soundManager.playSe("/sounds/se/magic_small.mp3");
         window.setTimeout(() => setSwapTeam(null), 650);
       }
-    } else if (currentPhase === "b" && actualRedBase > redCenterScore && teamSize > 1) {
-      setRedCenter((value) => (value + 1) % teamSize);
-      setSwapTeam("red");
-      soundManager.playSe("/sounds/se/magic_small.mp3");
-      window.setTimeout(() => setSwapTeam(null), 650);
-    } else if (currentPhase === "b" && actualBlueBase > blueCenterScore && teamSize > 1) {
-      setBlueCenter((value) => (value + 1) % teamSize);
-      setSwapTeam("blue");
-      soundManager.playSe("/sounds/se/magic_small.mp3");
-      window.setTimeout(() => setSwapTeam(null), 650);
+    } else if (currentPhase === "a") {
+      if (actualRedBase <= 0 && actualBlueBase <= 0) {
+        setPhase("a");
+        phaseRef.current = "a";
+        setPhaseIndex((value) => value + 1);
+        return;
+      }
+      centerTeamRef.current = actualRedBase >= actualBlueBase ? "red" : "blue";
+      setCenterBaseScores({ red: 0, blue: 0 });
+    } else if (currentPhase === "b") {
+      const centerScore = centerTeamRef.current === "red" ? centerBaseScores.red : centerBaseScores.blue;
+      const redTakesCenter = actualRedBase > centerScore;
+      const blueTakesCenter = actualBlueBase > centerScore;
+      if (redTakesCenter || blueTakesCenter) {
+        const newCenterTeam = redTakesCenter && blueTakesCenter
+          ? (actualRedBase > actualBlueBase ? "red" : "blue")
+          : redTakesCenter ? "red" : "blue";
+        centerTeamRef.current = newCenterTeam;
+        if (newCenterTeam === "red") setRedCenter((value) => (value + 1) % teamSize);
+        else setBlueCenter((value) => (value + 1) % teamSize);
+        setCenterBaseScores(newCenterTeam === "red"
+          ? { red: actualRedBase, blue: centerBaseScores.blue }
+          : { red: centerBaseScores.red, blue: actualBlueBase });
+        setSwapTeam(newCenterTeam);
+        soundManager.playSe("/sounds/se/magic_small.mp3");
+        window.setTimeout(() => setSwapTeam(null), 650);
+      }
     }
 
     setRedStreak((value) => judgments.every((judgment) => ["PERFECT", "GREAT", "GOOD"].includes(judgment)) ? value + 1 : 0);
@@ -368,25 +384,11 @@ export function DanceBattleMiniGame(props: {
     }
 
     if (nextRedScore >= goal || nextBlueScore >= goal) {
-      const centerTeam = nextRedScore >= nextBlueScore ? "red" : "blue";
-      centerTeamRef.current = centerTeam;
       setCenterBaseScores({ red: redCenterScore, blue: blueCenterScore });
       setPhase("last");
       phaseRef.current = "last";
       setLastJudgment(null);
-      if (centerTeam === "red") {
-        const cpuFinalMode: DanceMode = "multiplier";
-        const cpuFinal = makeJudgeList(4 + 2 * (stars - 2), blueBoss);
-        const cpuBacklineScore = getDanceActionScore(cpuFinal, "normal") * (teamSize === 1 ? 1 : teamSize - 1);
-        const winner = redCenterScore >= cpuBacklineScore ? "red" : "blue";
-        window.setTimeout(() => {
-          const finalScore = getDanceActionScore(cpuFinal, cpuFinalMode) * (teamSize === 1 ? 1 : teamSize - 1);
-          setBlueScore((value) => value + finalScore);
-          blueScoreRef.current += finalScore;
-          setResult(winner);
-          setStage("result");
-        }, 2600);
-      }
+      setPhaseIndex((value) => value + 1);
       return;
     }
 
@@ -395,7 +397,7 @@ export function DanceBattleMiniGame(props: {
     setPhase(nextPhase);
     phaseRef.current = nextPhase;
     setPhaseIndex((value) => value + 1);
-  }, [blueBoss, blueCenter, centerBaseScores, goal, redCenter, stars, teamSize, teams]);
+  }, [blueCenter, centerBaseScores, goal, redCenter, teamSize, teams]);
 
   const advanceDanceKey = useCallback((judgment: DanceJudgment) => {
     const current = actionRef.current;
@@ -518,7 +520,7 @@ export function DanceBattleMiniGame(props: {
         <h3>{side === "red" ? "RED TEAM" : "BLUE TEAM"}</h3>
         <div className="dance-team-lineup">
           {members.map((member, index) => {
-            const isCenter = index === center;
+            const isCenter = side === centerTeamRef.current && index === center;
             const stamina = (side === "red" ? redStamina : blueStamina)[index] ?? 0;
             return (
               <figure
@@ -657,10 +659,12 @@ export function DanceBattleMiniGame(props: {
                 const sequence = activeAction?.mode === mode ? activeAction.sequence : laneSequences[mode];
                 const feverKey = mode === "multiplier" && activeAction?.mode === "multiplier" && activeAction.index > 0;
                 const shownSequence = feverKey ? [sequence[activeAction!.index]!] : sequence;
-                const modeLabel = mode === "recovery" ? "1. 回復" : mode === "normal" ? "2. ×1.0" : "3. ×1.2";
+                const modeLabel = mode === "recovery"
+                  ? `1. 回復 +${getDanceRecovery(teams.red[0]?.stats.maxPp ?? 0)}`
+                  : mode === "normal" ? "2. ×1.0 −4" : "3. ×1.2 −7";
                 return (
                   <div className={`dance-lane${activeAction?.mode === mode ? " dance-lane-selected" : ""}`} key={`${phaseIndex}-${mode}`}>
-                    <span className="dance-lane-label">{feverKey ? `${activeAction!.judgments.length + 1}/${getDanceFeverLimit(stars)}` : modeLabel}</span>
+                    <span className="dance-lane-label">{feverKey ? `${Math.min(activeAction!.index, getDanceFeverLimit(stars))}/${getDanceFeverLimit(stars)}` : modeLabel}</span>
                     <div className="dance-lane-track">
                       <div className="dance-lane-keys">
                         {shownSequence.slice(0, -1).map((key, index) => (

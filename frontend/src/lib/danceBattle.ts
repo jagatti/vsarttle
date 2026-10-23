@@ -55,8 +55,8 @@ export function isDancePlayerTurn(
   centerTeam: "red" | "blue",
 ): boolean {
   if (phase === "a") return true;
-  if (phase === "c") return redCenter === 0;
-  if (phase === "b") return teamSize > 1 && redCenter !== 0;
+  if (phase === "c") return centerTeam === "red" && redCenter === 0;
+  if (phase === "b") return centerTeam === "blue" || (teamSize > 1 && redCenter !== 0);
   if (centerTeam === "red") return redCenter === 0;
   return teamSize === 1 || redCenter !== 0;
 }
