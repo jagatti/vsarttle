@@ -47,11 +47,12 @@ type DanceAction = {
   mode: DanceMode;
   sequence: DanceKey[];
   judgments: DanceJudgment[];
-  startedAt: number;
   index: number;
   multiplied: boolean;
   timingStartedAt: number | null;
+  timingTargetMs: number;
 };
+type DanceLaneOption = DanceLane & { sequence: DanceKey[] };
 
 const KEY_LABELS: Record<DanceKey, string> = {
   ArrowUp: "↑",
@@ -62,7 +63,6 @@ const KEY_LABELS: Record<DanceKey, string> = {
 };
 const DANCE_BGM = "/sounds/bgm/boss4_loop.mp3";
 const FINAL_DANCE_BGM = "/sounds/bgm/boss5-3_loop.mp3";
-const TEAM_COLORS = { red: "#d8564f", blue: "#4f8ac9" };
 
 function randomBoss(): DanceMember {
   const floor = Math.floor(Math.random() * 5) + 1;
@@ -157,7 +157,7 @@ export function DanceBattleMiniGame(props: {
   const [blueCenter, setBlueCenter] = useState(0);
   const [centerBaseScores, setCenterBaseScores] = useState({ red: 0, blue: 0 });
   const [activeAction, setActiveAction] = useState<DanceAction | null>(null);
-  const [laneChoices, setLaneChoices] = useState<DanceLane[]>([]);
+  const [laneChoices, setLaneChoices] = useState<DanceLaneOption[]>([]);
   const [keysVisible, setKeysVisible] = useState(false);
   const [roundReady, setRoundReady] = useState(false);
   const [timingProgress, setTimingProgress] = useState(0);
@@ -214,7 +214,10 @@ export function DanceBattleMiniGame(props: {
 
   useEffect(() => {
     if (stage !== "playing") return;
-    setLaneChoices(createDanceLanes());
+    setLaneChoices(createDanceLanes().map((lane) => ({
+      ...lane,
+      sequence: createDanceSequence(lane.mode, stars, Math.random, lane.firstKey),
+    })));
     setKeysVisible(false);
     setRoundReady(false);
     const keysTimer = window.setTimeout(() => setKeysVisible(true), 1200);
@@ -223,7 +226,7 @@ export function DanceBattleMiniGame(props: {
       window.clearTimeout(keysTimer);
       window.clearTimeout(readyTimer);
     };
-  }, [phase, phaseIndex, stage]);
+  }, [phase, phaseIndex, stars, stage]);
 
   useEffect(() => {
     const current = activeAction;
@@ -231,7 +234,7 @@ export function DanceBattleMiniGame(props: {
       setTimingProgress(0);
       return;
     }
-    const target = getDanceTargetTime(0, 0);
+    const target = current.timingTargetMs;
     let frame = 0;
     const update = () => {
       setTimingProgress(getDanceBarProgress(performance.now() - current.timingStartedAt!, target));
@@ -300,7 +303,7 @@ export function DanceBattleMiniGame(props: {
     setStage("vs");
   }, [createOpponent, props.playerProfile.nickname, teamSize]);
 
-  const setupNewAction = useCallback((lane: DanceLane, firstKeyPressed: boolean) => {
+  const setupNewAction = useCallback((lane: DanceLaneOption, firstKeyPressed: boolean) => {
     const { mode } = lane;
     if (stage !== "playing" || actionRef.current) return;
     if (phase === "last" && mode !== "multiplier") return;
@@ -309,14 +312,18 @@ export function DanceBattleMiniGame(props: {
       feverUsesRef.current = getDanceFeverLimit(stars);
       setFeverUsesRemaining(feverUsesRef.current);
     }
+    const feverRound = mode === "multiplier" && phase !== "last";
+    const sequence = feverRound ? [lane.firstKey] : lane.sequence;
+    const timingStartedAt = feverRound ? performance.now() : null;
+    const feverStage = feverRound ? getDanceFeverLimit(stars) - feverUsesRef.current + 1 : 1;
     const next: DanceAction = {
       mode,
-      sequence: createDanceSequence(mode, stars, Math.random, lane.firstKey),
+      sequence,
       judgments: [],
-      startedAt: 0,
-      index: firstKeyPressed ? 1 : 0,
+      index: firstKeyPressed && !feverRound ? 1 : 0,
       multiplied: mode === "multiplier",
-      timingStartedAt: null,
+      timingStartedAt,
+      timingTargetMs: getDanceTargetTime(0, feverStage - 1),
     };
     actionRef.current = next;
     setActiveAction(next);
@@ -362,8 +369,8 @@ export function DanceBattleMiniGame(props: {
     );
     const redMultiplier = mode === "multiplier" && multiplied ? 1.2 : 1;
     const blueMultiplier = cpuMode === "multiplier" && cpuMultiplied ? 1.2 : 1;
-    const redValue = actualRedBase * redMultiplier;
-    const blueValue = actualBlueBase * blueMultiplier;
+    const redValue = Math.round(actualRedBase * redMultiplier);
+    const blueValue = Math.round(actualBlueBase * blueMultiplier);
 
     const applyStamina = (current: number[], members: DanceMember[], side: "red" | "blue", dancers: number, actionMode: DanceMode) =>
       current.map((value, index) => {
@@ -435,7 +442,7 @@ export function DanceBattleMiniGame(props: {
     setRedStreak((value) => judgments.every((judgment) => ["PERFECT", "GREAT", "GOOD"].includes(judgment)) ? value + 1 : 0);
     setBlueStreak((value) => cpuJudgments.every((judgment) => ["PERFECT", "GREAT", "GOOD"].includes(judgment)) ? value + 1 : 0);
     if (mode === "multiplier" && multiplied && feverUsesRef.current > 0) {
-      feverUsesRef.current -= 1;
+      feverUsesRef.current = judgments.includes("MISS") ? 0 : feverUsesRef.current - 1;
       setFeverUsesRemaining(feverUsesRef.current);
       if (feverUsesRef.current === 0) setRedStreak(0);
     }
@@ -490,8 +497,7 @@ export function DanceBattleMiniGame(props: {
         blueFeverUsesRef.current = getDanceFeverLimit(stars);
       }
       const cpuMultiplied = cpuMode === "multiplier";
-      const cpuLength = createDanceSequence(cpuMode, stars).length;
-      const cpuJudgments = makeJudgeList(cpuLength, blueBoss);
+      const cpuJudgments = makeJudgeList(1, blueBoss);
       resolveCompletedAction(current.mode, current.multiplied, judgments, cpuMode, cpuMultiplied, cpuJudgments);
       return;
     }
@@ -511,7 +517,7 @@ export function DanceBattleMiniGame(props: {
     const expected = current.sequence[current.index];
     if (key !== expected) {
       soundManager.playSe("/sounds/se/ng.mp3");
-      const reset = { ...current, index: 0, startedAt: 0, timingStartedAt: null };
+      const reset = { ...current, index: 0, timingStartedAt: null };
       actionRef.current = reset;
       setActiveAction(reset);
       return;
@@ -519,7 +525,7 @@ export function DanceBattleMiniGame(props: {
     if (current.timingStartedAt === null && current.index < current.sequence.length - 1) {
       const index = current.index + 1;
       const timingStartedAt = index === current.sequence.length - 1 ? performance.now() : null;
-      const next = { ...current, index, startedAt: timingStartedAt ?? 0, timingStartedAt };
+      const next = { ...current, index, timingStartedAt };
       actionRef.current = next;
       setActiveAction(next);
       soundManager.playSe("/sounds/se/button.mp3");
@@ -528,7 +534,7 @@ export function DanceBattleMiniGame(props: {
     if (current.timingStartedAt === null) return;
     const judgment = getDanceTimingJudgment(
       performance.now() - current.timingStartedAt,
-      getDanceTargetTime(0, 0),
+      current.timingTargetMs,
     );
     if (judgment === null) return;
     soundManager.playSe(judgment === "BAD" ? "/sounds/se/ng.mp3" : "/sounds/se/button.mp3");
@@ -537,7 +543,7 @@ export function DanceBattleMiniGame(props: {
 
   useEffect(() => {
     if (!activeAction?.timingStartedAt) return;
-    const target = activeAction.timingStartedAt + getDanceTargetTime(0, 0) + 300;
+    const target = activeAction.timingStartedAt + activeAction.timingTargetMs + 300;
     const timer = window.setTimeout(() => advanceDanceKey("MISS"), Math.max(0, target - performance.now()));
     return () => window.clearTimeout(timer);
   }, [activeAction, advanceDanceKey]);
@@ -575,7 +581,7 @@ export function DanceBattleMiniGame(props: {
     const playerMaxStamina = teams.red[0] ? getDanceStamina(teams.red[0].stats.maxHp) : 0;
     return (
       <div className={`dance-hud-team dance-hud-${side}`}>
-        <strong>{side === "red" ? "RED TEAM" : "BLUE TEAM"}{side === centerTeamRef.current ? "　👑" : ""}</strong>
+        <strong>{side === "red" ? "RED TEAM" : "BLUE TEAM"}</strong>
         <span>{score} / {goal}</span>
         <div className="dance-score-track"><i style={{ width: `${Math.max(0, Math.min(100, (score / goal) * 100))}%` }} /></div>
         <small>{side === "red" ? `⚡あなたのスタミナ ${playerStamina} / ${playerMaxStamina} ${activeAction?.mode === "recovery" ? `+${getDanceRecovery(teams.red[0]?.stats.maxPp ?? 0)}` : activeAction ? `-${activeAction.mode === "multiplier" ? 7 : 4}` : ""}` : `⚡中央 ${members[center]?.nickname ?? "—"} ${stamina[center] ?? 0}`}</small>
@@ -739,8 +745,10 @@ export function DanceBattleMiniGame(props: {
       <div className="dance-lanes" id="lanes">
         {laneChoices.map((lane, laneIndex) => {
           const isSelected = activeAction?.mode === lane.mode;
-          const modeText = lane.mode === "recovery" ? `1.回復 +${getDanceRecovery(teams.red[redCenter]?.stats.maxPp ?? 0)}` : lane.mode === "normal" ? "2.ダンス −4" : `3.×1.2 −7${canActivateDanceFever(redStreak, feverUsesRemaining) ? " 🔥FEVER" : ""}`;
-          const sequence = isSelected ? activeAction.sequence : createDanceSequence(lane.mode, stars, () => 0.25, lane.firstKey);
+          const feverStage = getDanceFeverLimit(stars) - feverUsesRemaining + 1;
+          const feverLabel = canActivateDanceFever(redStreak, feverUsesRemaining) ? ` 🔥FEVER ${Math.min(feverStage, getDanceFeverLimit(stars))}/${getDanceFeverLimit(stars)}` : "";
+          const modeText = lane.mode === "recovery" ? `1.回復 +${getDanceRecovery(teams.red[redCenter]?.stats.maxPp ?? 0)}` : lane.mode === "normal" ? "2.ダンス −4" : `3.×1.2 −7${feverLabel}`;
+          const sequence = isSelected ? activeAction.sequence : lane.sequence;
           const sequenceIndex = isSelected ? activeAction.index : -1;
           const showingBar = isSelected && activeAction.timingStartedAt !== null;
           const laneDisabled = (lane.mode === "multiplier" && phase !== "last" && !canActivateDanceFever(redStreak, feverUsesRemaining)) ||
