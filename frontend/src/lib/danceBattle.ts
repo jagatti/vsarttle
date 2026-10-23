@@ -20,6 +20,54 @@ export const DANCE_PHASE_LABELS: Record<DancePhase, string> = {
 
 const DANCE_KEYS: DanceKey[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
 
+export const DANCE_MODES = ["recovery", "normal", "multiplier"] as const;
+export const DANCE_ROUND_DURATION = Math.round(3000 / 1.1);
+export const DANCE_ROUND_GRACE = 300;
+export type DanceRound = {
+  sequences: Record<DanceMode, DanceKey[]>;
+  mode: DanceMode | null;
+  index: number;
+  startedAt: number;
+  judgment: DanceJudgment | null;
+};
+
+export function createDanceRound(stars: 3 | 4 | 5, startedAt: number, random = Math.random): DanceRound {
+  const sequences = Object.fromEntries(DANCE_MODES.map((mode) => [mode, createDanceSequence(mode, stars, random)])) as DanceRound["sequences"];
+  const first = Math.floor(random() * DANCE_KEYS.length);
+  DANCE_MODES.forEach((mode, index) => {
+    sequences[mode][0] = DANCE_KEYS[(first + index) % DANCE_KEYS.length];
+  });
+  return { sequences, mode: null, index: 0, startedAt, judgment: null };
+}
+
+export function getDanceRoundProgress(round: DanceRound, now: number): number {
+  return Math.min(1, Math.max(0, (now - round.startedAt) / DANCE_ROUND_DURATION));
+}
+
+export function expireDanceRound(round: DanceRound, now: number): DanceRound {
+  if (round.judgment || now - round.startedAt <= DANCE_ROUND_DURATION + DANCE_ROUND_GRACE) return round;
+  return { ...round, mode: round.mode ?? "normal", judgment: "MISS" };
+}
+
+export function inputDanceRound(round: DanceRound, key: DanceKey, now: number): DanceRound {
+  const current = expireDanceRound(round, now);
+  if (current.judgment) return current;
+  const mode = current.mode ?? DANCE_MODES.find((row) => current.sequences[row][0] === key);
+  if (!mode) return current;
+  if (current.sequences[mode][current.index] !== key) {
+    return { ...current, mode, judgment: "BAD" };
+  }
+  const index = current.index + 1;
+  return {
+    ...current,
+    mode,
+    index,
+    judgment: index === current.sequences[mode].length
+      ? judgeDanceTiming(now - current.startedAt - DANCE_ROUND_DURATION)
+      : null,
+  };
+}
+
 export function judgeDanceTiming(diffMs: number): DanceJudgment {
   const diff = Math.abs(diffMs);
   if (diff <= 22) return "PERFECT";

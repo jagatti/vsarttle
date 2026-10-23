@@ -1763,7 +1763,6 @@ main.app-title-shell {
 }
 
 .dance-team-size button,
-.dance-mode-buttons button,
 .dance-keypad button {
   min-height: 46px;
   border: 2px solid #8b7352;
@@ -1810,36 +1809,35 @@ main.app-title-shell {
 }
 
 .dance-arena {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   display: flex;
-  min-height: min(100%, 760px);
-  flex: 1;
+  height: 100dvh;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   box-sizing: border-box;
-  padding: clamp(10px, 2.5vw, 24px);
-  overflow: hidden;
-  border: 2px solid #8b7352;
-  border-radius: 18px 13px 17px 14px / 13px 18px 12px 17px;
-  background:
-    linear-gradient(rgba(12, 15, 30, 0.62), rgba(12, 15, 30, 0.86)),
-    url("/arttle_back/arenaback.png") center / cover;
+  padding: clamp(8px, 1.5vw, 18px);
+  overflow: auto;
+  isolation: isolate;
   color: #fff7ed;
+}
+
+.dance-arena::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(12, 15, 30, 0.25), rgba(12, 15, 30, 0.5)),
+    url("/arttle_back/arenaback.png") center / cover;
+  pointer-events: none;
 }
 
 .dance-game-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.dance-game-header strong {
-  font-size: clamp(18px, 3vw, 25px);
-}
-
-.dance-game-header span {
-  color: #f8e7be;
+  justify-content: flex-end;
 }
 
 .dance-exit {
@@ -1872,169 +1870,258 @@ main.app-title-shell {
 
 .dance-players {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
   gap: clamp(4px, 1vw, 14px);
   flex: 1;
+  min-height: 220px;
 }
 
-.dance-team {
-  min-width: 0;
-  padding: clamp(6px, 1.3vw, 14px);
-  border: 2px solid var(--dance-team-color);
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.48);
-  text-align: center;
-}
-
-.dance-team h3 {
-  margin: 0 0 8px;
-  color: var(--dance-team-color);
-  font-size: clamp(14px, 2.4vw, 22px);
-  font-weight: 900;
-}
-
-.dance-team-lineup {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.dance-member {
-  min-width: 0;
-  margin: 0;
-  padding: 5px;
-  border: 1px solid rgba(255, 247, 237, 0.3);
-  border-radius: 10px;
-  background: rgba(20, 20, 20, 0.68);
-  transition: transform 420ms ease, border-color 200ms ease;
-}
-
-.dance-member-center {
-  border-color: #ffdf75;
-  box-shadow: 0 0 0 2px rgba(255, 223, 117, 0.35);
-  transform: scale(1.06);
-}
-
-.dance-member img {
-  display: block;
-  width: clamp(44px, 8vw, 96px);
-  height: clamp(44px, 8vw, 96px);
+.dance-hud {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: min(100%, 960px);
   margin-inline: auto;
-  border-radius: 8px;
-  background: #fff;
-  object-fit: contain;
 }
 
-.dance-member figcaption,
-.dance-member small {
-  display: block;
-  max-width: 100px;
+.dance-team-panel {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border-radius: 12px;
+  border-left: 5px solid var(--dance-team-color);
+  padding: 10px 12px;
+  background: rgba(10, 14, 28, 0.68);
+}
+
+.dance-team-panel strong {
+  color: var(--dance-team-color);
+}
+
+.dance-team-panel span,
+.dance-team-panel small {
   overflow: hidden;
-  color: #fff7ed;
-  font-size: clamp(9px, 1.4vw, 12px);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dance-member small {
-  color: #f8e7be;
+.dance-team {
+  min-width: 0;
+  text-align: center;
 }
 
-.dance-member-active:not(.dance-member-switch) {
-  animation: danceCharacterBounce 900ms ease-in-out infinite alternate;
+.dance-team-lineup {
+  position: relative;
+  height: 100%;
 }
 
-.dance-member-switch {
-  animation: danceMemberSwitch 600ms ease-in-out;
+.dance-member {
+  position: absolute;
+  left: calc(50% + (var(--slot) - 1) * 30%);
+  top: 12%;
+  width: clamp(76px, 13vw, 180px);
+  translate: -50% 0;
+  min-width: 0;
+  margin: 0;
+  opacity: 0.5;
+  transition: left 600ms ease, top 600ms ease, width 600ms ease, opacity 200ms ease;
 }
 
-.dance-vs-mark {
+.dance-member-center {
+  left: 50%;
+  top: 38%;
+  z-index: 1;
+  width: clamp(96px, 17vw, 230px);
+}
+
+.dance-member img {
+  display: block;
+  width: 100%;
+  height: clamp(70px, 16vh, 160px);
+  margin-inline: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.55));
+}
+
+.dance-member-center img {
+  height: clamp(90px, 21vh, 220px);
+}
+
+.dance-member figcaption {
+  display: block;
+  overflow: hidden;
+  color: #fff7ed;
+  font-size: clamp(10px, 1.2vw, 14px);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000, 0 0 4px #000;
+}
+
+.dance-member-judgment {
+  display: block;
+  min-height: 20px;
   color: #ffdf75;
-  font-size: clamp(18px, 4vw, 36px);
-  font-weight: 1000;
-  text-shadow: 0 2px 8px #000;
+  font-weight: 900;
+  text-shadow: 0 1px 3px #000;
+}
+
+.dance-member-active {
+  opacity: 1;
+}
+
+.dance-member-active img {
+  animation: danceCharacterBounce 700ms ease-in-out infinite;
+}
+
+.dance-member-switch img {
+  animation: danceMemberSwitch 600ms ease-in-out;
 }
 
 .dance-play-controls {
   display: grid;
   justify-items: center;
   gap: 9px;
-  padding: 10px;
-  border: 1px solid rgba(255, 247, 237, 0.3);
-  border-radius: 13px;
-  background: rgba(0, 0, 0, 0.66);
+  flex-shrink: 0;
 }
 
 .dance-status {
   margin: 0;
   color: #fff7ed;
-  font-size: clamp(14px, 2.4vw, 19px);
+  font-size: clamp(12px, 1.4vw, 16px);
   font-weight: 900;
   text-align: center;
+  text-shadow: 0 1px 4px #000;
 }
 
-.dance-sequence {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.dance-sequence span {
-  min-width: 24px;
-  padding: 4px 6px;
-  border: 1px solid #c8b998;
-  border-radius: 6px;
-  background: #fffaee;
-  color: #29261f;
-  text-align: center;
-  font-weight: 900;
-}
-
-.dance-sequence .dance-key-current {
-  background: #ffdf75;
-  transform: scale(1.15);
-}
-
-.dance-sequence .dance-key-done {
-  opacity: 0.5;
-}
-
-.dance-mode-buttons {
+.dance-lanes {
+  --key-size: 34px;
+  --p: 0;
+  width: min(40vw, 560px);
+  min-width: min(510px, 100%);
+  max-width: 100%;
   display: grid;
-  width: min(100%, 660px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dance-lane {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
   gap: 8px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: rgba(10, 14, 28, 0.75);
+  opacity: 0.65;
 }
 
-.dance-mode-buttons button {
-  min-width: 0;
-  padding: 6px;
+.dance-lane.on {
+  opacity: 1;
+  outline: 2px solid #ffdf75;
 }
 
-.dance-mode-buttons button:disabled {
-  opacity: 0.52;
-  cursor: not-allowed;
+.dance-lane-label {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.dance-track {
+  position: relative;
+  min-height: 42px;
+  border-left: 3px solid #ffcf42;
+}
+
+.dance-track::after {
+  content: "";
+  position: absolute;
+  right: calc(var(--key-size) / 2 - 1px);
+  width: 2px;
+  top: -9px;
+  bottom: -9px;
+  background: #fff;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.dance-track::before {
+  content: "▼";
+  position: absolute;
+  right: calc(var(--key-size) / 2 - 6px);
+  top: -18px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.dance-keys {
+  display: flex;
+  gap: 4px;
+  padding: 4px 44px 4px 8px;
+}
+
+.dance-key {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  flex: 0 0 var(--key-size);
+  width: var(--key-size);
+  height: var(--key-size);
+  border: 2px solid #b6bfce;
+  border-radius: 8px;
+  background: #202a40;
+  color: #fff;
+  font: 900 22px / 1 system-ui, sans-serif;
+}
+
+.dance-key.first {
+  border-color: #ffcf42;
+  box-shadow: inset 0 0 0 1px #ffcf42;
+}
+
+.dance-key.ok {
+  background: #087583;
+  border-color: #6cffff;
+  color: #cfffff;
+}
+
+.dance-fin {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  border-color: #ff69b4;
+  background: #502340;
+}
+
+.dance-bar {
+  display: none;
+  position: absolute;
+  left: calc(var(--p) * (100% - var(--key-size)) + var(--key-size) / 2 - 3px);
+  top: -4px;
+  bottom: -4px;
+  width: 6px;
+  background: #ffe34f;
+  box-shadow: 0 0 8px #ffcf42;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.dance-lanes.dancing .dance-bar {
+  display: block;
 }
 
 .dance-keypad {
   display: grid;
-  width: min(100%, 340px);
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(5, 52px);
   gap: 7px;
 }
 
 .dance-keypad button {
-  min-height: 52px;
+  min-height: 48px;
   background: #f5efe2;
   font-size: 24px;
 }
 
-.dance-keypad button:active,
-.dance-mode-buttons button:active {
+.dance-keypad button:active {
   transform: translateY(2px);
 }
 
@@ -2092,9 +2179,6 @@ main.app-title-shell {
 .dance-vs-teams img {
   width: clamp(55px, 12vw, 120px);
   height: clamp(55px, 12vw, 120px);
-  border: 2px solid #fff7ed;
-  border-radius: 12px;
-  background: #fff;
   object-fit: contain;
 }
 
@@ -2105,8 +2189,8 @@ main.app-title-shell {
 }
 
 @keyframes danceCharacterBounce {
-  from { transform: translateY(2px) rotate(-2deg); }
-  to { transform: translateY(-8px) rotate(2deg); }
+  0%, 100% { transform: translateY(2px) rotate(-5deg); }
+  50% { transform: translateY(-14px) rotate(6deg); }
 }
 
 @keyframes danceMemberSwitch {
@@ -2114,38 +2198,50 @@ main.app-title-shell {
   100% { transform: translateX(0) scale(1.06); opacity: 1; }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 560px) {
   .dance-arena {
-    min-height: 100%;
-    gap: 8px;
     padding: 8px;
   }
 
-  .dance-players {
-    align-items: stretch;
-  }
-
-  .dance-team-lineup {
-    gap: 3px;
-  }
-
-  .dance-member {
-    padding: 3px;
-  }
-
-  .dance-mode-buttons button {
+  .dance-hud {
     font-size: 12px;
   }
 
-  .dance-keypad {
-    width: min(100%, 310px);
+  .dance-team-panel {
+    padding: 8px;
+  }
+
+  .dance-lanes {
+    --key-size: 30px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dance-lane {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 4px;
+    padding-inline: 4px;
+  }
+
+  .dance-keys {
+    flex-wrap: wrap;
+    gap: 4px 2px;
+    padding-right: 38px;
+  }
+
+  .dance-key {
+    font-size: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dance-member-active,
-  .dance-member-switch {
+  .dance-member-active img,
+  .dance-member-switch img {
     animation: none;
+  }
+
+  .dance-member {
+    transition: none;
   }
 }
 
