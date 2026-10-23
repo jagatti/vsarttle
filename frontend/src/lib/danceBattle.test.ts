@@ -3,8 +3,10 @@ import test from "node:test";
 import {
   DANCE_JUDGMENT_POINTS,
   canActivateDanceFever,
+  createDanceLanes,
   createDanceSequence,
   getDanceActionScore,
+  getDanceBarProgress,
   getDanceCpuJudgment,
   getDanceDancers,
   getDanceGoal,
@@ -13,6 +15,7 @@ import {
   getDanceSequenceLength,
   getDanceStamina,
   getDanceTargetTime,
+  getDanceTimingJudgment,
   judgeDanceTiming,
 } from "@/lib/danceBattle";
 
@@ -21,6 +24,23 @@ test("dance timing uses the specified judgement boundaries", () => {
   assert.equal(judgeDanceTiming(-70), "GREAT");
   assert.equal(judgeDanceTiming(115), "GOOD");
   assert.equal(judgeDanceTiming(116), "BAD");
+});
+
+test("dance lanes have unique first keys and map up to recovery", () => {
+  const lanes = createDanceLanes(() => 0);
+  assert.equal(lanes[0]?.firstKey, "ArrowUp");
+  assert.deepEqual(new Set(lanes.map((lane) => lane.firstKey)).size, 3);
+  assert.deepEqual(createDanceSequence("normal", 3, () => 0, lanes[1]?.firstKey), [
+    lanes[1]?.firstKey, "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp",
+  ]);
+});
+
+test("dance timing hides early presses, grades the target, and misses after the window", () => {
+  assert.equal(getDanceTimingJudgment(1826, 2727), null);
+  assert.equal(getDanceTimingJudgment(2705, 2727), "PERFECT");
+  assert.equal(getDanceTimingJudgment(2800, 2727), "GOOD");
+  assert.equal(getDanceTimingJudgment(3028, 2727), "MISS");
+  assert.equal(getDanceBarProgress(5000, 2727), 1);
 });
 
 test("dance stamina and recovery derive from character max stats", () => {
@@ -37,6 +57,7 @@ test("dance patterns preserve the difficulty lengths and recovery X", () => {
   assert.equal(createDanceSequence("normal", 5, () => 0).length, 9);
   assert.ok(createDanceSequence("normal", 5, () => 0).filter((key) => key === "X").length >= 1);
   assert.ok(createDanceSequence("normal", 5, () => 0).filter((key) => key === "X").length <= 2);
+  assert.equal(createDanceSequence("normal", 5, () => 0, "ArrowDown")[0], "ArrowDown");
 });
 
 test("dance target timings follow the original sequence formula", () => {
@@ -48,7 +69,9 @@ test("dance CPU boss judgments are stronger and score scaling is applied once", 
   assert.equal(getDanceCpuJudgment(() => 0.25), "GREAT");
   assert.equal(getDanceCpuJudgment(() => 0.25, true), "PERFECT");
   assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "normal"), 21);
-  assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "multiplier"), 25.2);
+  assert.equal(getDanceActionScore(["PERFECT", "GOOD"], "multiplier"), 25);
+  assert.equal(getDanceActionScore(["GOOD", "MISS"], "normal", 0), 2);
+  assert.equal(getDanceActionScore(["GOOD"], "recovery", 0), 8);
   assert.deepEqual(DANCE_JUDGMENT_POINTS, { PERFECT: 13, GREAT: 10, GOOD: 8, BAD: 5, MISS: -3 });
 });
 

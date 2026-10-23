@@ -2,6 +2,7 @@ export type DanceJudgment = "PERFECT" | "GREAT" | "GOOD" | "BAD" | "MISS";
 export type DanceMode = "recovery" | "normal" | "multiplier";
 export type DancePhase = "a" | "c" | "b" | "last";
 export type DanceKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "X";
+export type DanceLane = { mode: DanceMode; firstKey: DanceKey };
 
 export const DANCE_JUDGMENT_POINTS: Record<DanceJudgment, number> = {
   PERFECT: 13,
@@ -26,6 +27,29 @@ export function judgeDanceTiming(diffMs: number): DanceJudgment {
   if (diff <= 70) return "GREAT";
   if (diff <= 115) return "GOOD";
   return "BAD";
+}
+
+export function getDanceTimingJudgment(elapsedMs: number, targetMs: number): DanceJudgment | null {
+  if (elapsedMs < targetMs - 900) return null;
+  if (elapsedMs > targetMs + 300) return "MISS";
+  return judgeDanceTiming(elapsedMs - targetMs);
+}
+
+export function getDanceBarProgress(elapsedMs: number, targetMs: number): number {
+  return Math.max(0, Math.min(1, elapsedMs / targetMs));
+}
+
+export function createDanceLanes(random: () => number = Math.random): DanceLane[] {
+  const firstKeys: DanceKey[] = ["ArrowDown", "ArrowLeft", "ArrowRight"];
+  for (let index = firstKeys.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [firstKeys[index], firstKeys[swapIndex]] = [firstKeys[swapIndex]!, firstKeys[index]!];
+  }
+  return [
+    { mode: "recovery", firstKey: "ArrowUp" },
+    { mode: "normal", firstKey: firstKeys[0]! },
+    { mode: "multiplier", firstKey: firstKeys[1]! },
+  ];
 }
 
 export function getDanceStamina(maxHp: number): number {
@@ -58,16 +82,18 @@ export function createDanceSequence(
   mode: DanceMode,
   stars: 3 | 4 | 5,
   random: () => number = Math.random,
+  firstKey?: DanceKey,
 ): DanceKey[] {
   const length = getDanceSequenceLength(mode, stars);
   const sequence = Array.from({ length }, (_, index) => {
+    if (index === 0 && firstKey) return firstKey;
     if (index === 0 && mode === "recovery") return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
     if (index === length - 1 && mode === "recovery") return "X";
     return DANCE_KEYS[Math.floor(random() * DANCE_KEYS.length)]!;
   });
   if (stars === 5 && mode !== "recovery") {
     const xCount = random() < 0.5 ? 1 : 2;
-    const availableIndexes = sequence.map((_, index) => index);
+    const availableIndexes = sequence.map((_, index) => index).filter((index) => index > 0);
     for (let index = availableIndexes.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(random() * (index + 1));
       [availableIndexes[index], availableIndexes[swapIndex]] = [availableIndexes[swapIndex]!, availableIndexes[index]!];
@@ -102,9 +128,14 @@ export function getDanceCpuMode(stamina: number, streak: number, random: () => n
   return random() < 0.3 ? "recovery" : "normal";
 }
 
-export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode): number {
-  const base = judgments.reduce((sum, judgment) => sum + DANCE_JUDGMENT_POINTS[judgment], 0);
-  return mode === "multiplier" ? base * 1.2 : base;
+export function getDanceActionScore(judgments: DanceJudgment[], mode: DanceMode, stamina = 1): number {
+  const base = judgments.reduce((sum, judgment) => {
+    const points = mode !== "recovery" && stamina <= 0 && judgment !== "MISS"
+      ? DANCE_JUDGMENT_POINTS.BAD
+      : DANCE_JUDGMENT_POINTS[judgment];
+    return sum + points;
+  }, 0);
+  return mode === "multiplier" ? Math.round(base * 1.2) : base;
 }
 
 export function getDanceDancers(

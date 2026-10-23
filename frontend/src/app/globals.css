@@ -2149,6 +2149,455 @@ main.app-title-shell {
   }
 }
 
+.dance-battle.dance-arena {
+  min-height: 0;
+  gap: 7px;
+  padding: 7px;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #f7f2e4;
+}
+
+.dance-battle .dance-game-header {
+  min-height: 24px;
+  color: #f6b81d;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.dance-battle .dance-exit {
+  min-height: 28px;
+  padding: 3px 8px;
+  border-color: #4f7d83;
+  background: #10242b;
+}
+
+.dance-hud {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.dance-hud-team {
+  position: relative;
+  min-width: 0;
+  padding: 7px 10px;
+  border-left: 6px solid;
+  border-radius: 9px;
+  background: rgba(16, 36, 43, 0.92);
+  box-shadow: 0 2px 8px #07131780;
+}
+
+.dance-hud-red { border-left-color: #e2433f; }
+.dance-hud-blue { border-left-color: #3f6fe2; }
+
+.dance-hud-team strong,
+.dance-hud-team > span,
+.dance-hud-team small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dance-hud-team .dance-score-pop {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  color: #f6b81d;
+  font-size: 11px;
+  font-weight: 1000;
+  pointer-events: none;
+  animation: dance-score-pop 700ms ease-out both;
+}
+
+.dance-hud-team strong {
+  color: #f6b81d;
+  font-size: 12px;
+}
+
+.dance-hud-red strong { color: #ff7772; }
+.dance-hud-blue strong { color: #84a7ff; }
+.dance-hud-team > span { font-size: 13px; font-weight: 900; }
+.dance-hud-team small { color: #f2dda6; font-size: 10px; }
+
+.dance-score-track {
+  height: 5px;
+  margin: 3px 0;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #456169;
+}
+
+.dance-score-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #f6b81d;
+  transition: width 350ms ease;
+}
+
+.dance-hud-crown {
+  color: #f6b81d;
+  font-size: 18px;
+}
+
+.dance-stage {
+  position: relative;
+  height: clamp(210px, 31vh, 270px);
+  min-height: 210px;
+  overflow: hidden;
+  border: 2px solid #1e4750;
+  border-radius: 12px;
+  background: url("/arttle_back/arenaback.png") center / cover no-repeat;
+  box-shadow: inset 0 0 32px #07131770;
+}
+
+.dance-stage-logo {
+  position: absolute;
+  z-index: 1;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #f6b81d;
+  font-size: clamp(16px, 3vw, 23px);
+  font-weight: 1000;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 4px #10242b, 0 0 9px #10242b;
+}
+
+.dance-mute {
+  position: absolute;
+  z-index: 5;
+  top: 7px;
+  right: 7px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #f6b81d;
+  border-radius: 50%;
+  background: #10242bdf;
+  color: white;
+  cursor: pointer;
+}
+
+.dance-platform {
+  position: absolute;
+  bottom: -52px;
+  left: 50%;
+  width: min(48%, 250px);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border: 7px solid #f6b81d;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #e5ad22b8 0%, #94691255 55%, #10242b00 72%);
+  box-shadow: 0 0 20px #f6b81d88, inset 0 0 14px #fff4b4aa;
+}
+
+.dance-stage-performers {
+  position: absolute;
+  inset: 0;
+}
+
+.dance-performer {
+  position: absolute;
+  z-index: 2;
+  top: var(--performer-y);
+  left: var(--performer-x);
+  width: clamp(68px, 12vw, 100px);
+  height: 118px;
+  margin: 0;
+  transform: translate(-50%, -100%);
+  transform-origin: center bottom;
+  transition: left 600ms ease, top 600ms ease, opacity 300ms ease, scale 400ms ease;
+}
+
+.dance-performer-center {
+  z-index: 3;
+  width: clamp(92px, 15vw, 126px);
+  height: 150px;
+  scale: 1.12;
+}
+
+.dance-performer-idle { opacity: 0.48; }
+.dance-performer-dancing { opacity: 1; animation: dance-performer-bounce 620ms ease-in-out infinite alternate; }
+.dance-performer-switch { animation: dance-performer-switch 600ms ease both; }
+
+.dance-name {
+  position: absolute;
+  z-index: 3;
+  top: -23px;
+  left: 50%;
+  width: max-content;
+  max-width: min(180px, 32vw);
+  overflow: hidden;
+  padding: 3px 7px;
+  transform: translateX(-50%);
+  border: 1px solid #35c6d8;
+  border-radius: 7px;
+  background: #10242beF;
+  color: #fff;
+  font-size: clamp(9px, 1.3vw, 11px);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dance-name-player {
+  border-color: #f6b81d;
+  background: #695014f2;
+  color: #fff1ad;
+}
+
+.dance-performer-image {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: transparent;
+  filter: drop-shadow(0 4px 3px #071317aa);
+}
+
+.dance-performer-image img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  object-fit: contain;
+  object-position: center bottom;
+  transition: opacity 180ms ease;
+}
+
+.dance-performer-image.dance-image-ready img { opacity: 1; }
+
+.dance-image-placeholder {
+  position: absolute;
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 2px dashed #f6b81d;
+  border-radius: 50%;
+  background: #10242bd9;
+  color: #f6b81d;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.dance-performer-judgment {
+  position: absolute;
+  z-index: 5;
+  top: -51px;
+  left: 50%;
+  width: max-content;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #fff, #f6b81d, #e8368f);
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(12px, 2vw, 17px);
+  font-weight: 1000;
+  text-shadow: 0 2px 5px #10242b;
+  animation: dance-judgment-pop 600ms ease-out both;
+}
+
+.dance-performer-judgment span { font-size: 0.8em; }
+
+.dance-center-info {
+  color: #f4e6c0;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.dance-hint {
+  margin: 0;
+  color: #f6b81d;
+  font-size: clamp(11px, 1.7vw, 14px);
+  font-weight: 900;
+  text-align: center;
+}
+
+.dance-lanes {
+  display: grid;
+  gap: 4px;
+}
+
+.dance-lane {
+  display: grid;
+  min-height: 39px;
+  grid-template-columns: minmax(82px, 22%) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 1px solid #1e4750;
+  border-radius: 7px;
+  background: #10242be8;
+  transition: opacity 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.dance-lane:not(.dance-lane-on) { opacity: 0.58; }
+.dance-lane-on { border-color: #f6b81d; background: #17343c; opacity: 1; }
+.dance-lane-disabled { opacity: 0.35 !important; }
+
+.dance-lane-label {
+  color: #f7f2e4;
+  font-size: clamp(9px, 1.5vw, 12px);
+  white-space: nowrap;
+}
+
+.dance-track {
+  position: relative;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #1e4750;
+}
+
+.dance-track-start {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  bottom: 2px;
+  left: 13px;
+  width: 3px;
+  background: #f6b81d;
+}
+
+.dance-track-keys {
+  position: absolute;
+  z-index: 2;
+  inset: 0 34px 0 23px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.dance-track-keys span {
+  display: grid;
+  width: clamp(18px, 3vw, 25px);
+  height: clamp(18px, 3vw, 25px);
+  flex: 0 1 25px;
+  place-items: center;
+  border: 1px solid #aec4c4;
+  border-radius: 4px;
+  background: #f7f2e4;
+  color: #10242b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.dance-track-keys .dance-lane-first { border: 2px solid #f6b81d; }
+.dance-track-keys .dance-lane-final { border: 2px solid #e8368f; }
+.dance-track-keys .dance-lane-done { opacity: 0.45; }
+
+.dance-finish-line {
+  position: absolute;
+  z-index: 3;
+  top: 1px;
+  right: 20px;
+  bottom: 1px;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 7px #fff;
+  animation: dance-line-pulse 700ms ease-in-out infinite alternate;
+}
+
+.dance-finish-line i {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.dance-bar {
+  position: absolute;
+  z-index: 4;
+  top: 3px;
+  left: calc(var(--bar-progress) * (100% - 34px) + 14px);
+  width: 13px;
+  height: 26px;
+  border: 1px solid #fff3a4;
+  border-radius: 4px;
+  background: #f6b81d;
+  box-shadow: 0 0 10px #f6b81d;
+  pointer-events: none;
+}
+
+.dance-keypad {
+  display: grid;
+  width: min(100%, 340px);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 auto;
+}
+
+.dance-keypad button {
+  min-height: 38px;
+  border: 2px solid #35c6d8;
+  border-radius: 8px;
+  background: #1e4750;
+  color: white;
+  font-size: 20px;
+}
+
+.dance-keypad button:active { border-color: #f6b81d; transform: translateY(2px); }
+.dance-battle .dance-round-note { color: #b6d4d7; font-size: 10px; }
+
+@keyframes dance-performer-bounce {
+  from { transform: translate(-50%, -100%) translateY(1px) rotate(-5deg); }
+  to { transform: translate(-50%, -100%) translateY(-12px) rotate(5deg); }
+}
+
+@keyframes dance-performer-switch {
+  0% { opacity: 0.45; }
+  45% { transform: translate(-50%, -112%) rotate(12deg) scale(0.94); }
+  100% { opacity: 1; }
+}
+
+@keyframes dance-judgment-pop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.7); }
+  35% { opacity: 1; transform: translate(-50%, -6px) scale(1.16); }
+  100% { opacity: 0.9; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes dance-score-pop {
+  0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+  30% { opacity: 1; transform: translateY(-5px) scale(1.15); }
+  100% { opacity: 0.8; transform: translateY(-12px) scale(1); }
+}
+
+@keyframes dance-line-pulse {
+  from { opacity: 0.65; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 560px) {
+  .dance-battle.dance-arena { gap: 5px; padding: 5px; }
+  .dance-stage { height: 220px; min-height: 200px; }
+  .dance-lane { grid-template-columns: 75px minmax(0, 1fr); gap: 3px; padding-inline: 3px; }
+  .dance-track-keys { inset-inline: 20px 31px; gap: 1px; }
+  .dance-track-keys span { width: 18px; height: 20px; font-size: 9px; }
+  .dance-performer { width: 64px; height: 105px; }
+  .dance-performer-center { width: 90px; height: 132px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dance-performer-dancing,
+  .dance-performer-switch,
+  .dance-finish-line { animation: none; }
+}
+
 main.title-bgm-active .app-panel {
   background: #191c2b;
 }
