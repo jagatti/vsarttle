@@ -7,6 +7,7 @@ import { getBossData } from "@/data/bosses";
 import { SEED_GHOSTS } from "@/data/seed-ghosts";
 import {
   createDanceRound,
+  canActivateDanceFever,
   DANCE_MODES,
   DANCE_JUDGMENT_POINTS,
   DANCE_PHASE_LABELS,
@@ -363,11 +364,13 @@ export function DanceBattleMiniGame(props: {
     if (cpuMode === "multiplier" && blueFeverUsesRef.current === 0 && phaseRef.current !== "last") {
       blueFeverUsesRef.current = getDanceFeverLimit(stars);
     }
-    if (round.mode === "multiplier" && feverUsesRef.current === 0 && redStreak >= 2) {
+    const multiplied = round.mode === "multiplier" &&
+      (phaseRef.current === "last" || canActivateDanceFever(redStreak, feverUsesRef.current));
+    if (multiplied && feverUsesRef.current === 0 && phaseRef.current !== "last") {
       feverUsesRef.current = getDanceFeverLimit(stars);
       setFeverUsesRemaining(feverUsesRef.current);
     }
-    resolveCompletedAction(round.mode, true, [round.judgment], cpuMode, cpuMode === "multiplier", makeJudgeList(1, blueBoss));
+    resolveCompletedAction(round.mode, multiplied, [round.judgment], cpuMode, cpuMode === "multiplier", makeJudgeList(1, blueBoss));
   }, [blueBoss, blueStreak, redStreak, resolveCompletedAction, stars, stopActiveAction]);
 
   const registerInput = useCallback((key: DanceKey) => {

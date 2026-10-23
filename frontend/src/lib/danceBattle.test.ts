@@ -57,6 +57,10 @@ test("all three dance rows start with distinct keys and preserve their lengths",
     assert.equal(new Set(DANCE_MODES.map((mode) => round.sequences[mode][0])).size, 3);
     for (const mode of DANCE_MODES) {
       assert.equal(round.sequences[mode].length, getDanceSequenceLength(mode, stars));
+      if (stars === 5 && mode !== "recovery") {
+        const xCount = round.sequences[mode].filter((key) => key === "X").length;
+        assert.ok(xCount >= 1 && xCount <= 2, "distinct first arrows must not erase five-star X inputs");
+      }
     }
     assert.equal(round.sequences.recovery.at(-1), "X");
   }
@@ -77,6 +81,21 @@ test("the dance bar moves before selection and selecting a row never restarts it
   }
   assert.equal(getDanceRoundProgress(round, 0), 0);
   assert.equal(getDanceRoundProgress(round, now + DANCE_ROUND_DURATION), 1);
+});
+
+test("five-star row selection preserves X when it was generated at index zero", () => {
+  const rolls = [
+    0,
+    ...Array(9).fill(0), 0, ...Array(8).fill(0.99),
+    ...Array(10).fill(0), 0, ...Array(9).fill(0.99),
+    0,
+  ];
+  let index = 0;
+  const round = createDanceRound(5, 0, () => rolls[index++] ?? 0);
+  for (const mode of ["normal", "multiplier"] as const) {
+    assert.notEqual(round.sequences[mode][0], "X");
+    assert.equal(round.sequences[mode].filter((key) => key === "X").length, 1);
+  }
 });
 
 test("only the final dance key is judged against the shared bar deadline", () => {

@@ -36,6 +36,9 @@ export function createDanceRound(stars: 3 | 4 | 5, startedAt: number, random = M
   const first = Math.floor(random() * DANCE_KEYS.length);
   DANCE_MODES.forEach((mode, index) => {
     sequences[mode][0] = DANCE_KEYS[(first + index) % DANCE_KEYS.length];
+    if (stars === 5 && mode !== "recovery" && !sequences[mode].includes("X")) {
+      sequences[mode][1] = "X";
+    }
   });
   return { sequences, mode: null, index: 0, startedAt, judgment: null };
 }

@@ -1869,6 +1869,7 @@ main.app-title-shell {
 }
 
 .dance-players {
+  container-type: size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
@@ -1938,14 +1939,14 @@ main.app-title-shell {
 .dance-member img {
   display: block;
   width: 100%;
-  height: clamp(70px, 16vh, 160px);
+  height: clamp(50px, 30cqh, 160px);
   margin-inline: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.55));
 }
 
 .dance-member-center img {
-  height: clamp(90px, 21vh, 220px);
+  height: clamp(65px, 40cqh, 220px);
 }
 
 .dance-member figcaption {
@@ -2207,6 +2208,10 @@ main.app-title-shell {
     font-size: 12px;
   }
 
+  .dance-players {
+    min-height: 150px;
+  }
+
   .dance-team-panel {
     padding: 8px;
   }
@@ -2220,7 +2225,7 @@ main.app-title-shell {
   .dance-lane {
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 4px;
-    padding-inline: 4px;
+    padding: 8px 4px;
   }
 
   .dance-keys {
