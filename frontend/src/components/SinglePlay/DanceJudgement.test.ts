@@ -54,10 +54,23 @@ test("points and fever results render once as a single gradient text run", () =>
   }
   const memberSource = source.slice(source.indexOf("const renderMember ="), source.indexOf("const renderBackline ="));
   assert.equal((memberSource.match(/<DanceJudgement\b/g) ?? []).length, 1);
-  assert.match(memberSource, /className=\{feverLabel \|\| outcome \? "dance-judgement dance-points" : "dance-judgement"\}/);
+  assert.match(memberSource, /className=\{feverLabel \|\| outcome \? "dance-points" : "dance-judgement"\}/);
   assert.doesNotMatch(source, /<strong[^>]*className=["`][^"`]*dance-(?:points|judgement|lane-judgement)/);
   assert.match(source, /<DanceJudgement kind=\{lastJudgment\}>/);
   assert.match(source, /<DanceJudgement kind=\{activeFeverKind\}>/);
+});
+
+test("overhead points remain visible until round state clears them while input judgements still float", () => {
+  const points = ruleFor(".dance-points");
+  assert.doesNotMatch(points, /(?:animation|opacity|visibility|display):/);
+  assert.match(points, /transform: translateX\(-50%\)/);
+  assert.match(ruleFor(".dance-judgement"), /animation: danceJudgementFloat 900ms ease-out forwards/);
+  for (const kind of ["PERFECT", "MISS", "fever-best", "fever-middle", "fever-low"] as const) {
+    const markup = render(kind, "points", "dance-points");
+    const classes = markup.match(/class="([^"]+)"/)?.[1].split(" ") ?? [];
+    assert.ok(classes.includes("dance-points"));
+    assert.ok(!classes.includes("dance-judgement"));
+  }
 });
 
 test("gradient text has a glyph-only dark outline and no judgement panels", () => {

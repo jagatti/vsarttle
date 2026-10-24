@@ -770,7 +770,7 @@ export function DanceBattleMiniGame(props: {
         style={{ ["--dance-team-color" as string]: TEAM_COLORS[side] }}
       >
         {label && labelKind && (
-          <DanceJudgement key={lastJudgmentId} kind={labelKind} className={feverLabel || outcome ? "dance-judgement dance-points" : "dance-judgement"}>
+          <DanceJudgement key={lastJudgmentId} kind={labelKind} className={feverLabel || outcome ? "dance-points" : "dance-judgement"}>
             {label}
           </DanceJudgement>
         )}
