@@ -154,7 +154,7 @@ export function DanceBattleMiniGame(props: {
   const [roundStartedAt, setRoundStartedAt] = useState(0);
   const [clock, setClock] = useState(0);
   const [staminaChange, setStaminaChange] = useState<number | null>(null);
-  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, { text: string; kind: DanceJudgementKind }>>({});
+  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, { text: string; kind: DanceJudgementKind; judgment: DanceJudgment }>>({});
   const [scoreDelta, setScoreDelta] = useState<{ red: number; blue: number } | null>(null);
   const [scoreDeltaGauge, setScoreDeltaGauge] = useState<{ red: number; blue: number } | null>(null);
   const [scoreDeltaScaled, setScoreDeltaScaled] = useState(false);
@@ -472,8 +472,9 @@ export function DanceBattleMiniGame(props: {
       outcome.judgments.some((judgment) => judgment === "BAD" || judgment === "MISS"))) {
       soundManager.playSe("/sounds/se/ng.mp3");
     }
-    const getOutcomeLabel = (outcome: typeof outcomes[number], judgments = outcome.judgments): { kind: DanceJudgementKind; text: string } => {
+    const getOutcomeLabel = (outcome: typeof outcomes[number], judgments = outcome.judgments): { kind: DanceJudgementKind; text: string; judgment: DanceJudgment } => {
       const score = outcome.mode === "recovery" ? 0 : getDanceActionScore(judgments, "normal");
+      const judgment = judgments.at(-1) ?? "MISS";
       if (outcome.fever) {
         const count = judgments.filter((entry) => entry !== "MISS").length;
         const kind = count >= getDanceFeverLimit(stars)
@@ -481,11 +482,11 @@ export function DanceBattleMiniGame(props: {
           : count >= Math.ceil(getDanceFeverLimit(stars) / 2) ? "fever-middle" : "fever-low";
         return {
           kind,
+          judgment,
           text: `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, count)]}${score}`,
         };
       }
-      const last = judgments.at(-1) ?? "MISS";
-      return { kind: last, text: `${last} ${score >= 0 ? "+" : ""}${score}` };
+      return { kind: judgment, text: String(score), judgment };
     };
     const cpuTargetAt = roundStartedAt +
       (playerParticipates ? DANCE_READY_DURATION_MS : DANCE_SPECTATOR_READY_DURATION_MS) +
@@ -761,17 +762,26 @@ export function DanceBattleMiniGame(props: {
     const feverLabel = liveFever
       ? `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}`
       : outcome?.kind.startsWith("fever-") ? outcome.text : null;
-    const label = feverLabel ?? outcome?.text ?? judgment;
-    const labelKind = liveFever ? activeFeverKind : outcome?.kind ?? judgment;
+    const points = feverLabel ?? outcome?.text;
+    const pointsKind = liveFever ? activeFeverKind : outcome?.kind;
+    const shownJudgment = judgment ?? outcome?.judgment;
+    const judgmentKey = side === "red" && index === 0 && playerParticipates
+      ? lastJudgmentId
+      : `${outcome?.text}-${outcome?.judgment}`;
     return (
       <figure
         key={member.id}
         className={`dance-member${isCenter ? " dance-member-center" : ""}${swapTeam === side ? " dance-member-switch" : ""}${dancing ? " dance-member-active" : " dance-member-idle"}`}
         style={{ ["--dance-team-color" as string]: TEAM_COLORS[side] }}
       >
-        {label && labelKind && (
-          <DanceJudgement key={lastJudgmentId} kind={labelKind} className={feverLabel || outcome ? "dance-points" : "dance-judgement"}>
-            {label}
+        {shownJudgment && (
+          <DanceJudgement key={judgmentKey} kind={shownJudgment} className="dance-judgement">
+            {shownJudgment}
+          </DanceJudgement>
+        )}
+        {points && pointsKind && (
+          <DanceJudgement kind={pointsKind} className="dance-points">
+            {points}
           </DanceJudgement>
         )}
         <figcaption>{isCenter ? "👑 " : ""}{member.nickname}{member.boss ? " ★" : ""}　⚡{stamina}</figcaption>
@@ -962,7 +972,7 @@ export function DanceBattleMiniGame(props: {
                         {keysRevealed ? KEY_LABELS[key] : "?"}
                         {index === sequence.length - 1 && lastJudgmentMode === mode && lastJudgment && (
                           <DanceJudgement key={lastJudgmentId} kind={lastJudgment} className="dance-lane-judgement">
-                            {lastJudgment} {getDanceActionScore([lastJudgment], mode) >= 0 ? "+" : ""}{getDanceActionScore([lastJudgment], mode)}
+                            {lastJudgment}
                           </DanceJudgement>
                         )}
                         {index === sequence.length - 1 && (

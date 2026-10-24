@@ -34,18 +34,18 @@ test("judgement names and outcome kinds share the same gradient classes", () => 
   assert.match(bad, /linear-gradient\(#ff513e, #ff9b42\)/);
 });
 
-test("points and fever results render once as a single gradient text run", () => {
+test("points and fever results use a single gradient text run without a plus sign", () => {
   for (const [kind, text] of [
-    ["PERFECT", "PERFECT +13"],
-    ["GREAT", "GREAT +10"],
-    ["GOOD", "GOOD +8"],
-    ["BAD", "BAD +5"],
-    ["MISS", "MISS -5"],
+    ["PERFECT", "13"],
+    ["GREAT", "10"],
+    ["GOOD", "8"],
+    ["BAD", "5"],
+    ["MISS", "-5"],
     ["fever-best", "🔥⑧104"],
     ["fever-middle", "🔥④52"],
     ["fever-low", "🔥⓪0"],
   ] as const) {
-    for (const location of ["dance-points", "dance-lane-judgement", ""]) {
+    for (const location of ["dance-points", ""]) {
       const markup = render(kind, text, location);
       assert.equal((markup.match(/<strong\b/g) ?? []).length, 1);
       assert.ok(markup.endsWith(`>${text}</strong>`));
@@ -53,11 +53,22 @@ test("points and fever results render once as a single gradient text run", () =>
     }
   }
   const memberSource = source.slice(source.indexOf("const renderMember ="), source.indexOf("const renderBackline ="));
-  assert.equal((memberSource.match(/<DanceJudgement\b/g) ?? []).length, 1);
-  assert.match(memberSource, /className=\{feverLabel \|\| outcome \? "dance-points" : "dance-judgement"\}/);
+  assert.equal((memberSource.match(/<DanceJudgement\b/g) ?? []).length, 2);
+  assert.match(memberSource, /kind=\{shownJudgment\} className="dance-judgement">\s*\{shownJudgment\}/);
+  assert.match(memberSource, /kind=\{pointsKind\} className="dance-points">\s*\{points\}/);
+  assert.match(source, /return \{ kind: judgment, text: String\(score\), judgment \}/);
   assert.doesNotMatch(source, /<strong[^>]*className=["`][^"`]*dance-(?:points|judgement|lane-judgement)/);
   assert.match(source, /<DanceJudgement kind=\{lastJudgment\}>/);
   assert.match(source, /<DanceJudgement kind=\{activeFeverKind\}>/);
+});
+
+test("key feedback contains only the judgement and fades like overhead judgements", () => {
+  const laneLabel = source.match(/<DanceJudgement[^>]*className="dance-lane-judgement">([\s\S]*?)<\/DanceJudgement>/);
+  assert.ok(laneLabel);
+  assert.equal(laneLabel[1].trim(), "{lastJudgment}");
+  assert.match(ruleFor(".dance-lane-judgement"), /animation: danceJudgementFloat 900ms ease-out forwards/);
+  assert.match(ruleFor(".dance-judgement"), /top: -64px/);
+  assert.match(ruleFor(".dance-points"), /top: -30px/);
 });
 
 test("overhead points remain visible until round state clears them while input judgements still float", () => {
@@ -76,6 +87,7 @@ test("overhead points remain visible until round state clears them while input j
 test("gradient text has a glyph-only dark outline and no judgement panels", () => {
   const shared = ruleFor(".dance-judgement-text");
   assert.match(shared, /background-clip: text/);
+  assert.match(shared, /text-shadow: none/);
   assert.match(shared, /-webkit-text-fill-color: transparent/);
   assert.match(shared, /filter: drop-shadow\(1px 0 0 #171923\)/);
   assert.match(shared, /drop-shadow\(-1px 0 0 #171923\)/);
