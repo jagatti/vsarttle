@@ -2384,16 +2384,10 @@ main.app-title-shell {
   top: -30px;
   left: 50%;
   max-width: 90vw;
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 7px;
-  background: rgba(5, 8, 18, 0.88);
-  color: #fff;
   font-size: clamp(18px, 3vw, 26px);
   font-weight: 1000;
   line-height: 1.15;
   text-align: center;
-  text-shadow: 0 1px 2px #000, 0 2px 5px #000, 0 0 8px #000;
   transform: translateX(-50%);
   white-space: nowrap;
 }
@@ -2402,25 +2396,30 @@ main.app-title-shell {
   position: absolute;
   z-index: 3;
   top: -28px;
-  color: transparent;
-  background-clip: text;
+  left: 50%;
   font-size: clamp(18px, 3.5vw, 28px);
   font-weight: 1000;
-  -webkit-text-stroke: 1px #171923;
-  paint-order: stroke fill;
-  text-shadow: 0 1px 2px #000, 0 2px 5px #000, 0 0 8px #000;
   animation: danceJudgementFloat 900ms ease-out forwards;
-  -webkit-background-clip: text;
 }
 
-.dance-judgement-perfect { background-image: linear-gradient(#b5fcff, #29c9ff); }
+.dance-judgement-text {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(1px 0 0 #171923) drop-shadow(-1px 0 0 #171923)
+    drop-shadow(0 1px 0 #171923) drop-shadow(0 -1px 0 #171923);
+  font-weight: 1000;
+}
+
+.dance-judgement-perfect,
+.dance-judgement-fever-best { background-image: linear-gradient(#29c9ff, #b5fcff); }
 .dance-judgement-great,
-.dance-judgement-good { background-image: linear-gradient(#eaff6a, #74db68); }
+.dance-judgement-good,
+.dance-judgement-fever-middle { background-image: linear-gradient(#74db68, #eaff6a); }
 .dance-judgement-bad,
-.dance-judgement-miss { background-image: linear-gradient(#ffdf56, #ff513e); }
-.dance-judgement-fever-best { background-image: linear-gradient(#b5fcff, #29c9ff); }
-.dance-judgement-fever-middle { background-image: linear-gradient(#eaff6a, #74db68); }
-.dance-judgement-fever-low { background-image: linear-gradient(#ffdf56, #ff513e); }
+.dance-judgement-miss,
+.dance-judgement-fever-low { background-image: linear-gradient(#ff513e, #ff9b42); }
 
 .dance-play-controls {
   display: grid;
@@ -2532,10 +2531,8 @@ main.app-title-shell {
   top: auto;
   bottom: calc(100% + 6px);
   left: 50%;
-  padding: 3px 6px;
-  border-radius: 7px;
-  background: rgba(5, 8, 18, 0.9);
   font-size: clamp(18px, 3vw, 25px);
+  transform: translateX(-50%);
   white-space: nowrap;
 }
 

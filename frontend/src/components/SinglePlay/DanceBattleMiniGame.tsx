@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CharacterImage } from "@/components/Battle/CharacterImage";
 import { DrawPanel } from "@/components/Draw/DrawPanel";
+import { DanceJudgement, type DanceJudgementKind } from "@/components/SinglePlay/DanceJudgement";
 import { getBossData } from "@/data/bosses";
 import { SEED_GHOSTS } from "@/data/seed-ghosts";
 import {
@@ -153,7 +154,7 @@ export function DanceBattleMiniGame(props: {
   const [roundStartedAt, setRoundStartedAt] = useState(0);
   const [clock, setClock] = useState(0);
   const [staminaChange, setStaminaChange] = useState<number | null>(null);
-  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, { text: string; kind: string }>>({});
+  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, { text: string; kind: DanceJudgementKind }>>({});
   const [scoreDelta, setScoreDelta] = useState<{ red: number; blue: number } | null>(null);
   const [scoreDeltaGauge, setScoreDeltaGauge] = useState<{ red: number; blue: number } | null>(null);
   const [scoreDeltaScaled, setScoreDeltaScaled] = useState(false);
@@ -471,7 +472,7 @@ export function DanceBattleMiniGame(props: {
       outcome.judgments.some((judgment) => judgment === "BAD" || judgment === "MISS"))) {
       soundManager.playSe("/sounds/se/ng.mp3");
     }
-    const getOutcomeLabel = (outcome: typeof outcomes[number], judgments = outcome.judgments) => {
+    const getOutcomeLabel = (outcome: typeof outcomes[number], judgments = outcome.judgments): { kind: DanceJudgementKind; text: string } => {
       const score = outcome.mode === "recovery" ? 0 : getDanceActionScore(judgments, "normal");
       if (outcome.fever) {
         const count = judgments.filter((entry) => entry !== "MISS").length;
@@ -484,7 +485,7 @@ export function DanceBattleMiniGame(props: {
         };
       }
       const last = judgments.at(-1) ?? "MISS";
-      return { kind: last.toLowerCase(), text: `${last} ${score >= 0 ? "+" : ""}${score}` };
+      return { kind: last, text: `${last} ${score >= 0 ? "+" : ""}${score}` };
     };
     const cpuTargetAt = roundStartedAt +
       (playerParticipates ? DANCE_READY_DURATION_MS : DANCE_SPECTATOR_READY_DURATION_MS) +
@@ -737,6 +738,10 @@ export function DanceBattleMiniGame(props: {
   const centerMember = phase === "a" ? null : teams[centerTeamRef.current][centerIndex] ?? null;
   const feverReady = (redStreaks[0] ?? 0) >= 2 &&
     (phase === "a" || phase === "c" || (phase === "last" && lastStep === "center") || centerUsedThirdRef.current);
+  const activeFeverCount = feverProgress?.count ?? 0;
+  const activeFeverKind = activeFeverCount >= getDanceFeverLimit(stars)
+    ? "fever-best"
+    : activeFeverCount >= Math.ceil(getDanceFeverLimit(stars) / 2) ? "fever-middle" : "fever-low";
   const isDancing = (side: "red" | "blue", index: number) => {
     if (phase === "a") return true;
     const isCenter = side === centerTeamRef.current && index === centerIndex;
@@ -752,23 +757,23 @@ export function DanceBattleMiniGame(props: {
     const dancing = stage === "playing" && isDancing(side, index);
     const judgment = side === "red" && index === 0 ? lastJudgment : null;
     const outcome = outcomeLabels[member.id];
-    const feverLabel = side === "red" && index === 0 && activeAction?.fever && feverProgress
+    const liveFever = side === "red" && index === 0 && activeAction?.fever && feverProgress;
+    const feverLabel = liveFever
       ? `🔥${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}`
       : outcome?.kind.startsWith("fever-") ? outcome.text : null;
-    const activeFeverCount = feverProgress?.count ?? 0;
-    const activeFeverKind = activeFeverCount >= getDanceFeverLimit(stars)
-      ? "fever-best"
-      : activeFeverCount >= Math.ceil(getDanceFeverLimit(stars) / 2) ? "fever-middle" : "fever-low";
+    const label = feverLabel ?? outcome?.text ?? judgment;
+    const labelKind = liveFever ? activeFeverKind : outcome?.kind ?? judgment;
     return (
       <figure
         key={member.id}
         className={`dance-member${isCenter ? " dance-member-center" : ""}${swapTeam === side ? " dance-member-switch" : ""}${dancing ? " dance-member-active" : " dance-member-idle"}`}
         style={{ ["--dance-team-color" as string]: TEAM_COLORS[side] }}
       >
-        {feverLabel && <strong key={lastJudgmentId} className={`dance-judgement dance-judgement-${outcome?.kind ?? activeFeverKind}`}>{feverLabel}</strong>}
-        {outcome && !outcome.kind.startsWith("fever-") && <strong className={`dance-judgement dance-judgement-${outcome.kind}`}>{outcome.text}</strong>}
-        {judgment && !outcome && <strong className={`dance-judgement dance-judgement-${judgment.toLowerCase()}`}>{judgment}</strong>}
-        {(feverLabel ?? outcome?.text) && <strong className="dance-points">{feverLabel ?? outcome?.text}</strong>}
+        {label && labelKind && (
+          <DanceJudgement key={lastJudgmentId} kind={labelKind} className={feverLabel || outcome ? "dance-judgement dance-points" : "dance-judgement"}>
+            {label}
+          </DanceJudgement>
+        )}
         <figcaption>{isCenter ? "👑 " : ""}{member.nickname}{member.boss ? " ★" : ""}　⚡{stamina}</figcaption>
         <CharacterImage src={transparentImages[member.id] ?? member.image} alt={member.nickname} />
       </figure>
@@ -915,12 +920,12 @@ export function DanceBattleMiniGame(props: {
         <p className="dance-status" aria-live="polite">
           {!playerParticipates ? "観戦中…" : !keysRevealed ? "READY…" : activeAction
             ? activeAction.fever && feverProgress && activeAction.judgments.length === 0
-              ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}　次の1キーへ…`
+              ? <><DanceJudgement kind={activeFeverKind}>{`🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, feverProgress.count)]}${feverProgress.score}`}</DanceJudgement>　次の1キーへ…</>
               : activeAction.fever && activeAction.judgments.length > 0
-                ? `🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}　${activeAction.judgments.length + 1}/${getDanceFeverLimit(stars)}`
+                ? <><DanceJudgement kind={activeFeverKind}>{`🔥FEVER ${CIRCLED_NUMBERS[Math.min(CIRCLED_NUMBERS.length - 1, activeAction.judgments.length)]}${getDanceActionScore(activeAction.judgments, "normal")}`}</DanceJudgement>　{activeAction.judgments.length + 1}/{getDanceFeverLimit(stars)}</>
                 : `キーを順番に入力　${activeAction.index + 1}/${activeAction.sequence.length}`
             : feverReady ? "🔥FEVER READY（3段目で発動）— 最初のキーで段を選ぼう" : "最初のキーで段を選ぼう（金枠のキー）"}
-          {playerParticipates && !activeAction?.fever && lastJudgment ? `　${lastJudgment}` : ""}
+          {playerParticipates && !activeAction?.fever && lastJudgment && <>　<DanceJudgement kind={lastJudgment}>{lastJudgment}</DanceJudgement></>}
         </p>
         <div className="dance-lanes" aria-label="入力レーン">
           {getDanceVisibleModes(
@@ -956,9 +961,9 @@ export function DanceBattleMiniGame(props: {
                       ].filter(Boolean).join(" ")}>
                         {keysRevealed ? KEY_LABELS[key] : "?"}
                         {index === sequence.length - 1 && lastJudgmentMode === mode && lastJudgment && (
-                          <strong key={lastJudgmentId} className={`dance-lane-judgement dance-judgement-${lastJudgment.toLowerCase()}`}>
+                          <DanceJudgement key={lastJudgmentId} kind={lastJudgment} className="dance-lane-judgement">
                             {lastJudgment} {getDanceActionScore([lastJudgment], mode) >= 0 ? "+" : ""}{getDanceActionScore([lastJudgment], mode)}
-                          </strong>
+                          </DanceJudgement>
                         )}
                         {index === sequence.length - 1 && (
                           <span className="dance-center-line"><i>▼</i><b>▲</b></span>
