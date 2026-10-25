@@ -1,5 +1,6 @@
 export interface MiniGameDefinition {
   id: string;
+  icon?: string;
   name: string;
   description: string;
 }
