@@ -8,8 +8,7 @@ export interface MiniGameDefinition {
 export const MINI_GAME_REGISTRY: MiniGameDefinition[] = [
   {
     id: "dance-battle",
-    icon: "💃",
     name: "煌け!ダンス★バトル",
-    description: "リズムに合わせてキーを入力し、ラクガキチームでダンスバトル！",
+    description: "リズムにのってスタミナ管理し、ラクガキチームでダンスバトル！",
   },
 ];
